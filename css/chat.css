@@ -407,6 +407,22 @@ details[open] .ejs-summary::after { transform: rotate(90deg); }
 #btn-enviar:hover:not(:disabled) { background: #00c49a; transform: scale(1.07); }
 #btn-enviar:disabled { opacity: .35; cursor: default; transform: none; }
 
+/* ─── Demo banner ────────────────────────────────────────────────────── */
+#demo-banner {
+  background: rgba(0,168,132,.1);
+  border-bottom: 1px solid rgba(0,168,132,.15);
+  text-align: center;
+  padding: 4px 0;
+  font-size: .64rem;
+  font-weight: 700;
+  color: rgba(0,168,132,.55);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* ─── Responsive ──────────────────────────────────────────────────────── */
 @media (max-width: 480px) {
   .inicio-card { padding: 26px 18px; border-radius: 12px; }

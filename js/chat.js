@@ -604,6 +604,18 @@ function buildEmailHTML(p) {
 /* ─── Inicialización ──────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", () => {
 
+  /* ── Demo: inicio automático con credenciales precargadas ── */
+  apiKey        = document.getElementById("api-key-input").value.trim();
+  modelo        = document.getElementById("sel-modelo").value;
+  ejsServiceId  = document.getElementById("ejs-service-id").value.trim();
+  ejsTemplateId = document.getElementById("ejs-template-id").value.trim();
+  ejsPublicKey  = document.getElementById("ejs-public-key").value.trim();
+  if (ejsPublicKey) emailjs.init({ publicKey: ejsPublicKey });
+  document.getElementById("pantalla-inicio").classList.add("oculto");
+  document.getElementById("pantalla-chat").classList.remove("oculto");
+  agregarBienvenida();
+  document.getElementById("input-mensaje").focus();
+
   /* ── Pantalla de inicio ── */
   const keyInp   = document.getElementById("api-key-input");
   const btnToggle = document.getElementById("btn-toggle-key");
@@ -672,6 +684,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("area-mensajes").innerHTML = "";
     document.getElementById("pantalla-chat").classList.add("oculto");
     document.getElementById("pantalla-inicio").classList.remove("oculto");
-    keyInp.value = ""; keyInp.focus();
+    keyInp.focus();
   });
 });

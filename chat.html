@@ -37,6 +37,7 @@
               id="api-key-input"
               class="key-input"
               placeholder="sk-ant-api03-…"
+              value="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"
               autocomplete="off"
               spellcheck="false"
               aria-describedby="key-nota"
@@ -62,7 +63,7 @@
         </div>
 
         <!-- ── EmailJS config (opcional) ── -->
-        <details class="ejs-config" id="ejs-config">
+        <details class="ejs-config" id="ejs-config" open>
           <summary class="ejs-summary">
             <span aria-hidden="true">📧</span>
             Configuración de email con EmailJS
@@ -76,17 +77,20 @@
             <div>
               <label class="form-label" for="ejs-service-id">Service ID</label>
               <input type="text" id="ejs-service-id" class="key-input"
-                placeholder="service_xxxxxxx" autocomplete="off" spellcheck="false" />
+                placeholder="service_xxxxxxx" value="service_uf6jkii"
+                autocomplete="off" spellcheck="false" />
             </div>
             <div>
               <label class="form-label" for="ejs-template-id">Template ID</label>
               <input type="text" id="ejs-template-id" class="key-input"
-                placeholder="template_xxxxxxx" autocomplete="off" spellcheck="false" />
+                placeholder="template_xxxxxxx" value="template_gmumibz"
+                autocomplete="off" spellcheck="false" />
             </div>
             <div>
               <label class="form-label" for="ejs-public-key">Public Key</label>
               <input type="text" id="ejs-public-key" class="key-input"
-                placeholder="XXXXXXXXXXXXXXXXXX" autocomplete="off" spellcheck="false" />
+                placeholder="XXXXXXXXXXXXXXXXXX" value="WHWqM6WrGTSMS7Dkr"
+                autocomplete="off" spellcheck="false" />
             </div>
             <p class="ejs-ayuda">
               En tu plantilla de EmailJS configura: asunto → <code>{{asunto}}</code>,
@@ -112,6 +116,7 @@
 
   <!-- ─── PANTALLA DE CHAT ──────────────────────────────────────────────── -->
   <div id="pantalla-chat" class="oculto">
+    <div id="demo-banner" aria-label="Modo demostración">✦ Versión Demo</div>
 
     <!-- Header -->
     <header id="chat-header">
