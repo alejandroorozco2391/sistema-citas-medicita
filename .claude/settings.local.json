@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Recurse \"c:\\\\Users\\\\aleja\\\\OneDrive\\\\Documentos\\\\CLAUDE\\\\sistema-citas-meicas\" | Where-Object { -not $_.PSIsContainer } | Select-Object @{N='Archivo';E={$_.FullName.Replace\\('c:\\\\Users\\\\aleja\\\\OneDrive\\\\Documentos\\\\CLAUDE\\\\sistema-citas-meicas\\\\',''\\)}}, @{N='KB';E={[math]::Round\\($_.Length/1KB,1\\)}} | Format-Table -AutoSize)"
+    ]
+  }
+}

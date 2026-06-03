@@ -1,0 +1,85 @@
+const ESPECIALIDADES = [
+  {
+    id: 1,
+    nombre: "Medicina General",
+    descripcion: "Consultas de primer contacto, diagnóstico y tratamiento de enfermedades comunes.",
+    icono: "🩺",
+    color: "#1a6eb5",
+    disponible: true,
+  },
+  {
+    id: 2,
+    nombre: "Cardiología",
+    descripcion: "Diagnóstico y tratamiento de enfermedades del corazón y sistema cardiovascular.",
+    icono: "❤️",
+    color: "#e53935",
+    disponible: true,
+  },
+  {
+    id: 3,
+    nombre: "Pediatría",
+    descripcion: "Atención médica integral para bebés, niños y adolescentes hasta los 18 años.",
+    icono: "👶",
+    color: "#f59e0b",
+    disponible: true,
+  },
+  {
+    id: 4,
+    nombre: "Ginecología",
+    descripcion: "Salud femenina, revisiones preventivas, embarazo y planificación familiar.",
+    icono: "🌸",
+    color: "#ec4899",
+    disponible: true,
+  },
+  {
+    id: 5,
+    nombre: "Traumatología",
+    descripcion: "Lesiones del sistema musculoesquelético, fracturas, esguinces y rehabilitación.",
+    icono: "🦴",
+    color: "#7c3aed",
+    disponible: true,
+  },
+  {
+    id: 6,
+    nombre: "Dermatología",
+    descripcion: "Diagnóstico y tratamiento de enfermedades de la piel, cabello y uñas.",
+    icono: "🔬",
+    color: "#059669",
+    disponible: true,
+  },
+  {
+    id: 7,
+    nombre: "Oftalmología",
+    descripcion: "Cuidado de la visión, diagnóstico y cirugía de enfermedades oculares.",
+    icono: "👁️",
+    color: "#0284c7",
+    disponible: true,
+  },
+  {
+    id: 8,
+    nombre: "Neurología",
+    descripcion: "Diagnóstico y tratamiento de enfermedades del sistema nervioso central y periférico.",
+    icono: "🧠",
+    color: "#6366f1",
+    disponible: true,
+  },
+];
+
+const DOCTORES = [
+  { id: 1, nombre: "Dra. Laura Mendoza", especialidadId: 1, horarios: ["09:00", "10:00", "11:00", "16:00", "17:00"] },
+  { id: 2, nombre: "Dr. Carlos Ruiz", especialidadId: 1, horarios: ["08:00", "09:00", "12:00", "15:00"] },
+  { id: 3, nombre: "Dr. Andrés Vega", especialidadId: 2, horarios: ["10:00", "11:00", "12:00", "16:00"] },
+  { id: 4, nombre: "Dra. Sofía Herrera", especialidadId: 3, horarios: ["09:00", "10:00", "11:00", "15:00", "16:00"] },
+  { id: 5, nombre: "Dra. Patricia Leal", especialidadId: 4, horarios: ["10:00", "11:00", "12:00", "16:00", "17:00"] },
+  { id: 6, nombre: "Dr. Roberto Jiménez", especialidadId: 5, horarios: ["08:00", "09:00", "10:00", "14:00", "15:00"] },
+  { id: 7, nombre: "Dra. Isabel Torres", especialidadId: 6, horarios: ["11:00", "12:00", "16:00", "17:00"] },
+  { id: 8, nombre: "Dr. Miguel Ángel Flores", especialidadId: 7, horarios: ["09:00", "10:00", "11:00", "15:00"] },
+  { id: 9, nombre: "Dra. Elena Castillo", especialidadId: 8, horarios: ["10:00", "11:00", "12:00", "16:00"] },
+];
+
+const TIPOS_CONSULTA = [
+  { id: "primera-vez", label: "Primera vez" },
+  { id: "seguimiento", label: "Seguimiento" },
+  { id: "urgencia", label: "Urgencia" },
+  { id: "revision", label: "Revisión preventiva" },
+];

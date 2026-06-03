@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Agenda tu cita médica en línea de forma rápida y sencilla. Especialistas disponibles en múltiples disciplinas médicas." />
+  <title>MediCita — Agendamiento de Citas Médicas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <!-- ─── Navbar ──────────────────────────────────────────────────────── -->
+  <nav id="navbar" role="navigation" aria-label="Navegación principal">
+    <div class="container nav-inner">
+      <a href="#" class="nav-logo" aria-label="MediCita inicio">
+        <div class="nav-logo-icono" aria-hidden="true">🏥</div>
+        MediCita
+      </a>
+      <button id="hamburger" aria-label="Abrir menú" aria-expanded="false" aria-controls="nav-menu">
+        <span></span><span></span><span></span>
+      </button>
+      <ul id="nav-menu" role="list">
+        <li><a href="#especialidades" class="nav-link">Especialidades</a></li>
+        <li><a href="#como-funciona" class="nav-link">¿Cómo funciona?</a></li>
+        <li><a href="#agendar" class="nav-link">Agendar</a></li>
+        <li><a href="#agendar" class="nav-btn">Pedir cita →</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ─── Hero ────────────────────────────────────────────────────────── -->
+  <section id="hero" aria-labelledby="hero-titulo">
+    <div class="container hero-inner">
+      <div class="hero-texto">
+        <div class="hero-etiqueta">
+          <span>🟢</span> Citas disponibles hoy
+        </div>
+        <h1 class="hero-titulo" id="hero-titulo">
+          Tu salud, nuestra<br /><span>prioridad</span>
+        </h1>
+        <p class="hero-desc">
+          Agenda tu consulta médica en minutos. Elige especialidad, médico y horario sin llamadas ni filas.
+          Atención de calidad en una clínica que te cuida.
+        </p>
+        <div class="hero-acciones">
+          <a href="#agendar" class="btn-primario">
+            📅 Agendar cita ahora
+          </a>
+          <a href="#especialidades" class="btn-secundario">
+            Ver especialidades
+          </a>
+        </div>
+        <div class="hero-stats" role="list" aria-label="Estadísticas de la clínica">
+          <div class="stat" role="listitem">
+            <span class="stat-num">+2,400</span>
+            <span class="stat-label">Pacientes atendidos</span>
+          </div>
+          <div class="stat" role="listitem">
+            <span class="stat-num">15+</span>
+            <span class="stat-label">Especialistas</span>
+          </div>
+          <div class="stat" role="listitem">
+            <span class="stat-num">8</span>
+            <span class="stat-label">Especialidades</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-visual" aria-hidden="true">
+        <div class="hero-tarjeta">
+          <div class="tarjeta-header">
+            <div class="tarjeta-avatar">👩‍⚕️</div>
+            <div>
+              <div class="tarjeta-nombre">Dra. Laura Mendoza</div>
+              <div class="tarjeta-esp">Medicina General</div>
+            </div>
+          </div>
+          <div class="tarjeta-detalle">
+            <div class="detalle-item">
+              <span class="detalle-icono">📅</span>
+              <div class="detalle-texto">
+                <strong>Fecha</strong>
+                Miércoles, 4 de junio 2026
+              </div>
+            </div>
+            <div class="detalle-item">
+              <span class="detalle-icono">⏰</span>
+              <div class="detalle-texto">
+                <strong>Hora</strong>
+                10:00 AM
+              </div>
+            </div>
+            <div class="detalle-item">
+              <span class="detalle-icono">📍</span>
+              <div class="detalle-texto">
+                <strong>Consultorio</strong>
+                Piso 2, Consultorio 201
+              </div>
+            </div>
+          </div>
+          <div class="badge-confirmado">✅ Cita confirmada</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Especialidades ──────────────────────────────────────────────── -->
+  <section id="especialidades" aria-labelledby="titulo-especialidades">
+    <div class="container">
+      <span class="badge">Nuestras especialidades</span>
+      <h2 class="seccion-titulo" id="titulo-especialidades">¿Con qué especialista te podemos ayudar?</h2>
+      <p class="seccion-subtitulo">Selecciona una especialidad para comenzar a agendar tu cita de inmediato.</p>
+      <div class="grid-especialidades" id="grid-especialidades" role="list" aria-label="Lista de especialidades médicas">
+        <!-- Renderizado por JavaScript -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Cómo funciona ───────────────────────────────────────────────── -->
+  <section id="como-funciona" aria-labelledby="titulo-como">
+    <div class="container">
+      <span class="badge">Proceso sencillo</span>
+      <h2 class="seccion-titulo" id="titulo-como">¿Cómo funciona?</h2>
+      <p class="seccion-subtitulo">Agenda tu cita en 3 pasos simples, sin complicaciones.</p>
+      <div class="pasos-grid">
+        <div class="paso-item">
+          <div class="paso-num" aria-hidden="true">1</div>
+          <div class="paso-icono" aria-hidden="true">🔍</div>
+          <h3 class="paso-titulo">Elige especialidad</h3>
+          <p class="paso-desc">Selecciona el área médica que necesitas entre nuestras 8 especialidades disponibles.</p>
+        </div>
+        <div class="paso-item">
+          <div class="paso-num" aria-hidden="true">2</div>
+          <div class="paso-icono" aria-hidden="true">📋</div>
+          <h3 class="paso-titulo">Llena tus datos</h3>
+          <p class="paso-desc">Ingresa tu información personal, elige médico, fecha y horario que mejor te convenga.</p>
+        </div>
+        <div class="paso-item">
+          <div class="paso-num" aria-hidden="true">3</div>
+          <div class="paso-icono" aria-hidden="true">✅</div>
+          <h3 class="paso-titulo">Confirma tu cita</h3>
+          <p class="paso-desc">Recibe tu folio de confirmación y preséntate en la clínica a la hora acordada.</p>
+        </div>
+        <div class="paso-item">
+          <div class="paso-num" aria-hidden="true">4</div>
+          <div class="paso-icono" aria-hidden="true">🏥</div>
+          <h3 class="paso-titulo">Acude a consulta</h3>
+          <p class="paso-desc">Preséntate con tu folio. Nuestro personal te dará la bienvenida y orientará al consultorio.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Formulario de cita ───────────────────────────────────────────── -->
+  <section id="agendar" aria-labelledby="titulo-agendar">
+    <div class="container">
+      <span class="badge">Agenda en línea</span>
+      <h2 class="seccion-titulo" id="titulo-agendar">Solicitar cita médica</h2>
+      <p class="seccion-subtitulo">Completa el formulario y te confirmaremos tu cita al instante.</p>
+
+      <div class="form-wrapper">
+        <div class="form-header">
+          <h3>📅 Nueva solicitud de cita</h3>
+          <p>Todos los campos marcados con * son obligatorios</p>
+        </div>
+        <div class="form-body">
+          <form id="form-cita" novalidate autocomplete="on">
+            <div class="form-grid">
+
+              <!-- Datos personales -->
+              <div class="form-grupo">
+                <label for="nombre">Nombre(s) <span aria-label="obligatorio">*</span></label>
+                <input type="text" id="nombre" name="nombre" class="form-control"
+                  placeholder="María" required autocomplete="given-name"
+                  minlength="2" maxlength="60" />
+              </div>
+              <div class="form-grupo">
+                <label for="apellidos">Apellidos <span aria-label="obligatorio">*</span></label>
+                <input type="text" id="apellidos" name="apellidos" class="form-control"
+                  placeholder="González López" required autocomplete="family-name"
+                  minlength="2" maxlength="80" />
+              </div>
+              <div class="form-grupo">
+                <label for="telefono">Teléfono <span aria-label="obligatorio">*</span></label>
+                <input type="tel" id="telefono" name="telefono" class="form-control"
+                  placeholder="55 1234 5678" required autocomplete="tel"
+                  pattern="[\d\s\-\+\(\)]{7,15}" />
+              </div>
+              <div class="form-grupo">
+                <label for="email">Correo electrónico</label>
+                <input type="email" id="email" name="email" class="form-control"
+                  placeholder="ejemplo@correo.com" autocomplete="email" />
+              </div>
+
+              <hr class="divisor" aria-hidden="true" />
+
+              <!-- Datos de la cita -->
+              <div class="form-grupo full">
+                <label for="especialidad">Especialidad <span aria-label="obligatorio">*</span></label>
+                <select id="especialidad" name="especialidad" class="form-control" required>
+                  <!-- Opciones cargadas por JavaScript -->
+                </select>
+              </div>
+              <div class="form-grupo full">
+                <label for="doctor">Médico <span aria-label="obligatorio">*</span></label>
+                <select id="doctor" name="doctor" class="form-control" required disabled>
+                  <option value="">-- Primero selecciona una especialidad --</option>
+                </select>
+              </div>
+              <div class="form-grupo">
+                <label for="fecha">Fecha deseada <span aria-label="obligatorio">*</span></label>
+                <input type="date" id="fecha" name="fecha" class="form-control" required />
+              </div>
+              <div class="form-grupo">
+                <label for="tipo-consulta">Tipo de consulta <span aria-label="obligatorio">*</span></label>
+                <select id="tipo-consulta" name="tipo-consulta" class="form-control" required>
+                  <option value="">-- Selecciona --</option>
+                  <option value="Primera vez">Primera vez</option>
+                  <option value="Seguimiento">Seguimiento</option>
+                  <option value="Urgencia">Urgencia</option>
+                  <option value="Revisión preventiva">Revisión preventiva</option>
+                </select>
+              </div>
+
+              <!-- Horarios disponibles -->
+              <div id="horarios-container" role="group" aria-labelledby="label-horarios">
+                <label id="label-horarios">Horario disponible <span aria-label="obligatorio">*</span></label>
+                <div id="grid-horarios" aria-label="Selecciona un horario"></div>
+              </div>
+
+              <div class="form-grupo full">
+                <label for="notas">Motivo de consulta / Notas adicionales</label>
+                <textarea id="notas" name="notas" class="form-control"
+                  placeholder="Describe brevemente el motivo de tu cita o cualquier información relevante para el médico..."
+                  maxlength="400"></textarea>
+              </div>
+
+              <!-- Alerta -->
+              <div id="alerta-form" class="alerta" role="alert" aria-live="assertive"></div>
+
+              <!-- Botones -->
+              <div class="form-submit">
+                <button type="reset" class="btn-limpiar">Limpiar</button>
+                <button type="submit" class="btn-enviar">
+                  Solicitar cita →
+                </button>
+              </div>
+
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Sección de éxito post-envío -->
+      <div id="seccion-exito" role="status" aria-live="polite">
+        <div class="exito-icono" aria-hidden="true">🎉</div>
+        <h3>¡Cita solicitada con éxito!</h3>
+        <p>Tu solicitud fue recibida. Te contactaremos para confirmar tu cita.</p>
+        <div class="folio-box">
+          <div class="folio-label">Número de folio</div>
+          <div class="folio-num" id="folio-cita">CIT-000000-0000</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Footer ──────────────────────────────────────────────────────── -->
+  <footer role="contentinfo">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-marca">
+          <div class="logo-footer">
+            <span aria-hidden="true">🏥</span> MediCita
+          </div>
+          <p>Plataforma de agendamiento médico para clínicas en México. Tu salud merece atención rápida y sin complicaciones.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Especialidades</h4>
+          <ul role="list">
+            <li><a href="#especialidades">Medicina General</a></li>
+            <li><a href="#especialidades">Cardiología</a></li>
+            <li><a href="#especialidades">Pediatría</a></li>
+            <li><a href="#especialidades">Ginecología</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Navegación</h4>
+          <ul role="list">
+            <li><a href="#hero">Inicio</a></li>
+            <li><a href="#especialidades">Especialidades</a></li>
+            <li><a href="#como-funciona">¿Cómo funciona?</a></li>
+            <li><a href="#agendar">Agendar cita</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Contacto</h4>
+          <ul role="list">
+            <li>📞 55 1234 5678</li>
+            <li>📧 contacto@medicita.mx</li>
+            <li>🕐 Lun–Vie 8:00–20:00</li>
+            <li>🕐 Sáb 9:00–14:00</li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 MediCita. Todos los derechos reservados.</span>
+        <span>Hecho con ❤️ en México</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ─── Modal de confirmación ───────────────────────────────────────── -->
+  <div id="modal-overlay" aria-hidden="true"></div>
+  <div id="modal-confirmacion" role="dialog" aria-modal="true"
+       aria-labelledby="modal-titulo" aria-hidden="true">
+    <div class="modal-caja">
+      <div class="modal-header">
+        <div>
+          <h3 id="modal-titulo">Confirmar solicitud de cita</h3>
+          <p>Revisa los datos antes de confirmar</p>
+        </div>
+        <button class="btn-cerrar-modal" id="btn-cerrar-modal-x"
+                aria-label="Cerrar modal" onclick="cerrarModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="confirm-lista">
+          <div class="confirm-item">
+            <span class="confirm-icono" aria-hidden="true">👤</span>
+            <div>
+              <div class="confirm-etiqueta">Paciente</div>
+              <div class="confirm-valor" id="confirm-nombre">—</div>
+            </div>
+          </div>
+          <div class="confirm-item">
+            <span class="confirm-icono" aria-hidden="true">🩺</span>
+            <div>
+              <div class="confirm-etiqueta">Especialidad</div>
+              <div class="confirm-valor" id="confirm-especialidad">—</div>
+            </div>
+          </div>
+          <div class="confirm-item">
+            <span class="confirm-icono" aria-hidden="true">👨‍⚕️</span>
+            <div>
+              <div class="confirm-etiqueta">Médico</div>
+              <div class="confirm-valor" id="confirm-doctor">—</div>
+            </div>
+          </div>
+          <div class="confirm-item">
+            <span class="confirm-icono" aria-hidden="true">📅</span>
+            <div>
+              <div class="confirm-etiqueta">Fecha</div>
+              <div class="confirm-valor" id="confirm-fecha">—</div>
+            </div>
+          </div>
+          <div class="confirm-item">
+            <span class="confirm-icono" aria-hidden="true">⏰</span>
+            <div>
+              <div class="confirm-etiqueta">Hora</div>
+              <div class="confirm-valor" id="confirm-hora">—</div>
+            </div>
+          </div>
+          <div class="confirm-item">
+            <span class="confirm-icono" aria-hidden="true">📋</span>
+            <div>
+              <div class="confirm-etiqueta">Tipo de consulta</div>
+              <div class="confirm-valor" id="confirm-tipo">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-cancelar-modal">Cancelar</button>
+        <button id="btn-confirmar">✅ Confirmar cita</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

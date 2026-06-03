@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel de Administración — MediCita</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+
+  <!-- ─── Header ──────────────────────────────────────────────────────── -->
+  <header id="admin-header">
+    <div class="admin-container header-inner">
+      <div class="header-marca">
+        <span aria-hidden="true">🏥</span>
+        MediCita
+        <span class="admin-badge">Panel Admin</span>
+      </div>
+      <div class="header-acciones">
+        <button class="btn-header btn-muestra" id="btn-muestra">
+          🧪 Cargar muestra
+        </button>
+        <a href="index.html" target="_blank" class="btn-header btn-sitio">
+          ↗ Ver sitio
+        </a>
+        <button class="btn-header btn-exportar" id="btn-exportar">
+          ⬇ Exportar CSV
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ─── Main ─────────────────────────────────────────────────────────── -->
+  <main>
+    <div class="admin-container">
+      <h1 class="pagina-titulo">
+        Gestión de citas
+        <span>Clínica MediCita</span>
+      </h1>
+
+      <!-- Stats -->
+      <div class="stats-grid" role="list" aria-label="Resumen de citas">
+        <div class="stat-card card-total" role="listitem">
+          <div class="stat-icono" aria-hidden="true">📋</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-total">0</div>
+            <div class="stat-label">Total de citas</div>
+          </div>
+        </div>
+        <div class="stat-card card-hoy" role="listitem">
+          <div class="stat-icono" aria-hidden="true">📅</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-hoy">0</div>
+            <div class="stat-label">Citas de hoy</div>
+          </div>
+        </div>
+        <div class="stat-card card-pendientes" role="listitem">
+          <div class="stat-icono" aria-hidden="true">⏳</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-pendientes">0</div>
+            <div class="stat-label">Pendientes</div>
+          </div>
+        </div>
+        <div class="stat-card card-confirmadas" role="listitem">
+          <div class="stat-icono" aria-hidden="true">✅</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-confirmadas">0</div>
+            <div class="stat-label">Confirmadas</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="filtros-card" role="search" aria-label="Filtrar citas">
+        <div class="filtros-row">
+          <div class="filtro-grupo busqueda">
+            <label for="filtro-busqueda">Buscar</label>
+            <input type="search" id="filtro-busqueda" class="form-control-admin"
+              placeholder="Nombre, apellido, folio, médico…" autocomplete="off" />
+          </div>
+          <div class="filtro-grupo fecha">
+            <label for="filtro-fecha">Fecha</label>
+            <input type="date" id="filtro-fecha" class="form-control-admin" />
+          </div>
+          <div class="filtro-grupo doctor">
+            <label for="filtro-doctor">Médico</label>
+            <select id="filtro-doctor" class="form-control-admin">
+              <option value="">Todos los médicos</option>
+            </select>
+          </div>
+          <div class="filtro-grupo estado">
+            <label for="filtro-estado">Estado</label>
+            <select id="filtro-estado" class="form-control-admin">
+              <option value="">Todos los estados</option>
+              <option value="pendiente">⏳ Pendiente</option>
+              <option value="confirmada">✅ Confirmada</option>
+              <option value="atendida">🩺 Atendida</option>
+              <option value="cancelada">✕ Cancelada</option>
+            </select>
+          </div>
+          <div class="filtros-acciones">
+            <button class="btn-hoy" id="btn-hoy" type="button">Hoy</button>
+            <button class="btn-limpiar-filtros" id="btn-limpiar-filtros" type="button">✕ Limpiar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla -->
+      <div class="tabla-card">
+        <div class="tabla-header">
+          <div class="tabla-header-izq">
+            <h3>Citas agendadas</h3>
+            <span id="contador-resultados" aria-live="polite">0 resultados</span>
+          </div>
+          <div class="tabla-header-der">
+            <button class="btn-accion-tabla btn-muestra-tabla" id="btn-muestra-tabla" type="button">
+              🧪 <span>Cargar datos de muestra</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="tabla-scroll" role="region" aria-label="Tabla de citas" tabindex="0">
+          <table aria-label="Lista de citas médicas">
+            <thead>
+              <tr>
+                <th scope="col">Folio</th>
+                <th scope="col">Paciente</th>
+                <th scope="col">Médico / Especialidad</th>
+                <th scope="col">Fecha y hora</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-body">
+              <!-- Filas renderizadas por admin.js -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Estado vacío -->
+        <div id="empty-state" role="status">
+          <div class="empty-icono" aria-hidden="true">🗓️</div>
+          <div class="empty-titulo">No se encontraron citas</div>
+          <p class="empty-desc">
+            Aún no hay citas registradas, o ninguna coincide con los filtros aplicados.
+            Puedes cargar datos de muestra para explorar el panel.
+          </p>
+          <button class="empty-btn" id="btn-empty-muestra" onclick="cargarDatosMuestra()">
+            🧪 Cargar datos de muestra
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Toast de notificaciones -->
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
