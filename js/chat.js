@@ -1,5 +1,5 @@
 /* ─── Estado ──────────────────────────────────────────────────────────── */
-const API_URL = "https://api.anthropic.com/v1/messages";
+const API_URL = "/api/chat";
 let apiKey = "";
 let modelo = "claude-sonnet-4-6";
 let conversacion = [];
@@ -268,9 +268,6 @@ async function procesarMensaje(texto) {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
         },
         body: JSON.stringify({
           model: modelo,
@@ -632,11 +629,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   btnInicio.addEventListener("click", () => {
     const key = keyInp.value.trim();
-    if (!key.startsWith("sk-ant-")) {
-      errorEl.textContent = 'La clave debe comenzar con "sk-ant-". Verifica que sea válida.';
-      keyInp.focus();
-      return;
-    }
     apiKey = key;
     modelo = selMod.value;
     ejsServiceId  = document.getElementById("ejs-service-id")?.value.trim() ?? "";
