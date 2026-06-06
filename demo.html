@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="MediCita — Demo interactiva del sistema de agendamiento de citas médicas para clínicas en México. Explora la vista del paciente, el panel de administración y el agente de IA sin instalar nada." />
+  <meta name="theme-color" content="#000107" />
+  <title>MediCita · Demo interactiva</title>
+
+  <meta property="og:type"        content="website" />
+  <meta property="og:url"         content="https://sistema-citas-medicita.vercel.app" />
+  <meta property="og:title"       content="MediCita · Sistema de Citas Médicas con IA" />
+  <meta property="og:description" content="Explora el sistema desde la perspectiva del paciente, el administrador y el agente de IA — sin instalar nada." />
+  <meta property="og:image"       content="https://sistema-citas-medicita.vercel.app/og-image.png" />
+  <meta name="twitter:card"        content="summary_large_image" />
+  <meta name="twitter:title"       content="MediCita · Sistema de Citas Médicas con IA" />
+  <meta name="twitter:description" content="Demo interactiva: paciente, administración y agente IA en un solo lugar." />
+  <meta name="twitter:image"       content="https://sistema-citas-medicita.vercel.app/og-image.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-deep:       #000107;
+      --bg-dark:       #0f0123;
+      --accent-orange: #ff692f;
+      --accent-amber:  #ffa426;
+      --accent-purple: #8207ea;
+      --accent-blue:   #15baff;
+      --text-primary:  #f0f0f0;
+      --text-muted:    #8b8b9a;
+      --header-h:      64px;
+      --radius:        12px;
+      --trans:         0.25s ease;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: var(--header-h);
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background-color: var(--bg-deep);
+      background-image: radial-gradient(ellipse 80% 50% at 50% -10%, var(--bg-dark) 0%, transparent 70%);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .site-header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      height: var(--header-h);
+      display: flex;
+      align-items: center;
+      padding: 0 clamp(1rem, 5vw, 3rem);
+      transition: background var(--trans), border-color var(--trans);
+      border-bottom: 1px solid transparent;
+    }
+
+    .site-header.scrolled {
+      background: rgba(0, 1, 7, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom-color: rgba(255, 255, 255, 0.06);
+    }
+
+    .header-logo {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: var(--text-primary);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+      flex-shrink: 0;
+    }
+
+    .header-logo .dot { color: var(--accent-orange); }
+
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin: 0 auto;
+    }
+
+    .header-nav a {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 999px;
+      transition: color var(--trans), background var(--trans);
+    }
+
+    .header-nav a:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .btn-demo {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent-orange), var(--accent-amber));
+      border: none;
+      border-radius: 999px;
+      padding: 8px 24px;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: opacity var(--trans), transform var(--trans);
+    }
+
+    .btn-demo:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      width: 40px;
+      height: 40px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      margin-left: auto;
+      padding: 8px;
+    }
+
+    .hamburger span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: var(--text-primary);
+      border-radius: 2px;
+      transition: transform var(--trans), opacity var(--trans);
+    }
+
+    .mobile-nav {
+      display: none;
+      position: fixed;
+      inset: var(--header-h) 0 0 0;
+      background: rgba(0, 1, 7, 0.96);
+      backdrop-filter: blur(16px);
+      z-index: 99;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+    }
+
+    .mobile-nav.open { display: flex; }
+
+    .mobile-nav a {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 1.5rem;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+
+    .mobile-nav a:hover { color: var(--accent-blue); }
+
+    @media (max-width: 768px) {
+      .header-nav { display: none; }
+      .btn-demo   { display: none; }
+      .hamburger  { display: flex; }
+    }
+
+    /* Animaciones */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes tabFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .anim {
+      opacity: 0;
+      animation: fadeInUp 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    .anim-1 { animation-delay: 0.05s; }
+    .anim-2 { animation-delay: 0.22s; }
+    .anim-3 { animation-delay: 0.38s; }
+    .anim-4 { animation-delay: 0.52s; }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: calc(var(--header-h) + 80px) clamp(1rem, 6vw, 3rem) 80px;
+      text-align: center;
+    }
+
+    .hero-inner {
+      max-width: 780px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+    }
+
+    .hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent-orange);
+      background: rgba(255, 105, 47, 0.1);
+      border: 1px solid rgba(255, 105, 47, 0.35);
+      border-radius: 999px;
+      padding: 8px 16px;
+    }
+
+    .hero-tag::before {
+      content: '';
+      display: block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-orange);
+      flex-shrink: 0;
+    }
+
+    .hero-headline {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.25rem, 7vw, 4.5rem);
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+    }
+
+    .hero-headline .line-accent {
+      background: linear-gradient(90deg, var(--accent-orange), var(--accent-amber));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-family: 'DM Sans', sans-serif;
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      line-height: 1.65;
+      color: var(--text-muted);
+      max-width: 560px;
+    }
+
+    .hero-ctas {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 1rem;
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent-orange), var(--accent-amber));
+      border: none;
+      border-radius: 999px;
+      padding: 12px 28px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity var(--trans), transform var(--trans), box-shadow var(--trans);
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(255, 105, 47, 0.35);
+    }
+
+    .btn-outline {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 1rem;
+      color: var(--text-primary);
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      padding: 12px 28px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color var(--trans), background var(--trans), transform var(--trans);
+    }
+
+    .btn-outline:hover {
+      border-color: rgba(255, 255, 255, 0.45);
+      background: rgba(255, 255, 255, 0.05);
+      transform: translateY(-2px);
+    }
+
+    .hero-badges {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 24px;
+      justify-content: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .hero-badge .check { color: var(--accent-blue); }
+
+    @media (max-width: 768px) {
+      .hero { padding-top: calc(var(--header-h) + 48px); }
+      .hero-inner { gap: 24px; }
+      .hero-headline { font-size: 2.25rem; }
+      .btn-primary, .btn-outline { width: 100%; text-align: center; padding: 16px 28px; }
+      .hero-ctas { flex-direction: column; width: 100%; max-width: 320px; }
+    }
+
+    /* Tabs */
+    .tabs-section {
+      padding: 64px clamp(1rem, 6vw, 3rem) 96px;
+      max-width: 1160px;
+      margin: 0 auto;
+    }
+
+    .tabs-label {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .tabs-nav {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 32px;
+    }
+
+    .tab-btn {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      padding: 12px 24px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: color var(--trans), border-color var(--trans);
+    }
+
+    .tab-btn:hover { color: var(--text-primary); }
+
+    .tab-btn.active {
+      color: var(--text-primary);
+      border-bottom-color: var(--accent-orange);
+    }
+
+    .tab-pane { display: none; }
+
+    .tab-pane.active {
+      display: block;
+      animation: tabFadeIn 0.2s ease forwards;
+    }
+
+    .browser-frame {
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 24px 72px rgba(0, 0, 0, 0.65);
+    }
+
+    .browser-chrome {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #141428;
+      padding: 8px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .browser-dots {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .browser-dots span {
+      display: block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .dot-red    { background: #ff5f57; }
+    .dot-yellow { background: #febc2e; }
+    .dot-green  { background: #28c840; }
+
+    .browser-url {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .iframe-wrapper {
+      position: relative;
+      height: 680px;
+      overflow: hidden;
+    }
+
+    .iframe-wrapper iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+
+    .no-key-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 1, 7, 0.78);
+      backdrop-filter: blur(6px);
+      z-index: 10;
+    }
+
+    .no-key-msg {
+      text-align: center;
+      padding: 32px;
+      max-width: 400px;
+    }
+
+    .no-key-msg p {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    .no-key-msg code {
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      color: var(--accent-blue);
+      background: rgba(21, 186, 255, 0.1);
+      border-radius: 4px;
+      padding: 2px 6px;
+    }
+
+    @media (max-width: 768px) {
+      .tabs-section { padding: 48px clamp(1rem, 4vw, 2rem) 64px; }
+      .tabs-nav {
+        justify-content: flex-start;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        margin-bottom: 24px;
+      }
+      .tabs-nav::-webkit-scrollbar { display: none; }
+      .tab-btn { padding: 10px 16px; font-size: 0.875rem; }
+      .browser-chrome { padding: 8px 12px; }
+      .browser-dots { display: none; }
+      .iframe-wrapper { height: 460px; }
+    }
+
+    /* Tip bar */
+    @keyframes tipSlideDown {
+      from { opacity: 0; transform: translateY(-8px); max-height: 0; }
+      to   { opacity: 1; transform: translateY(0);    max-height: 80px; }
+    }
+
+    @keyframes tipFadeOut {
+      from { opacity: 1; max-height: 80px; }
+      to   { opacity: 0; max-height: 0; }
+    }
+
+    .tip-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(15, 1, 35, 0.7);
+      border-left: 3px solid var(--accent-orange);
+      border-radius: 0 6px 6px 0;
+      padding: 10px 16px;
+      margin-bottom: 16px;
+      overflow: hidden;
+      animation: tipSlideDown 0.2s ease forwards;
+    }
+
+    .tip-bar.hiding {
+      animation: tipFadeOut 0.2s ease forwards;
+    }
+
+    .tip-bar.hidden { display: none; }
+
+    .tip-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .tip-text {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      flex: 1;
+    }
+
+    .tip-btn {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--accent-orange);
+      background: transparent;
+      border: 1px solid rgba(255, 105, 47, 0.4);
+      border-radius: 999px;
+      padding: 4px 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background var(--trans), color var(--trans);
+    }
+
+    .tip-btn:hover {
+      background: var(--accent-orange);
+      color: #000;
+    }
+
+    /* Beneficios */
+    .beneficios-section {
+      background: var(--bg-dark);
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 96px clamp(1rem, 6vw, 3rem);
+    }
+
+    .beneficios-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .beneficios-heading {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .beneficios-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.5rem, 4vw, 2.25rem);
+      letter-spacing: -0.025em;
+      line-height: 1.15;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+    }
+
+    .beneficios-sub {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .beneficios-grid {
+      display: grid;
+      grid-template-columns: 1fr 1px 1fr;
+      gap: 0 48px;
+      align-items: start;
+    }
+
+    .beneficios-sep {
+      background: rgba(255, 255, 255, 0.08);
+      align-self: stretch;
+    }
+
+    .beneficios-bloque {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: var(--radius);
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .beneficios-bloque-titulo {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .beneficios-lista {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .beneficios-lista li {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .beneficios-lista li .icono {
+      flex-shrink: 0;
+      font-style: normal;
+      font-weight: 700;
+      font-size: 0.85rem;
+      margin-top: 2px;
+    }
+
+    .icono-dinero { color: var(--accent-orange); }
+    .icono-star   { color: var(--accent-blue); }
+
+    @media (max-width: 768px) {
+      .beneficios-section  { padding: 64px clamp(1rem, 4vw, 2rem); }
+      .beneficios-heading  { margin-bottom: 40px; }
+      .beneficios-grid     { grid-template-columns: 1fr; gap: 24px 0; }
+      .beneficios-sep      { display: none; }
+    }
+
+    /* Features */
+    .features-section {
+      padding: 96px clamp(1rem, 6vw, 3rem);
+      max-width: 1100px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .features-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.6rem, 4vw, 2.5rem);
+      letter-spacing: -0.025em;
+      line-height: 1.15;
+      color: var(--text-primary);
+      max-width: 600px;
+      margin: 0 auto 48px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: var(--radius);
+      padding: 32px;
+      text-align: left;
+      transition: border-color var(--trans), background var(--trans);
+    }
+
+    .feature-card:hover {
+      border-color: rgba(255, 105, 47, 0.25);
+      background: rgba(255, 105, 47, 0.04);
+    }
+
+    .feature-icon {
+      font-size: 2rem;
+      line-height: 1;
+      display: block;
+      margin-bottom: 24px;
+    }
+
+    .feature-name {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 1.05rem;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .feature-desc {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    @media (max-width: 1024px) {
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 768px) {
+      .features-section { padding: 64px clamp(1rem, 4vw, 2rem); }
+      .features-grid    { grid-template-columns: 1fr; gap: 16px; }
+      .features-title   { margin-bottom: 32px; }
+    }
+
+    /* Planes */
+    .planes-section {
+      padding: 96px clamp(1rem, 6vw, 3rem);
+      max-width: 1100px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .planes-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.6rem, 4vw, 2.5rem);
+      letter-spacing: -0.025em;
+      line-height: 1.15;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+    }
+
+    .planes-sub {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      color: var(--text-muted);
+      margin-bottom: 48px;
+    }
+
+    .planes-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .plan-card {
+      background: var(--bg-dark);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius);
+      padding: 32px;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      transition: border-color var(--trans);
+    }
+
+    .plan-card.destacado {
+      background: rgba(255, 105, 47, 0.04);
+      border: 1.5px solid var(--accent-orange);
+      position: relative;
+    }
+
+    .plan-badge {
+      position: absolute;
+      top: -13px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent-orange), var(--accent-amber));
+      border-radius: 999px;
+      padding: 4px 16px;
+      white-space: nowrap;
+    }
+
+    .plan-header {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .plan-name {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text-primary);
+    }
+
+    .plan-precio-impl {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .plan-precio-impl strong {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 1.5rem;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .plan-mensualidad {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .plan-mensualidad strong {
+      color: var(--accent-amber);
+      font-weight: 600;
+    }
+
+    .plan-divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .plan-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .plan-features li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .plan-features li::before {
+      content: '✓';
+      color: var(--accent-orange);
+      font-weight: 700;
+      font-size: 0.8rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .btn-plan {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      padding: 12px 24px;
+      text-decoration: none;
+      text-align: center;
+      transition: background var(--trans), border-color var(--trans), transform var(--trans);
+    }
+
+    .btn-plan:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .plan-card.destacado .btn-plan {
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent-orange), var(--accent-amber));
+      border-color: transparent;
+    }
+
+    .plan-card.destacado .btn-plan:hover {
+      opacity: 0.9;
+    }
+
+    @media (max-width: 900px) {
+      .planes-grid { grid-template-columns: 1fr; max-width: 480px; margin: 0 auto; }
+    }
+
+    @media (max-width: 768px) {
+      .planes-section { padding: 64px clamp(1rem, 4vw, 2rem); }
+      .planes-sub     { margin-bottom: 40px; }
+    }
+
+    /* Footer */
+    .site-footer {
+      background: var(--bg-dark);
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .footer-main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px clamp(1rem, 6vw, 3rem);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .footer-brand {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    .footer-brand a {
+      color: var(--text-primary);
+      text-decoration: none;
+      transition: color var(--trans);
+    }
+
+    .footer-brand a:hover { color: var(--accent-orange); }
+
+    .footer-cta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-cta-text {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .btn-footer {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent-orange), var(--accent-amber));
+      border: none;
+      border-radius: 999px;
+      padding: 8px 24px;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: opacity var(--trans), transform var(--trans);
+    }
+
+    .btn-footer:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    .footer-bottom {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px clamp(1rem, 6vw, 3rem);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-copy,
+    .footer-location {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      opacity: 0.65;
+    }
+
+    @media (max-width: 768px) {
+      .footer-main   { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .footer-bottom { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header" id="site-header">
+    <a href="#inicio" class="header-logo">MediCita<span class="dot">·</span></a>
+
+    <nav class="header-nav" aria-label="Navegación principal">
+      <a href="#seccion-paciente">Pacientes</a>
+      <a href="#seccion-admin">Administración</a>
+      <a href="#seccion-agente">Agente IA</a>
+    </nav>
+
+    <a href="#tabs" class="btn-demo">Ver demo en vivo</a>
+
+    <button class="hamburger" id="hamburger" aria-label="Abrir menú" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </header>
+
+  <nav class="mobile-nav" id="mobile-nav" aria-label="Menú móvil">
+    <a href="#seccion-paciente" class="mobile-link">Pacientes</a>
+    <a href="#seccion-admin"    class="mobile-link">Administración</a>
+    <a href="#seccion-agente"   class="mobile-link">Agente IA</a>
+    <a href="#tabs" class="btn-demo mobile-link">Ver demo en vivo</a>
+  </nav>
+
+  <main>
+    <section class="hero" id="inicio">
+      <div class="hero-inner">
+        <span class="hero-tag anim anim-1">Sistema de citas médicas con IA</span>
+
+        <h1 class="hero-headline anim anim-2">
+          Muestra MediCita.<br />
+          <span class="line-accent">Convierte al instante.</span>
+        </h1>
+
+        <p class="hero-sub anim anim-3">
+          Explora el sistema desde la perspectiva del paciente, del administrador
+          y del agente de IA — sin instalar nada.
+        </p>
+
+        <div class="hero-ctas anim anim-4">
+          <a href="#tabs" class="btn-primary">Explorar la demo</a>
+          <a href="https://sistema-citas-medicita.vercel.app" class="btn-outline" target="_blank" rel="noopener">Ver en Vercel ↗</a>
+        </div>
+
+        <div class="hero-badges anim anim-4">
+          <span class="hero-badge"><span class="check">✓</span> Sin registro</span>
+          <span class="hero-badge"><span class="check">✓</span> Sin tarjeta</span>
+          <span class="hero-badge"><span class="check">✓</span> 100% interactivo</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="tabs-section" id="tabs">
+      <p class="tabs-label">Demo interactiva</p>
+
+      <div class="tabs-nav" role="tablist" aria-label="Perspectivas de la demo">
+        <button class="tab-btn active" role="tab" aria-selected="true"
+                aria-controls="pane-paciente" data-tab="paciente" id="btn-paciente">
+          👤 Paciente
+        </button>
+        <button class="tab-btn" role="tab" aria-selected="false"
+                aria-controls="pane-admin" data-tab="admin" id="btn-admin">
+          ⚙️ Administración
+        </button>
+        <button class="tab-btn" role="tab" aria-selected="false"
+                aria-controls="pane-agente" data-tab="agente" id="btn-agente">
+          🤖 Agente IA
+        </button>
+      </div>
+
+      <div class="tip-bar" id="tip-bar" role="status" aria-live="polite">
+        <span class="tip-icon">💡</span>
+        <span class="tip-text" id="tip-text"></span>
+        <button class="tip-btn" id="tip-btn">Entendido →</button>
+      </div>
+
+      <div class="tab-pane active" id="pane-paciente" role="tabpanel" aria-labelledby="btn-paciente">
+        <div class="browser-frame">
+          <div class="browser-chrome">
+            <div class="browser-dots">
+              <span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span>
+            </div>
+            <div class="browser-url">medicita.vercel.app/</div>
+          </div>
+          <div class="iframe-wrapper" id="seccion-paciente">
+            <iframe src="index.html" title="Vista del paciente — MediCita"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="pane-admin" role="tabpanel" aria-labelledby="btn-admin">
+        <div class="browser-frame">
+          <div class="browser-chrome">
+            <div class="browser-dots">
+              <span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span>
+            </div>
+            <div class="browser-url">medicita.vercel.app/admin</div>
+          </div>
+          <div class="iframe-wrapper" id="seccion-admin">
+            <iframe src="admin.html" title="Panel de administración — MediCita"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="pane-agente" role="tabpanel" aria-labelledby="btn-agente">
+        <div class="browser-frame">
+          <div class="browser-chrome">
+            <div class="browser-dots">
+              <span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span>
+            </div>
+            <div class="browser-url" id="chat-url">medicita.vercel.app/chat</div>
+          </div>
+          <div class="iframe-wrapper" id="seccion-agente">
+            <iframe id="iframe-agente" title="Agente IA MediBot — MediCita"></iframe>
+            <div class="no-key-overlay" id="no-key-overlay">
+              <div class="no-key-msg">
+                <p>Para probar el agente de IA, agrega<br /><code>?key=TU_API_KEY</code> a la URL de esta página</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="beneficios-section" id="seccion-beneficios">
+      <div class="beneficios-inner">
+        <div class="beneficios-heading">
+          <h2 class="beneficios-title">Menos costos. Más consultas. Médicos más productivos.</h2>
+          <p class="beneficios-sub">MediCita no es un gasto — es la diferencia entre una clínica que opera a su máximo y una que sigue perdiendo tiempo y pacientes.</p>
+        </div>
+
+        <div class="beneficios-grid">
+          <div class="beneficios-bloque">
+            <p class="beneficios-bloque-titulo">Lo que te ahorra</p>
+            <ul class="beneficios-lista">
+              <li><i class="icono icono-dinero">$</i><span>Una recepcionista cuesta entre $8,000 y $12,000 MXN al mes. MediCita gestiona su trabajo de agendamiento desde $800/mes.</span></li>
+              <li><i class="icono icono-dinero">$</i><span>Cada llamada perdida fuera de horario es un paciente que se va con la competencia. El agente responde 24/7.</span></li>
+              <li><i class="icono icono-dinero">$</i><span>Los no-shows pueden representar hasta el 20% de tus consultas. Los recordatorios automáticos los reducen significativamente.</span></li>
+              <li><i class="icono icono-dinero">$</i><span>Seguimiento post-consulta manual toma 15 minutos por paciente. Automatizado: cero minutos, mismo resultado.</span></li>
+            </ul>
+          </div>
+
+          <div class="beneficios-sep" aria-hidden="true"></div>
+
+          <div class="beneficios-bloque">
+            <p class="beneficios-bloque-titulo">Lo que ganan tus médicos</p>
+            <ul class="beneficios-lista">
+              <li><i class="icono icono-star">✦</i><span>El médico le pide al agente que reagende una cita y listo — sin llamadas, sin intermediarios.</span></li>
+              <li><i class="icono icono-star">✦</i><span>Consulta en segundos el historial de citas de cualquier paciente con lenguaje natural.</span></li>
+              <li><i class="icono icono-star">✦</i><span>Recibe reportes automáticos: consultas por semana, especialidades más demandadas, horarios con más carga.</span></li>
+              <li><i class="icono icono-star">✦</i><span>Se enfoca en atender pacientes, no en administrar agenda.</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features-section">
+      <h2 class="features-title">Todo lo que necesitas para digitalizar tu clínica</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <span class="feature-icon">📅</span>
+          <p class="feature-name">Gestión completa</p>
+          <p class="feature-desc">El paciente agenda, el administrador gestiona y el agente de IA responde preguntas y actualiza citas las 24 horas.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">🌐</span>
+          <p class="feature-name">Sin instalación</p>
+          <p class="feature-desc">Funciona directo en el navegador desde cualquier dispositivo — computadora, tablet o celular — sin instalar nada.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">🤖</span>
+          <p class="feature-name">Con IA real</p>
+          <p class="feature-desc">El agente usa Claude de Anthropic para entender lenguaje natural, buscar citas, crearlas y notificar al paciente por email.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">🎨</span>
+          <p class="feature-name">100% personalizable</p>
+          <p class="feature-desc">Adaptamos colores, logo, textos y flujos a la imagen de tu clínica. Tu marca, tu sistema.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="planes-section" id="seccion-planes">
+      <h2 class="planes-title">Elige el plan para tu clínica</h2>
+      <p class="planes-sub">Implementación única + mensualidad fija. Sin sorpresas, sin contratos largos.</p>
+
+      <div class="planes-grid">
+        <div class="plan-card">
+          <div class="plan-header">
+            <p class="plan-name">Plan Esencial</p>
+            <p class="plan-precio-impl"><strong>$20,000</strong> MXN implementación</p>
+            <p class="plan-mensualidad">+ <strong>$800 MXN/mes</strong></p>
+          </div>
+          <div class="plan-divider"></div>
+          <ul class="plan-features">
+            <li>Agendamiento online</li>
+            <li>Panel de administración</li>
+            <li>Agente IA básico</li>
+            <li>Emails automáticos</li>
+            <li>Bilingüe (español / inglés)</li>
+          </ul>
+          <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="btn-plan">Solicitar este plan</a>
+        </div>
+
+        <div class="plan-card destacado">
+          <span class="plan-badge">Más popular</span>
+          <div class="plan-header">
+            <p class="plan-name">Plan Profesional</p>
+            <p class="plan-precio-impl"><strong>$32,000</strong> MXN implementación</p>
+            <p class="plan-mensualidad">+ <strong>$1,400 MXN/mes</strong></p>
+          </div>
+          <div class="plan-divider"></div>
+          <ul class="plan-features">
+            <li>Todo lo del Plan Esencial</li>
+            <li>Agente con conocimiento de tu clínica</li>
+            <li>Responde preguntas sobre servicios y precios</li>
+            <li>Carga tu documento y el agente lo aprende</li>
+            <li>Indicaciones pre y post operatorias</li>
+          </ul>
+          <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="btn-plan">Solicitar este plan</a>
+        </div>
+
+        <div class="plan-card">
+          <div class="plan-header">
+            <p class="plan-name">Plan Premium</p>
+            <p class="plan-precio-impl"><strong>$45,000</strong> MXN implementación</p>
+            <p class="plan-mensualidad">+ <strong>$2,200 MXN/mes</strong></p>
+          </div>
+          <div class="plan-divider"></div>
+          <ul class="plan-features">
+            <li>Todo lo del Plan Profesional</li>
+            <li>Integración WhatsApp Business</li>
+            <li>Seguimiento post-consulta automatizado</li>
+            <li>Recordatorios de medicamentos</li>
+            <li>Encuesta de satisfacción automática</li>
+          </ul>
+          <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="btn-plan">Solicitar este plan</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-main">
+      <p class="footer-brand">
+        MediCita · por <a href="https://symbiotiq.com.mx" target="_blank" rel="noopener">Symbiotiq</a>
+      </p>
+      <div class="footer-cta">
+        <span class="footer-cta-text">¿Tu clínica necesita esto?</span>
+        <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="btn-footer">Solicitar demo →</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span class="footer-copy">© 2026 Symbiotiq. Todos los derechos reservados.</span>
+      <span class="footer-location">Tijuana, México</span>
+    </div>
+  </footer>
+
+  <script>
+    /* ── Parámetros de URL — se leen inmediatamente, sin esperar eventos ── */
+    const params = new URLSearchParams(window.location.search);
+    const apiKey = params.get('key');
+    const model  = params.get('model') || 'claude-haiku-4-5-20251001';
+
+    const chatIframe   = document.getElementById('iframe-agente');
+    const noKeyOverlay = document.getElementById('no-key-overlay');
+
+    if (apiKey) {
+      chatIframe.src = `chat.html?demo=true&key=${apiKey}&model=${model}`;
+      document.getElementById('chat-url').textContent = 'medicita.vercel.app/chat?demo=true';
+      noKeyOverlay.style.setProperty('display', 'none', 'important');
+    } else {
+      chatIframe.src = 'chat.html';
+      noKeyOverlay.style.display = 'flex';
+    }
+
+    /* ── Header, hamburger ─────────────────────────────────────────── */
+    const siteHeader = document.getElementById('site-header');
+    const hamburger  = document.getElementById('hamburger');
+    const mobileNav  = document.getElementById('mobile-nav');
+
+    window.addEventListener('scroll', () => {
+      siteHeader.classList.toggle('scrolled', window.scrollY > 20);
+    }, { passive: true });
+
+    hamburger.addEventListener('click', () => {
+      const open = mobileNav.classList.toggle('open');
+      hamburger.setAttribute('aria-expanded', String(open));
+    });
+
+    document.querySelectorAll('.mobile-link').forEach(link => {
+      link.addEventListener('click', () => {
+        mobileNav.classList.remove('open');
+        hamburger.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    /* ── Tabs + Tip bar ────────────────────────────────────────────── */
+    const tabBtns  = document.querySelectorAll('.tab-btn');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+    const tipBar   = document.getElementById('tip-bar');
+    const tipText  = document.getElementById('tip-text');
+    const tipBtn   = document.getElementById('tip-btn');
+
+    const tipTexts = {
+      paciente: 'Aquí el paciente selecciona su especialidad, médico y horario para solicitar una cita médica en línea.',
+      admin:    'Panel del administrador: visualiza todas las citas, filtra por fecha o médico y actualiza estados en tiempo real.',
+      agente:   'El agente de IA puede buscar, crear y actualizar citas usando lenguaje natural. Pruébalo con una pregunta.',
+    };
+
+    const tipDismissed = { paciente: false, admin: false, agente: false };
+
+    function showTip(tabId) {
+      if (tipDismissed[tabId]) return;
+      tipText.textContent = tipTexts[tabId] || '';
+      tipBar.classList.remove('hidden', 'hiding');
+      tipBar.style.animation = 'none';
+      tipBar.offsetHeight;
+      tipBar.style.animation = '';
+    }
+
+    tipBtn.addEventListener('click', () => {
+      const activeBtn = document.querySelector('.tab-btn.active');
+      if (activeBtn) tipDismissed[activeBtn.dataset.tab] = true;
+      tipBar.classList.add('hiding');
+      tipBar.addEventListener('animationend', () => {
+        tipBar.classList.add('hidden');
+        tipBar.classList.remove('hiding');
+      }, { once: true });
+    });
+
+    function activateTab(tabId) {
+      tabBtns.forEach(btn => {
+        const match = btn.dataset.tab === tabId;
+        btn.classList.toggle('active', match);
+        btn.setAttribute('aria-selected', String(match));
+      });
+      tabPanes.forEach(pane => {
+        pane.classList.toggle('active', pane.id === 'pane-' + tabId);
+      });
+      showTip(tabId);
+    }
+
+    activateTab('paciente');
+
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+    });
+
+    const navMap = {
+      'seccion-paciente': 'paciente',
+      'seccion-admin':    'admin',
+      'seccion-agente':   'agente',
+    };
+
+    document.querySelectorAll('a[href^="#seccion-"]').forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        const hash  = link.getAttribute('href').slice(1);
+        const tabId = navMap[hash];
+        if (!tabId) return;
+        activateTab(tabId);
+        const tabsTop = document.getElementById('tabs').getBoundingClientRect().top
+          + window.scrollY - 64;
+        window.scrollTo({ top: tabsTop, behavior: 'smooth' });
+      });
+    });
+  </script>
+</body>
+</html>
