@@ -457,38 +457,6 @@
       display: block;
     }
 
-    .no-key-overlay {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0, 1, 7, 0.78);
-      backdrop-filter: blur(6px);
-      z-index: 10;
-    }
-
-    .no-key-msg {
-      text-align: center;
-      padding: 32px;
-      max-width: 400px;
-    }
-
-    .no-key-msg p {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 0.95rem;
-      color: var(--text-muted);
-      line-height: 1.65;
-    }
-
-    .no-key-msg code {
-      font-family: 'Courier New', monospace;
-      font-size: 0.85rem;
-      color: var(--accent-blue);
-      background: rgba(21, 186, 255, 0.1);
-      border-radius: 4px;
-      padding: 2px 6px;
-    }
 
     @media (max-width: 768px) {
       .tabs-section { padding: 48px clamp(1rem, 4vw, 2rem) 64px; }
@@ -1120,12 +1088,7 @@
             <div class="browser-url" id="chat-url">medicita.vercel.app/chat</div>
           </div>
           <div class="iframe-wrapper" id="seccion-agente">
-            <iframe id="iframe-agente" title="Agente IA MediBot — MediCita"></iframe>
-            <div class="no-key-overlay" id="no-key-overlay">
-              <div class="no-key-msg">
-                <p>Para probar el agente de IA, agrega<br /><code>?key=TU_API_KEY</code> a la URL de esta página</p>
-              </div>
-            </div>
+            <iframe src="chat.html" id="iframe-agente" title="Agente IA MediBot — MediCita"></iframe>
           </div>
         </div>
       </div>
@@ -1267,23 +1230,6 @@
   </footer>
 
   <script>
-    /* ── Parámetros de URL — se leen inmediatamente, sin esperar eventos ── */
-    const params = new URLSearchParams(window.location.search);
-    const apiKey = params.get('key');
-    const model  = params.get('model') || 'claude-haiku-4-5-20251001';
-
-    const chatIframe   = document.getElementById('iframe-agente');
-    const noKeyOverlay = document.getElementById('no-key-overlay');
-
-    if (apiKey) {
-      chatIframe.src = `chat.html?demo=true&key=${apiKey}&model=${model}`;
-      document.getElementById('chat-url').textContent = 'medicita.vercel.app/chat?demo=true';
-      noKeyOverlay.style.setProperty('display', 'none', 'important');
-    } else {
-      chatIframe.src = 'chat.html';
-      noKeyOverlay.style.display = 'flex';
-    }
-
     /* ── Header, hamburger ─────────────────────────────────────────── */
     const siteHeader = document.getElementById('site-header');
     const hamburger  = document.getElementById('hamburger');
