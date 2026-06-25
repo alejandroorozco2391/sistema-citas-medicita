@@ -426,6 +426,7 @@ Los módulos se monetizan por nivel de plan:
 - **24 junio 2026** — Cita manual desde admin: botón "+ Nueva cita" en header (Grupo 2), modal completo con secciones Paciente/Cita, detección de paciente existente por teléfono (blur → banner verde/gris), selects en cascada (especialidad → médico → horario desde data.js), toggle "Confirmar inmediatamente" (default ON), folio automático mismo formato que index.html, vinculación automática con MediPacientes (crea perfil si es nuevo, vincula folio si ya existe), toast diferenciado. Archivos modificados: `admin.html`, `js/admin.js`, `css/admin.css`.
 - **24 junio 2026** — Seguro médico: campos `tieneSeguro`/`nombreSeguro`/`numeroPoliza` en pacientes, formulario `index.html`, modal nueva cita y perfil de paciente en admin. Aseguradoras: GNP, AXA, Metlife, Mapfre, HDI, IMSS, ISSSTE + campo libre "Otro". Toggle con transición suave (max-height). Se persiste en `medicita_citas` y `medicita_pacientes`. Archivos modificados: `index.html`, `css/styles.css`, `js/app.js`, `admin.html`, `css/admin.css`, `js/pacientes.js`, `js/admin.js`.
 - **25 junio 2026** — Prompt 4: 4 nuevas tools en MediBot (`buscar_paciente`, `ver_documentos_paciente`, `ver_notas_paciente`, `ver_nps_paciente`); typing indicator diferenciado "Buscando en expediente…" para las 4 tools de expediente. Total de tools: 13. Archivo modificado: `js/chat.js`.
+- **25 junio 2026** — Rediseño index.html: landing médica profesional con 7 secciones (navbar, hero, stats bar, médico, servicios, formulario+mapa, opiniones, footer). Todo alimentado desde `medicita_config_clinica` via `poblarLanding()`. Opiniones dinámicas desde NPS via `cargarOpinionesNPS()`. Animaciones fade-in con IntersectionObserver. Campos nuevos en modal "Configurar clínica" de admin.html (sección "Personalización de landing"): fraseHero, fotoHero, fotoMedico, bioMedico, formacionMedico, totalPacientes, anosExperiencia, calificacionPromedio, serviciosClinica, whatsapp, facebook, instagram. Archivos modificados: `index.html`, `css/styles.css`, `js/app.js`, `admin.html`, `js/admin.js`.
 
 ---
 
@@ -444,6 +445,9 @@ Los módulos se monetizan por nivel de plan:
 ### M5 MediPacientes ✅ Completo
 - [x] **Paso 1** — `js/pacientes.js` + pestaña Pacientes + modal + interconexión con app.js / admin.js / medidocs.js
 - [x] **Paso 2** — Panel lateral de perfil (4 pestañas: Datos/Citas/Docs/Notas) + historial de notas + exportar CSV + badge VIP en tabla + métricas de pacientes en Analytics
+
+### Rediseño index.html ✅ Completo
+- [x] Landing médica profesional con 7 secciones, `poblarLanding()`, `cargarOpinionesNPS()`, campos nuevos en config
 
 ### Backlog core (pendiente de Fase 1)
 - [ ] Sección "Mis citas" en `index.html` para que el paciente vea y cancele sus citas

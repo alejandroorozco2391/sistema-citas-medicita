@@ -599,6 +599,73 @@
           </div>
         </div>
 
+        <div class="modal-seccion-sep"><span>Personalización de landing</span></div>
+        <p class="modal-desc" style="margin-bottom:16px;">
+          Campos opcionales que personalizan la página principal (index.html) visible para los pacientes.
+        </p>
+        <div class="config-grid">
+          <div class="config-campo config-campo-full">
+            <label class="config-label" for="cfg-frase-hero">Frase de bienvenida (hero)</label>
+            <input type="text" id="cfg-frase-hero" class="form-control-admin"
+              placeholder="Atención médica profesional y personalizada para ti y tu familia" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-foto-hero">URL foto hero <span class="config-opcional">opcional</span></label>
+            <input type="text" id="cfg-foto-hero" class="form-control-admin"
+              placeholder="https://… (foto del consultorio o ambiente)" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-foto-medico">URL foto del médico <span class="config-opcional">opcional</span></label>
+            <input type="text" id="cfg-foto-medico" class="form-control-admin"
+              placeholder="https://… (foto de perfil del médico)" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-total-pacientes">Pacientes atendidos</label>
+            <input type="number" id="cfg-total-pacientes" class="form-control-admin"
+              placeholder="2000" min="0" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-anos-exp">Años de experiencia</label>
+            <input type="number" id="cfg-anos-exp" class="form-control-admin"
+              placeholder="20" min="0" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-calif-promedio">Calificación promedio <span class="config-opcional">ej. 4.9</span></label>
+            <input type="number" id="cfg-calif-promedio" class="form-control-admin"
+              placeholder="4.9" min="0" max="5" step="0.1" />
+          </div>
+          <div class="config-campo config-campo-full">
+            <label class="config-label" for="cfg-bio-medico">Biografía del médico</label>
+            <textarea id="cfg-bio-medico" class="form-control-admin" rows="4"
+              placeholder="Breve presentación del médico para los pacientes..."></textarea>
+          </div>
+          <div class="config-campo config-campo-full">
+            <label class="config-label" for="cfg-formacion">Formación y certificaciones <span class="config-opcional">una por línea</span></label>
+            <textarea id="cfg-formacion" class="form-control-admin" rows="3"
+              placeholder="Especialidad en Medicina Interna — UNAM&#10;Certificado por el Consejo Mexicano de Medicina Interna&#10;Miembro de la Sociedad Médica de México"></textarea>
+          </div>
+          <div class="config-campo config-campo-full">
+            <label class="config-label" for="cfg-servicios">Servicios <span class="config-opcional">formato: Nombre|Descripción, uno por línea</span></label>
+            <textarea id="cfg-servicios" class="form-control-admin" rows="4"
+              placeholder="Consulta general|Diagnóstico y tratamiento de enfermedades comunes&#10;Medicina preventiva|Chequeos y vacunación&#10;Urgencias|Atención inmediata"></textarea>
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-whatsapp">WhatsApp <span class="config-opcional">52XXXXXXXXXX</span></label>
+            <input type="tel" id="cfg-whatsapp" class="form-control-admin"
+              placeholder="5216641234567" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-facebook">Facebook URL <span class="config-opcional">opcional</span></label>
+            <input type="text" id="cfg-facebook" class="form-control-admin"
+              placeholder="https://facebook.com/tu-pagina" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-instagram">Instagram URL <span class="config-opcional">opcional</span></label>
+            <input type="text" id="cfg-instagram" class="form-control-admin"
+              placeholder="https://instagram.com/tu-cuenta" />
+          </div>
+        </div>
+
         <div class="modal-seccion-sep"><span>Configuración de Email (EmailJS)</span></div>
         <p class="modal-desc" style="margin-bottom:16px;">
           Credenciales para envío automático de emails. <strong>No se guardan</strong> en este dispositivo — deberás ingresarlas cada sesión.

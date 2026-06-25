@@ -374,16 +374,29 @@ function escaparAttr(str) {
 
 /* ─── Configuración de clínica ────────────────────────────────────────── */
 const CAMPOS_CONFIG = [
-  ["cfg-nombre-clinica", "nombreClinica"],
-  ["cfg-ciudad",         "ciudad"],
-  ["cfg-especialidad",   "especialidadPrincipal"],
-  ["cfg-medico",         "nombreMedico"],
-  ["cfg-telefono",       "telefono"],
-  ["cfg-email",          "email"],
-  ["cfg-logo",           "logoUrl"],
-  ["cfg-cedula",         "cedulaProfesional"],
-  ["cfg-horario",        "horarioAtencion"],
-  ["cfg-direccion",      "direccionConsultorio"],
+  ["cfg-nombre-clinica",  "nombreClinica"],
+  ["cfg-ciudad",          "ciudad"],
+  ["cfg-especialidad",    "especialidadPrincipal"],
+  ["cfg-medico",          "nombreMedico"],
+  ["cfg-telefono",        "telefono"],
+  ["cfg-email",           "email"],
+  ["cfg-logo",            "logoUrl"],
+  ["cfg-cedula",          "cedulaProfesional"],
+  ["cfg-horario",         "horarioAtencion"],
+  ["cfg-direccion",       "direccionConsultorio"],
+  // Personalización de landing
+  ["cfg-frase-hero",      "fraseHero"],
+  ["cfg-foto-hero",       "fotoHero"],
+  ["cfg-foto-medico",     "fotoMedico"],
+  ["cfg-total-pacientes", "totalPacientes"],
+  ["cfg-anos-exp",        "anosExperiencia"],
+  ["cfg-calif-promedio",  "calificacionPromedio"],
+  ["cfg-bio-medico",      "bioMedico"],
+  ["cfg-formacion",       "formacionMedico"],
+  ["cfg-servicios",       "serviciosClinica"],
+  ["cfg-whatsapp",        "whatsapp"],
+  ["cfg-facebook",        "facebook"],
+  ["cfg-instagram",       "instagram"],
 ];
 
 function leerConfigClinica() {
