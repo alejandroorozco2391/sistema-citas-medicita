@@ -35,6 +35,14 @@ const estadoMP = {
   generando: false,
 };
 
+const calEstado = {
+  anio: new Date().getFullYear(),
+  mes: new Date().getMonth(),
+  dragPostId: null,
+  popoverPostId: null,
+  popoverFechaDia: null,
+};
+
 /* ─── Helpers de catálogos ────────────────────────────────────────────── */
 function buscarRed(id) { return REDES_MP.find((r) => r.id === id); }
 function buscarTipo(id) { return TIPOS_MP.find((t) => t.id === id); }
@@ -46,6 +54,8 @@ document.addEventListener("DOMContentLoaded", () => {
   bindSelectores();
   bindFormulario();
   renderHistorial();
+  renderCalendario(calEstado.anio, calEstado.mes);
+  bindCalendarioGlobal();
 });
 
 function poblarEspecialidades() {
@@ -93,16 +103,35 @@ function bindFormulario() {
     copiarBloque(btn);
   });
 
-  document.getElementById("historial-lista").addEventListener("click", (e) => {
-    const btnEliminar = e.target.closest(".btn-historial-eliminar");
-    const item = e.target.closest(".historial-item");
-    if (!item) return;
-    if (btnEliminar) {
+  const listaHistorial = document.getElementById("historial-lista");
+  listaHistorial.addEventListener("click", (e) => {
+    const eliminar = e.target.closest(".btn-historial-eliminar");
+    const cargar = e.target.closest(".btn-hist-cargar");
+    const programar = e.target.closest(".btn-programar-hist, .btn-reprogramar-hist");
+    if (eliminar) {
       e.stopPropagation();
-      eliminarDeHistorial(item.dataset.id);
+      eliminarDeHistorial(eliminar.dataset.id);
       return;
     }
-    cargarDesdeHistorial(item.dataset.id);
+    if (cargar) {
+      e.stopPropagation();
+      cargarDesdeHistorial(cargar.dataset.id);
+      return;
+    }
+    if (programar) {
+      e.stopPropagation();
+      const dp = programar.closest(".historial-fila").querySelector(".hist-datepicker");
+      if (dp) { dp.classList.toggle("oculto"); if (!dp.classList.contains("oculto")) dp.focus(); }
+      return;
+    }
+    const fila = e.target.closest(".historial-fila");
+    if (fila && !e.target.closest("input[type='date']")) cargarDesdeHistorial(fila.dataset.id);
+  });
+  listaHistorial.addEventListener("change", (e) => {
+    const dp = e.target.closest(".hist-datepicker");
+    if (!dp || !dp.value) return;
+    actualizarFechaPost(dp.dataset.id, dp.value);
+    mostrarToastMP(`Post programado para ${formatFechaLegible(dp.value)}.`, "ok");
   });
 }
 
@@ -355,6 +384,7 @@ function guardarEnHistorial(partes) {
     llamadaAccion: partes.llamadaAccion,
     creadoEn: new Date().toISOString(),
     borrador: false,
+    fechaProgramada: null,
   };
   historial.unshift(item);
   while (historial.length > LIMITE_HISTORIAL_STORAGE) historial.pop();
@@ -366,6 +396,7 @@ function eliminarDeHistorial(id) {
   const historial = cargarHistorialMP().filter((p) => p.id !== id);
   localStorage.setItem("medicita_posts", JSON.stringify(historial));
   renderHistorial();
+  renderCalendario(calEstado.anio, calEstado.mes);
   mostrarToastMP("Post eliminado del historial.", "ok");
 }
 
@@ -406,12 +437,13 @@ function marcarActivo(grupoId, valor) {
 }
 
 function renderHistorial() {
-  const historial = cargarHistorialMP().slice(0, LIMITE_HISTORIAL_VISIBLE);
+  const todos = cargarHistorialMP();
+  const historial = [...todos].sort((a, b) => new Date(b.creadoEn) - new Date(a.creadoEn));
   const lista = document.getElementById("historial-lista");
   const vacio = document.getElementById("historial-vacio");
   const contador = document.getElementById("historial-contador");
 
-  contador.textContent = `${cargarHistorialMP().length} posts`;
+  contador.textContent = `${historial.length} posts`;
 
   if (historial.length === 0) {
     lista.innerHTML = "";
@@ -420,21 +452,49 @@ function renderHistorial() {
   }
   vacio.style.display = "none";
 
+  const hoy = toISODate(new Date());
+
   lista.innerHTML = historial.map((p) => {
-    const red = buscarRed(p.red);
     const tipo = buscarTipo(p.tipo);
-    const fecha = new Date(p.creadoEn).toLocaleDateString("es-MX", { day: "numeric", month: "short" });
-    return `
-    <div class="historial-item" data-id="${p.id}" role="button" tabindex="0">
-      <div class="historial-item-top">
-        <span class="historial-red-icono" aria-hidden="true">${red?.icono ?? ""}</span>
-        <span class="historial-tipo">${escaparHtmlMP(tipo?.label ?? p.tipo)}</span>
-        <span class="historial-fecha">${fecha}</span>
+    const tono = buscarTono(p.tono);
+    const fechaCreacion = new Date(p.creadoEn).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" });
+    const fechaProg = p.fechaProgramada || null;
+
+    let estadoBadge, estadoClase;
+    if (!fechaProg) {
+      estadoBadge = "Sin fecha"; estadoClase = "badge-gris";
+    } else if (fechaProg < hoy) {
+      estadoBadge = "Publicado"; estadoClase = "badge-verde";
+    } else {
+      estadoBadge = "Programado"; estadoClase = "badge-ambar";
+    }
+
+    const tituloTexto = escaparHtmlMP(p.caption.slice(0, 50)) + (p.caption.length > 50 ? "…" : "");
+
+    return `<div class="historial-fila" data-id="${p.id}">
+      <div class="historial-fila-main">
+        <div class="historial-fila-top">
+          <span class="historial-fila-titulo">${tituloTexto}</span>
+          <span class="badge-estado ${estadoClase}">${estadoBadge}</span>
+        </div>
+        <div class="historial-fila-meta">
+          <span class="hist-badge hist-badge-red">${getRedAbrev(p.red)}</span>
+          <span class="hist-badge hist-badge-tipo">${escaparHtmlMP(tipo?.label ?? p.tipo)}</span>
+          <span class="hist-badge hist-badge-tono">${escaparHtmlMP(tono?.label ?? p.tono)}</span>
+          <span class="hist-sep">·</span>
+          <span class="hist-fecha-creacion">${fechaCreacion}</span>
+          ${fechaProg
+            ? `<span class="hist-fecha-prog">· 📅 ${formatFechaLegible(fechaProg)}</span>`
+            : `<span class="hist-sin-fecha">Sin programar</span>`}
+        </div>
       </div>
-      <div class="historial-especialidad">${escaparHtmlMP(p.especialidad)}</div>
-      <div class="historial-snippet">${escaparHtmlMP(p.caption)}</div>
-      <div class="historial-item-acciones">
-        <button type="button" class="btn-historial-eliminar" aria-label="Eliminar del historial">🗑 Eliminar</button>
+      <div class="historial-fila-acciones">
+        ${!fechaProg
+          ? `<button type="button" class="btn-programar-hist" data-id="${p.id}">📅 Programar</button>`
+          : `<button type="button" class="btn-reprogramar-hist" data-id="${p.id}">📅 Reprogramar</button>`}
+        <input type="date" class="hist-datepicker oculto" data-id="${p.id}" value="${fechaProg || ""}">
+        <button type="button" class="btn-hist-cargar" data-id="${p.id}">Cargar</button>
+        <button type="button" class="btn-historial-eliminar" data-id="${p.id}" aria-label="Eliminar">🗑</button>
       </div>
     </div>`;
   }).join("");
@@ -442,6 +502,341 @@ function renderHistorial() {
 
 function generarIdPost() {
   return `POST-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/* ─── Helpers de fecha y calendario ─────────────────────────────────── */
+function toISODate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
+function formatFechaLegible(isoDate) {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function getRedAbrev(red) {
+  const mapa = { instagram: "📷 IG", facebook: "👥 FB", linkedin: "💼 LI", google_business: "📍 GB", twitter: "🐦 TW", tiktok: "🎵 TK" };
+  return mapa[red] || red.slice(0, 4);
+}
+
+function getTipoAbrev(tipo) {
+  const mapa = { consejo: "Consejo", presentacion: "Present.", recordatorio: "Record.", promocion: "Promo", testimonio: "Testi.", dato_curioso: "Dato" };
+  return mapa[tipo] || tipo.slice(0, 6);
+}
+
+/* ─── Calendario ──────────────────────────────────────────────────────── */
+function navegarMes(delta) {
+  calEstado.mes += delta;
+  if (calEstado.mes > 11) { calEstado.mes = 0; calEstado.anio++; }
+  if (calEstado.mes < 0)  { calEstado.mes = 11; calEstado.anio--; }
+  renderCalendario(calEstado.anio, calEstado.mes);
+}
+
+function renderCalendario(anio, mes) {
+  calEstado.anio = anio;
+  calEstado.mes = mes;
+
+  const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  document.getElementById("cal-titulo").textContent = `${MESES[mes]} ${anio}`;
+
+  const hoy = toISODate(new Date());
+  const historial = cargarHistorialMP();
+
+  const primerDia = new Date(anio, mes, 1);
+  const ultimoDia = new Date(anio, mes + 1, 0).getDate();
+  const diaSemanaInicio = (primerDia.getDay() + 6) % 7; // Lun=0, Dom=6
+
+  const inicioGrid = new Date(anio, mes, 1 - diaSemanaInicio);
+  const totalSemanas = Math.ceil((diaSemanaInicio + ultimoDia) / 7);
+
+  let html = "";
+  for (let s = 0; s < totalSemanas; s++) {
+    for (let d = 0; d < 7; d++) {
+      const fecha = new Date(inicioGrid);
+      fecha.setDate(inicioGrid.getDate() + s * 7 + d);
+      const fechaISO = toISODate(fecha);
+      const esMesActual = fecha.getMonth() === mes;
+      const esHoy = fechaISO === hoy;
+
+      const postsDelDia = historial.filter((p) => p.fechaProgramada === fechaISO);
+      const visibles = postsDelDia.slice(0, 2);
+      const extras = postsDelDia.length - 2;
+
+      let clases = "cal-celda";
+      if (!esMesActual) clases += " cal-celda-otro-mes";
+      if (esHoy) clases += " cal-celda-hoy";
+
+      html += `<div class="${clases}" data-fecha="${fechaISO}">`;
+      html += `<span class="cal-num-dia">${fecha.getDate()}</span>`;
+      html += `<div class="cal-pastillas">`;
+
+      for (const p of visibles) {
+        const esPasado = fechaISO < hoy;
+        const pastillaClase = "cal-pastilla " + (esPasado ? "pastilla-publicado" : "pastilla-programado");
+        const tituloPreview = escaparHtmlMP(p.caption.slice(0, 25));
+        const sufijo = p.caption.length > 25 ? "…" : "";
+        html += `<div class="${pastillaClase}" data-id="${escaparHtmlMP(p.id)}" draggable="true">`;
+        html += `<div class="pastilla-badges"><span class="pastilla-red">${getRedAbrev(p.red)}</span><span class="pastilla-tipo">${getTipoAbrev(p.tipo)}</span></div>`;
+        html += `<div class="pastilla-titulo">${tituloPreview}${sufijo}</div>`;
+        html += `</div>`;
+      }
+
+      if (extras > 0) {
+        html += `<span class="cal-mas">+${extras} más</span>`;
+      }
+
+      html += `</div></div>`;
+    }
+  }
+
+  document.getElementById("cal-grid").innerHTML = html;
+
+  const prefijoMes = `${anio}-${String(mes + 1).padStart(2, "0")}`;
+  const postsMes = historial.filter((p) => p.fechaProgramada?.startsWith(prefijoMes));
+  const publicados = postsMes.filter((p) => p.fechaProgramada < hoy).length;
+  const programados = postsMes.length - publicados;
+  document.getElementById("cal-footer").innerHTML =
+    `<span class="cal-footer-texto">${postsMes.length} posts este mes · ${publicados} publicados · ${programados} programados</span>`;
+}
+
+function actualizarFechaPost(postId, nuevaFecha) {
+  const historial = cargarHistorialMP().map((p) =>
+    p.id === postId ? { ...p, fechaProgramada: nuevaFecha } : p
+  );
+  localStorage.setItem("medicita_posts", JSON.stringify(historial));
+  renderCalendario(calEstado.anio, calEstado.mes);
+  renderHistorial();
+}
+
+function bindCalendarioGlobal() {
+  document.getElementById("btn-mes-anterior").addEventListener("click", () => navegarMes(-1));
+  document.getElementById("btn-mes-siguiente").addEventListener("click", () => navegarMes(1));
+  document.getElementById("btn-nuevo-post-cal").addEventListener("click", () => {
+    cerrarPopover();
+    document.getElementById("seccion-generador").scrollIntoView({ behavior: "smooth" });
+  });
+
+  const gridWrap = document.getElementById("cal-grid-wrap");
+
+  gridWrap.addEventListener("click", (e) => {
+    const pastilla = e.target.closest(".cal-pastilla");
+    if (pastilla) {
+      e.stopPropagation();
+      mostrarPopoverPost(pastilla.dataset.id, pastilla);
+      return;
+    }
+    const celda = e.target.closest(".cal-celda");
+    if (celda) {
+      cerrarPopover();
+      mostrarTooltipDia(celda);
+    }
+  });
+
+  gridWrap.addEventListener("dragstart", (e) => {
+    const pastilla = e.target.closest(".cal-pastilla");
+    if (!pastilla) return;
+    calEstado.dragPostId = pastilla.dataset.id;
+    pastilla.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", pastilla.dataset.id);
+  });
+
+  gridWrap.addEventListener("dragend", () => {
+    gridWrap.querySelectorAll(".dragging, .drag-over").forEach((el) => {
+      el.classList.remove("dragging", "drag-over");
+    });
+  });
+
+  gridWrap.addEventListener("dragenter", (e) => {
+    e.preventDefault();
+    const celda = e.target.closest(".cal-celda");
+    if (!celda) return;
+    gridWrap.querySelectorAll(".drag-over").forEach((el) => el.classList.remove("drag-over"));
+    celda.classList.add("drag-over");
+  });
+
+  gridWrap.addEventListener("dragover", (e) => { e.preventDefault(); });
+
+  gridWrap.addEventListener("drop", (e) => {
+    const celda = e.target.closest(".cal-celda");
+    if (!celda || !calEstado.dragPostId) return;
+    e.preventDefault();
+    gridWrap.querySelectorAll(".drag-over").forEach((el) => el.classList.remove("drag-over"));
+    const nuevaFecha = celda.dataset.fecha;
+    const postId = calEstado.dragPostId;
+    calEstado.dragPostId = null;
+    actualizarFechaPost(postId, nuevaFecha);
+    mostrarToastMP(`Post movido al ${formatFechaLegible(nuevaFecha)}.`, "ok");
+  });
+
+  // Popover: cerrar
+  document.getElementById("cal-popover-cerrar").addEventListener("click", cerrarPopover);
+
+  // Popover modo post: reprogramar
+  document.getElementById("btn-pop-reprogramar").addEventListener("click", () => {
+    const dp = document.getElementById("cal-pop-datepicker");
+    dp.classList.toggle("oculto");
+    if (!dp.classList.contains("oculto")) dp.focus();
+  });
+
+  document.getElementById("cal-pop-datepicker").addEventListener("change", (e) => {
+    const nuevaFecha = e.target.value;
+    if (!nuevaFecha || !calEstado.popoverPostId) return;
+    actualizarFechaPost(calEstado.popoverPostId, nuevaFecha);
+    mostrarToastMP(`Post programado para ${formatFechaLegible(nuevaFecha)}.`, "ok");
+    cerrarPopover();
+  });
+
+  // Popover modo post: ver post completo
+  document.getElementById("btn-pop-ver").addEventListener("click", () => {
+    const postId = calEstado.popoverPostId;
+    cerrarPopover();
+    scrollAlHistorialYResaltar(postId);
+  });
+
+  // Popover modo día: crear nuevo
+  document.getElementById("btn-pop-crear").addEventListener("click", () => {
+    cerrarPopover();
+    document.getElementById("seccion-generador").scrollIntoView({ behavior: "smooth" });
+  });
+
+  // Popover modo día: asignar existente
+  document.getElementById("btn-pop-asignar").addEventListener("click", () => {
+    const fechaDia = calEstado.popoverFechaDia;
+    cerrarPopover();
+    mostrarSelectorPost(fechaDia);
+  });
+
+  // Selector overlay
+  document.getElementById("btn-cerrar-selector").addEventListener("click", cerrarSelectorPost);
+  document.getElementById("cal-selector-overlay").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("cal-selector-overlay")) cerrarSelectorPost();
+  });
+
+  // Cerrar popover al hacer clic fuera
+  document.addEventListener("click", (e) => {
+    const popover = document.getElementById("cal-popover");
+    if (!popover.classList.contains("oculto") && !popover.contains(e.target)) {
+      cerrarPopover();
+    }
+  });
+}
+
+/* ─── Popover ─────────────────────────────────────────────────────────── */
+function mostrarPopoverPost(postId, ancla) {
+  const post = cargarHistorialMP().find((p) => p.id === postId);
+  if (!post) return;
+
+  calEstado.popoverPostId = postId;
+  calEstado.popoverFechaDia = null;
+
+  document.getElementById("cal-pop-titulo").textContent =
+    post.caption.slice(0, 60) + (post.caption.length > 60 ? "…" : "");
+  document.getElementById("cal-pop-meta").textContent =
+    `${getRedAbrev(post.red)} · ${buscarTipo(post.tipo)?.label ?? post.tipo} · ${buscarTono(post.tono)?.label ?? post.tono} · ${post.especialidad}`;
+  document.getElementById("cal-pop-fecha").textContent =
+    post.fechaProgramada ? `📅 ${formatFechaLegible(post.fechaProgramada)}` : "Sin fecha";
+
+  const dp = document.getElementById("cal-pop-datepicker");
+  dp.value = post.fechaProgramada || "";
+  dp.classList.add("oculto");
+
+  document.querySelector(".popover-modo-post").classList.remove("oculto");
+  document.querySelector(".popover-modo-dia").classList.add("oculto");
+
+  posicionarPopover(ancla);
+}
+
+function mostrarTooltipDia(celda) {
+  calEstado.popoverFechaDia = celda.dataset.fecha;
+  calEstado.popoverPostId = null;
+
+  document.getElementById("cal-pop-pregunta").textContent =
+    `¿Programar un post para el ${formatFechaLegible(celda.dataset.fecha)}?`;
+
+  document.querySelector(".popover-modo-post").classList.add("oculto");
+  document.querySelector(".popover-modo-dia").classList.remove("oculto");
+
+  posicionarPopover(celda);
+}
+
+function posicionarPopover(ancla) {
+  const popover = document.getElementById("cal-popover");
+  popover.classList.remove("oculto");
+
+  const rect = ancla.getBoundingClientRect();
+  const popW = 268;
+  const popH = 180;
+
+  let left = rect.left;
+  let top = rect.bottom + 6;
+
+  if (left + popW > window.innerWidth - 12) left = window.innerWidth - popW - 12;
+  if (left < 8) left = 8;
+  if (top + popH > window.innerHeight - 12) top = rect.top - popH - 6;
+  if (top < 8) top = 8;
+
+  popover.style.left = left + "px";
+  popover.style.top = top + "px";
+}
+
+function cerrarPopover() {
+  const popover = document.getElementById("cal-popover");
+  popover.classList.add("oculto");
+  const dp = document.getElementById("cal-pop-datepicker");
+  if (dp) dp.classList.add("oculto");
+  calEstado.popoverPostId = null;
+  calEstado.popoverFechaDia = null;
+}
+
+function scrollAlHistorialYResaltar(postId) {
+  document.querySelector(".historial-card").scrollIntoView({ behavior: "smooth" });
+  setTimeout(() => {
+    const fila = document.querySelector(`.historial-fila[data-id="${postId}"]`);
+    if (!fila) return;
+    fila.classList.add("historial-fila-resaltada");
+    fila.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    setTimeout(() => fila.classList.remove("historial-fila-resaltada"), 2200);
+  }, 420);
+}
+
+/* ─── Selector de posts sin fecha ────────────────────────────────────── */
+function mostrarSelectorPost(fechaDia) {
+  const sinFecha = cargarHistorialMP().filter((p) => !p.fechaProgramada);
+  const lista = document.getElementById("cal-selector-lista");
+
+  if (sinFecha.length === 0) {
+    lista.innerHTML = `<p class="selector-vacio">No hay posts sin fecha programada.</p>`;
+  } else {
+    lista.innerHTML = sinFecha.map((p) => {
+      const tipo = buscarTipo(p.tipo);
+      return `<div class="selector-item" data-id="${p.id}" data-fecha="${fechaDia}">
+        <div class="selector-item-top">
+          <span class="sel-red">${getRedAbrev(p.red)}</span>
+          <span class="sel-tipo">${escaparHtmlMP(tipo?.label ?? p.tipo)}</span>
+          <span class="sel-esp">${escaparHtmlMP(p.especialidad)}</span>
+        </div>
+        <div class="sel-caption">${escaparHtmlMP(p.caption.slice(0, 70))}${p.caption.length > 70 ? "…" : ""}</div>
+      </div>`;
+    }).join("");
+
+    lista.querySelectorAll(".selector-item").forEach((item) => {
+      item.addEventListener("click", () => {
+        actualizarFechaPost(item.dataset.id, item.dataset.fecha);
+        cerrarSelectorPost();
+        mostrarToastMP(`Post programado para ${formatFechaLegible(item.dataset.fecha)}.`, "ok");
+      });
+    });
+  }
+
+  document.getElementById("cal-selector-overlay").classList.remove("oculto");
+}
+
+function cerrarSelectorPost() {
+  document.getElementById("cal-selector-overlay").classList.add("oculto");
 }
 
 /* ─── Utilidades ──────────────────────────────────────────────────────── */

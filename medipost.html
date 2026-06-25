@@ -38,7 +38,7 @@
         <span>Crea posts listos para publicar en segundos con ayuda de IA</span>
       </h1>
 
-      <div class="mp-layout">
+      <div class="mp-layout" id="seccion-generador">
 
         <!-- ── Columna formulario ── -->
         <section class="form-card" aria-label="Configurar post">
@@ -232,10 +232,43 @@
 
       </div>
 
-      <!-- ── Historial ── -->
+      <!-- ── Calendario mensual ── -->
+      <section class="calendario-card" id="seccion-calendario" aria-label="Calendario de publicaciones">
+
+        <div class="cal-header">
+          <div class="cal-nav-group">
+            <button type="button" class="btn-cal-nav" id="btn-mes-anterior">‹ Ant</button>
+            <span class="cal-titulo" id="cal-titulo">Junio 2026</span>
+            <button type="button" class="btn-cal-nav" id="btn-mes-siguiente">Sig ›</button>
+          </div>
+          <div class="cal-leyenda">
+            <span class="cal-leyenda-item cal-leyenda-publicado">● Publicado</span>
+            <span class="cal-leyenda-item cal-leyenda-programado">● Programado</span>
+          </div>
+          <button type="button" class="btn-nuevo-post-cal" id="btn-nuevo-post-cal">+ Nuevo post</button>
+        </div>
+
+        <div class="cal-grid-wrap" id="cal-grid-wrap">
+          <div class="cal-dias-semana">
+            <span>Lun</span><span>Mar</span><span>Mié</span>
+            <span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+          </div>
+          <div class="cal-grid" id="cal-grid">
+            <!-- Renderizado por medipost.js -->
+          </div>
+        </div>
+
+        <div class="cal-footer" id="cal-footer"></div>
+
+      </section>
+
+      <!-- ── Historial de posts ── -->
       <section class="historial-card" aria-label="Historial de posts generados">
         <div class="historial-header">
-          <h3>Historial reciente</h3>
+          <div>
+            <h3>Historial de posts</h3>
+            <span class="historial-scroll-hint">scroll para ver más</span>
+          </div>
           <span id="historial-contador" class="historial-contador">0 posts</span>
         </div>
         <div id="historial-lista" class="historial-lista">
@@ -251,6 +284,39 @@
 
   <!-- Toast de notificaciones -->
   <div id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Popover del calendario -->
+  <div id="cal-popover" class="cal-popover oculto" role="dialog">
+    <button type="button" class="cal-popover-cerrar" id="cal-popover-cerrar">×</button>
+    <div class="popover-modo-post oculto">
+      <div class="cal-popover-titulo" id="cal-pop-titulo"></div>
+      <div class="cal-popover-meta" id="cal-pop-meta"></div>
+      <div class="cal-popover-fecha" id="cal-pop-fecha"></div>
+      <div class="cal-popover-acciones">
+        <button type="button" class="btn-pop btn-pop-reprogramar" id="btn-pop-reprogramar">📅 Reprogramar</button>
+        <input type="date" id="cal-pop-datepicker" class="cal-datepicker-input oculto">
+        <button type="button" class="btn-pop btn-pop-ver" id="btn-pop-ver">Ver post</button>
+      </div>
+    </div>
+    <div class="popover-modo-dia oculto">
+      <p class="cal-pop-pregunta" id="cal-pop-pregunta">¿Programar un post para este día?</p>
+      <div class="cal-popover-acciones">
+        <button type="button" class="btn-pop btn-pop-crear" id="btn-pop-crear">Crear nuevo</button>
+        <button type="button" class="btn-pop btn-pop-asignar" id="btn-pop-asignar">Asignar existente</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Selector de posts sin fecha -->
+  <div id="cal-selector-overlay" class="cal-selector-overlay oculto">
+    <div class="cal-selector-card">
+      <div class="cal-selector-header">
+        <span>Seleccionar post para programar</span>
+        <button type="button" class="cal-selector-cerrar" id="btn-cerrar-selector">×</button>
+      </div>
+      <div id="cal-selector-lista" class="cal-selector-lista"></div>
+    </div>
+  </div>
 
   <script src="js/data.js"></script>
   <script src="js/medipost.js"></script>

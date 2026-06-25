@@ -428,6 +428,7 @@ Los módulos se monetizan por nivel de plan:
 - **25 junio 2026** — Prompt 4: 4 nuevas tools en MediBot (`buscar_paciente`, `ver_documentos_paciente`, `ver_notas_paciente`, `ver_nps_paciente`); typing indicator diferenciado "Buscando en expediente…" para las 4 tools de expediente. Total de tools: 13. Archivo modificado: `js/chat.js`.
 - **25 junio 2026** — Rediseño index.html: landing médica profesional con 7 secciones (navbar, hero, stats bar, médico, servicios, formulario+mapa, opiniones, footer). Todo alimentado desde `medicita_config_clinica` via `poblarLanding()`. Opiniones dinámicas desde NPS via `cargarOpinionesNPS()`. Animaciones fade-in con IntersectionObserver. Campos nuevos en modal "Configurar clínica" de admin.html (sección "Personalización de landing"): fraseHero, fotoHero, fotoMedico, bioMedico, formacionMedico, totalPacientes, anosExperiencia, calificacionPromedio, serviciosClinica, whatsapp, facebook, instagram. Archivos modificados: `index.html`, `css/styles.css`, `js/app.js`, `admin.html`, `js/admin.js`.
 - **25 junio 2026** — Panel personalización: modal "Configurar clínica" expandido en 5 pestañas (🏥 Clínica / 👨‍⚕️ Médico / 🌐 Landing / 🎨 Apariencia / 👁 Vista previa). Pestaña Apariencia agrega `colorPrimario` (color picker), `colorAcento` y `tipografia` (radio 3 fuentes) a `medicita_config_clinica`. Live preview de colores en `--azul-principal`/`--ambar` sin guardar; restauración automática al cancelar. Vista previa en tiempo real (mini hero + stats bar + tarjeta médico, `transform: scale(0.75)`). `aplicarAparienciaConfig()` en DOMContentLoaded de `admin.js`. `aplicarAparienciaLanding()` en DOMContentLoaded de `app.js` — aplica `--color-primary`/`--color-accent`/font-family en `index.html`. Archivos modificados: `admin.html`, `css/admin.css`, `js/admin.js`, `js/app.js`.
+- **25 junio 2026** — Calendario MediPost: vista mensual con grid 7 columnas en `medipost.html`. Pastillas de post por día (red + tipo abreviado + primeras 25 chars del caption, ámbar=programado/verde=publicado, máx 2 por celda + "+N más"). Drag & drop HTML5 nativo para reprogramar (arrastra pastilla a otro día → toast + actualiza `fechaProgramada`). Clic en pastilla → popover con detalles + "Reprogramar" (datepicker nativo) + "Ver post completo". Clic en día vacío → tooltip "¿Programar?" con "Crear nuevo" (scroll al generador) o "Asignar existente" (overlay con lista de posts sin fecha). Campo `fechaProgramada: null` agregado al objeto post en `medicita_posts`. Historial reemplazado por lista vertical con `max-height: 320px`/`overflow-y: auto`, badges de estado (Programado/Publicado/Sin fecha), botón "Programar"/"Reprogramar" con datepicker inline. Archivos modificados: `medipost.html`, `js/medipost.js`, `css/medipost.css`.
 
 ---
 
@@ -449,6 +450,9 @@ Los módulos se monetizan por nivel de plan:
 
 ### Rediseño index.html ✅ Completo
 - [x] Landing médica profesional con 7 secciones, `poblarLanding()`, `cargarOpinionesNPS()`, campos nuevos en config
+
+### Calendario MediPost ✅ Completo
+- [x] Vista mensual, pastillas drag & drop, historial con scroll, campo `fechaProgramada`
 
 ### Backlog core (pendiente de Fase 1)
 - [ ] Sección "Mis citas" en `index.html` para que el paciente vea y cancele sus citas
