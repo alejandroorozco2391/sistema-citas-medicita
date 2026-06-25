@@ -22,7 +22,8 @@
       "Bash(git add *)",
       "Bash(git *)",
       "Bash(node --check /mnt/d/TEMP/CLAUDE/sistema-citas-meicas/js/app.js)",
-      "Bash(node --check /mnt/d/TEMP/CLAUDE/sistema-citas-meicas/js/admin.js)"
+      "Bash(node --check /mnt/d/TEMP/CLAUDE/sistema-citas-meicas/js/admin.js)",
+      "Bash(node --check /mnt/d/TEMP/CLAUDE/sistema-citas-meicas/js/medipost.js)"
     ]
   }
 }
