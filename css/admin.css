@@ -1873,3 +1873,254 @@ td {
   .modal-card-nc { max-width: 90vw; }
   .nc-toggle-row { flex-direction: column; align-items: flex-start; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Panel Personalización: Modal expandido en 5 pestañas
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.modal-card-config { max-width: 720px; }
+
+/* ─── Tabs internas del modal ──────────────────────────────────────────── */
+.cfg-tabs-nav {
+  display: flex;
+  border-bottom: 2px solid var(--gris-borde);
+  background: var(--fondo);
+  padding: 0 8px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.cfg-tabs-nav::-webkit-scrollbar { display: none; }
+
+.cfg-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 11px 16px;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--gris-suave);
+  background: none;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transicion), border-color var(--transicion);
+  font-family: inherit;
+}
+.cfg-tab-btn:hover { color: var(--azul-principal); }
+.cfg-tab-btn.activa {
+  color: var(--azul-principal);
+  border-bottom-color: var(--azul-principal);
+  font-weight: 700;
+}
+
+.cfg-tab-panel { display: none; }
+.cfg-tab-panel.activa { display: block; }
+
+/* ─── Color inputs ─────────────────────────────────────────────────────── */
+input[type="color"] {
+  width: 48px;
+  height: 32px;
+  border: 1.5px solid var(--gris-borde);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 2px;
+  flex-shrink: 0;
+  background: none;
+}
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 1px; }
+input[type="color"]::-webkit-color-swatch { border-radius: 4px; border: none; }
+
+.cfg-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.cfg-color-label {
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--gris-texto);
+  font-family: 'Courier New', monospace;
+}
+.cfg-campo-desc {
+  font-size: .74rem;
+  color: var(--gris-suave);
+  margin-top: 6px;
+}
+
+/* ─── Tipografía radios ────────────────────────────────────────────────── */
+.cfg-tipo-opciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.cfg-tipo-opcion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--gris-borde);
+  border-radius: var(--radio-sm);
+  cursor: pointer;
+  transition: border-color var(--transicion), background var(--transicion);
+  flex: 1;
+  min-width: 155px;
+}
+.cfg-tipo-opcion:hover { border-color: var(--azul-principal); }
+.cfg-tipo-opcion input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--azul-principal);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.cfg-tipo-opcion:has(input:checked) {
+  border-color: var(--azul-principal);
+  background: var(--azul-claro);
+}
+.cfg-tipo-info { display: flex; flex-direction: column; gap: 2px; }
+.cfg-tipo-nombre { font-size: .88rem; font-weight: 700; color: var(--gris-texto); }
+.cfg-tipo-desc { font-size: .73rem; color: var(--gris-suave); }
+
+/* ─── Foto previews en formulario ──────────────────────────────────────── */
+.cfg-foto-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cfg-foto-mini {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: var(--radio-sm);
+  border: 1.5px solid var(--gris-borde);
+  flex-shrink: 0;
+  background: var(--fondo);
+}
+.cfg-foto-circle {
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+}
+
+/* ─── Vista previa (Pestaña 5) ─────────────────────────────────────────── */
+.cfg-preview-outer {
+  background: #edf2f7;
+  border-radius: 10px;
+  padding: 16px;
+  overflow: hidden;
+  min-height: 260px;
+}
+.cfg-preview-wrap {
+  max-width: 500px;
+  margin: 0 auto;
+  transform: scale(0.75);
+  transform-origin: top center;
+  margin-bottom: -60px;
+}
+.cfg-preview-vacia {
+  text-align: center;
+  color: var(--gris-suave);
+  font-size: .88rem;
+  padding: 48px 0;
+}
+
+/* Mini hero */
+.prev-hero {
+  border-radius: 12px 12px 0 0;
+  padding: 24px 28px 20px;
+  color: #fff;
+  position: relative;
+}
+.prev-badge {
+  display: inline-block;
+  font-size: .73rem;
+  font-weight: 600;
+  border: 1px solid rgba(255,255,255,.4);
+  padding: 3px 11px;
+  border-radius: 50px;
+  margin-bottom: 10px;
+  opacity: .9;
+}
+.prev-titulo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0 0 8px;
+  line-height: 1.2;
+}
+.prev-frase {
+  font-size: .84rem;
+  opacity: .88;
+  margin: 0 0 16px;
+  max-width: 340px;
+  line-height: 1.45;
+}
+.prev-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.prev-btn-p, .prev-btn-s {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: .81rem;
+  font-weight: 700;
+  display: inline-block;
+}
+.prev-btn-s {
+  border: 1.5px solid rgba(255,255,255,.45);
+  background: transparent;
+  color: #fff;
+}
+
+/* Mini stats bar */
+.prev-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  filter: brightness(0.82);
+}
+.prev-stat {
+  padding: 14px 8px;
+  text-align: center;
+  color: rgba(255,255,255,.9);
+  border-right: 1px solid rgba(255,255,255,.15);
+}
+.prev-stat:last-child { border-right: none; }
+.prev-stat-num { font-size: 1rem; font-weight: 800; line-height: 1; }
+.prev-stat-label { font-size: .65rem; opacity: .8; margin-top: 3px; }
+
+/* Mini tarjeta médico */
+.prev-medico {
+  background: #fff;
+  border-radius: 0 0 12px 12px;
+  padding: 18px 22px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  border: 1px solid #e2e8f0;
+  border-top: none;
+}
+.prev-foto-medico {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid #e2e8f0;
+}
+.prev-avatar-medico {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: .9rem;
+  flex-shrink: 0;
+}
+.prev-medico-info { flex: 1; min-width: 0; }
+.prev-medico-nombre { font-size: .92rem; font-weight: 700; color: #1e293b; }
+.prev-medico-esp { font-size: .77rem; color: #64748b; margin-top: 1px; }
+.prev-medico-ced { font-size: .71rem; color: #94a3b8; margin-top: 1px; }
+.prev-medico-bio { font-size: .77rem; color: #475569; margin-top: 8px; line-height: 1.5; }

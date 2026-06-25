@@ -529,168 +529,246 @@
   <!-- ─── Modal: Configurar clínica ─────────────────────────────────────── -->
   <div id="modal-config" class="modal-overlay oculto" role="dialog" aria-modal="true"
        aria-labelledby="modal-config-titulo">
-    <div class="modal-card" role="document">
+    <div class="modal-card modal-card-config" role="document">
       <div class="modal-header">
         <h2 id="modal-config-titulo">⚙️ Configurar clínica</h2>
         <button type="button" id="btn-cerrar-config" class="modal-cerrar"
                 aria-label="Cerrar configuración">✕</button>
       </div>
-      <div class="modal-body">
-        <p class="modal-desc">
-          Esta información se usa en MediPost para personalizar el contenido generado con IA.
-        </p>
-        <div class="config-grid">
-          <div class="config-campo">
-            <label class="config-label" for="cfg-nombre-clinica">Nombre de la clínica</label>
-            <input type="text" id="cfg-nombre-clinica" class="form-control-admin"
-              placeholder="Ej. Clínica Santa Fe" />
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-ciudad">Ciudad</label>
-            <input type="text" id="cfg-ciudad" class="form-control-admin"
-              placeholder="Ej. Tijuana, Guadalajara…" />
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-especialidad">Especialidad principal</label>
-            <input type="text" id="cfg-especialidad" class="form-control-admin"
-              placeholder="Ej. Medicina General" />
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-medico">Médico representante</label>
-            <input type="text" id="cfg-medico" class="form-control-admin"
-              placeholder="Ej. Dra. Ana García" />
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-telefono">Teléfono de contacto</label>
-            <input type="text" id="cfg-telefono" class="form-control-admin"
-              placeholder="Ej. 664 123 4567" />
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-email">Email de contacto</label>
-            <input type="email" id="cfg-email" class="form-control-admin"
-              placeholder="contacto@clinica.com" />
-          </div>
-          <div class="config-campo config-campo-full">
-            <label class="config-label" for="cfg-logo">URL del logotipo <span class="config-opcional">opcional</span></label>
-            <input type="url" id="cfg-logo" class="form-control-admin"
-              placeholder="https://…" />
-          </div>
-        </div>
 
-        <div class="modal-seccion-sep"><span>Datos para documentos clínicos</span></div>
-        <p class="modal-desc" style="margin-bottom:16px;">
-          Se imprimen en el membrete y footer de los documentos generados en MediDocs.
-        </p>
-        <div class="config-grid">
-          <div class="config-campo">
-            <label class="config-label" for="cfg-cedula">Cédula profesional</label>
-            <input type="text" id="cfg-cedula" class="form-control-admin"
-              placeholder="Ej. 12345678" />
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-horario">Horario de atención</label>
-            <input type="text" id="cfg-horario" class="form-control-admin"
-              placeholder="Lun–Vie 9:00am–6:00pm" />
-          </div>
-          <div class="config-campo config-campo-full">
-            <label class="config-label" for="cfg-direccion">Dirección del consultorio</label>
-            <input type="text" id="cfg-direccion" class="form-control-admin"
-              placeholder="Av. Reforma 123, Col. Centro, Ciudad" />
-          </div>
-        </div>
-
-        <div class="modal-seccion-sep"><span>Personalización de landing</span></div>
-        <p class="modal-desc" style="margin-bottom:16px;">
-          Campos opcionales que personalizan la página principal (index.html) visible para los pacientes.
-        </p>
-        <div class="config-grid">
-          <div class="config-campo config-campo-full">
-            <label class="config-label" for="cfg-frase-hero">Frase de bienvenida (hero)</label>
-            <input type="text" id="cfg-frase-hero" class="form-control-admin"
-              placeholder="Atención médica profesional y personalizada para ti y tu familia" />
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-foto-hero">URL foto hero <span class="config-opcional">opcional</span></label>
-            <input type="text" id="cfg-foto-hero" class="form-control-admin"
-              placeholder="https://… (foto del consultorio o ambiente)" />
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-foto-medico">URL foto del médico <span class="config-opcional">opcional</span></label>
-            <input type="text" id="cfg-foto-medico" class="form-control-admin"
-              placeholder="https://… (foto de perfil del médico)" />
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-total-pacientes">Pacientes atendidos</label>
-            <input type="number" id="cfg-total-pacientes" class="form-control-admin"
-              placeholder="2000" min="0" />
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-anos-exp">Años de experiencia</label>
-            <input type="number" id="cfg-anos-exp" class="form-control-admin"
-              placeholder="20" min="0" />
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-calif-promedio">Calificación promedio <span class="config-opcional">ej. 4.9</span></label>
-            <input type="number" id="cfg-calif-promedio" class="form-control-admin"
-              placeholder="4.9" min="0" max="5" step="0.1" />
-          </div>
-          <div class="config-campo config-campo-full">
-            <label class="config-label" for="cfg-bio-medico">Biografía del médico</label>
-            <textarea id="cfg-bio-medico" class="form-control-admin" rows="4"
-              placeholder="Breve presentación del médico para los pacientes..."></textarea>
-          </div>
-          <div class="config-campo config-campo-full">
-            <label class="config-label" for="cfg-formacion">Formación y certificaciones <span class="config-opcional">una por línea</span></label>
-            <textarea id="cfg-formacion" class="form-control-admin" rows="3"
-              placeholder="Especialidad en Medicina Interna — UNAM&#10;Certificado por el Consejo Mexicano de Medicina Interna&#10;Miembro de la Sociedad Médica de México"></textarea>
-          </div>
-          <div class="config-campo config-campo-full">
-            <label class="config-label" for="cfg-servicios">Servicios <span class="config-opcional">formato: Nombre|Descripción, uno por línea</span></label>
-            <textarea id="cfg-servicios" class="form-control-admin" rows="4"
-              placeholder="Consulta general|Diagnóstico y tratamiento de enfermedades comunes&#10;Medicina preventiva|Chequeos y vacunación&#10;Urgencias|Atención inmediata"></textarea>
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-whatsapp">WhatsApp <span class="config-opcional">52XXXXXXXXXX</span></label>
-            <input type="tel" id="cfg-whatsapp" class="form-control-admin"
-              placeholder="5216641234567" />
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-facebook">Facebook URL <span class="config-opcional">opcional</span></label>
-            <input type="text" id="cfg-facebook" class="form-control-admin"
-              placeholder="https://facebook.com/tu-pagina" />
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-instagram">Instagram URL <span class="config-opcional">opcional</span></label>
-            <input type="text" id="cfg-instagram" class="form-control-admin"
-              placeholder="https://instagram.com/tu-cuenta" />
-          </div>
-        </div>
-
-        <div class="modal-seccion-sep"><span>Configuración de Email (EmailJS)</span></div>
-        <p class="modal-desc" style="margin-bottom:16px;">
-          Credenciales para envío automático de emails. <strong>No se guardan</strong> en este dispositivo — deberás ingresarlas cada sesión.
-        </p>
-        <div class="config-grid">
-          <div class="config-campo">
-            <label class="config-label" for="cfg-ejs-service">Service ID <span class="config-opcional">sesión</span></label>
-            <input type="text" id="cfg-ejs-service" class="form-control-admin"
-              placeholder="service_xxxxxxx" autocomplete="off" />
-          </div>
-          <div class="config-campo">
-            <label class="config-label" for="cfg-ejs-template">Template ID <span class="config-opcional">sesión</span></label>
-            <input type="text" id="cfg-ejs-template" class="form-control-admin"
-              placeholder="template_xxxxxxx" autocomplete="off" />
-          </div>
-          <div class="config-campo config-campo-full">
-            <label class="config-label" for="cfg-ejs-key">Public Key <span class="config-opcional">sesión</span></label>
-            <input type="text" id="cfg-ejs-key" class="form-control-admin"
-              placeholder="xxxxxxxxxxxxxxx" autocomplete="off" />
-          </div>
-        </div>
+      <!-- Pestañas internas del modal -->
+      <div class="cfg-tabs-nav" role="tablist" aria-label="Secciones de configuración">
+        <button class="cfg-tab-btn activa" data-ctab="clinica"    role="tab" aria-selected="true"  aria-controls="ctab-clinica">🏥 Clínica</button>
+        <button class="cfg-tab-btn"         data-ctab="medico"    role="tab" aria-selected="false" aria-controls="ctab-medico">👨‍⚕️ Médico</button>
+        <button class="cfg-tab-btn"         data-ctab="landing"   role="tab" aria-selected="false" aria-controls="ctab-landing">🌐 Landing</button>
+        <button class="cfg-tab-btn"         data-ctab="apariencia" role="tab" aria-selected="false" aria-controls="ctab-apariencia">🎨 Apariencia</button>
+        <button class="cfg-tab-btn"         data-ctab="preview"   role="tab" aria-selected="false" aria-controls="ctab-preview">👁 Vista previa</button>
       </div>
+
+      <div class="modal-body">
+
+        <!-- ── Pestaña 1: Clínica ──────────────────────────────────────── -->
+        <div class="cfg-tab-panel activa" id="ctab-clinica" role="tabpanel">
+          <p class="modal-desc">Datos de la clínica usados en documentos, emails y el sitio web.</p>
+          <div class="config-grid">
+            <div class="config-campo">
+              <label class="config-label" for="cfg-nombre-clinica">Nombre de la clínica</label>
+              <input type="text" id="cfg-nombre-clinica" class="form-control-admin"
+                placeholder="Ej. Clínica Santa Fe" />
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-ciudad">Ciudad</label>
+              <input type="text" id="cfg-ciudad" class="form-control-admin"
+                placeholder="Ej. Tijuana, Guadalajara…" />
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-especialidad">Especialidad principal</label>
+              <input type="text" id="cfg-especialidad" class="form-control-admin"
+                placeholder="Ej. Medicina General" />
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-telefono">Teléfono de contacto</label>
+              <input type="text" id="cfg-telefono" class="form-control-admin"
+                placeholder="Ej. 664 123 4567" />
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-email">Email de contacto</label>
+              <input type="email" id="cfg-email" class="form-control-admin"
+                placeholder="contacto@clinica.com" />
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-logo">URL del logotipo <span class="config-opcional">opcional</span></label>
+              <input type="url" id="cfg-logo" class="form-control-admin"
+                placeholder="https://…" />
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-cedula">Cédula profesional</label>
+              <input type="text" id="cfg-cedula" class="form-control-admin"
+                placeholder="Ej. 12345678" />
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-horario">Horario de atención</label>
+              <input type="text" id="cfg-horario" class="form-control-admin"
+                placeholder="Lun–Vie 9:00am–6:00pm" />
+            </div>
+            <div class="config-campo config-campo-full">
+              <label class="config-label" for="cfg-direccion">Dirección del consultorio</label>
+              <input type="text" id="cfg-direccion" class="form-control-admin"
+                placeholder="Av. Reforma 123, Col. Centro, Ciudad" />
+            </div>
+          </div>
+
+          <div class="modal-seccion-sep"><span>Configuración de Email (EmailJS)</span></div>
+          <p class="modal-desc" style="margin-bottom:16px;">
+            Credenciales para envío automático de emails. <strong>No se guardan</strong> en este dispositivo — deberás ingresarlas cada sesión.
+          </p>
+          <div class="config-grid">
+            <div class="config-campo">
+              <label class="config-label" for="cfg-ejs-service">Service ID <span class="config-opcional">sesión</span></label>
+              <input type="text" id="cfg-ejs-service" class="form-control-admin"
+                placeholder="service_xxxxxxx" autocomplete="off" />
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-ejs-template">Template ID <span class="config-opcional">sesión</span></label>
+              <input type="text" id="cfg-ejs-template" class="form-control-admin"
+                placeholder="template_xxxxxxx" autocomplete="off" />
+            </div>
+            <div class="config-campo config-campo-full">
+              <label class="config-label" for="cfg-ejs-key">Public Key <span class="config-opcional">sesión</span></label>
+              <input type="text" id="cfg-ejs-key" class="form-control-admin"
+                placeholder="xxxxxxxxxxxxxxx" autocomplete="off" />
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Pestaña 2: Médico ────────────────────────────────────────── -->
+        <div class="cfg-tab-panel" id="ctab-medico" role="tabpanel">
+          <div class="config-grid">
+            <div class="config-campo config-campo-full">
+              <label class="config-label" for="cfg-medico">Nombre completo del médico</label>
+              <input type="text" id="cfg-medico" class="form-control-admin"
+                placeholder="Ej. Dra. Ana García" />
+            </div>
+            <div class="config-campo config-campo-full">
+              <label class="config-label" for="cfg-foto-medico">URL foto del médico <span class="config-opcional">opcional</span></label>
+              <div class="cfg-foto-row">
+                <input type="text" id="cfg-foto-medico" class="form-control-admin"
+                  placeholder="https://… (foto de perfil del médico)" />
+                <img id="cfg-foto-medico-preview" class="cfg-foto-mini cfg-foto-circle oculto" alt="Preview foto médico" />
+              </div>
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-anos-exp">Años de experiencia</label>
+              <input type="number" id="cfg-anos-exp" class="form-control-admin"
+                placeholder="20" min="0" />
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-total-pacientes">Pacientes atendidos</label>
+              <input type="number" id="cfg-total-pacientes" class="form-control-admin"
+                placeholder="2000" min="0" />
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-calif-promedio">Calificación promedio <span class="config-opcional">ej. 4.9</span></label>
+              <input type="number" id="cfg-calif-promedio" class="form-control-admin"
+                placeholder="4.9" min="0" max="5" step="0.1" />
+            </div>
+            <div class="config-campo config-campo-full">
+              <label class="config-label" for="cfg-bio-medico">Biografía del médico</label>
+              <textarea id="cfg-bio-medico" class="form-control-admin" rows="4"
+                placeholder="Breve presentación del médico para los pacientes..."></textarea>
+            </div>
+            <div class="config-campo config-campo-full">
+              <label class="config-label" for="cfg-formacion">Formación y certificaciones <span class="config-opcional">una por línea</span></label>
+              <textarea id="cfg-formacion" class="form-control-admin" rows="3"
+                placeholder="Especialidad en Medicina Interna — UNAM&#10;Certificado por el Consejo Mexicano de Medicina Interna&#10;Miembro de la Sociedad Médica de México"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Pestaña 3: Landing ───────────────────────────────────────── -->
+        <div class="cfg-tab-panel" id="ctab-landing" role="tabpanel">
+          <p class="modal-desc">Contenido visual de la página principal (index.html) visible para los pacientes.</p>
+          <div class="config-grid">
+            <div class="config-campo config-campo-full">
+              <label class="config-label" for="cfg-frase-hero">Frase de bienvenida (hero)</label>
+              <input type="text" id="cfg-frase-hero" class="form-control-admin"
+                placeholder="Atención médica profesional y personalizada para ti y tu familia" />
+            </div>
+            <div class="config-campo config-campo-full">
+              <label class="config-label" for="cfg-foto-hero">URL foto hero <span class="config-opcional">opcional</span></label>
+              <div class="cfg-foto-row">
+                <input type="text" id="cfg-foto-hero" class="form-control-admin"
+                  placeholder="https://… (foto del consultorio o ambiente)" />
+                <img id="cfg-foto-hero-preview" class="cfg-foto-mini oculto" alt="Preview foto hero" />
+              </div>
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-whatsapp">WhatsApp <span class="config-opcional">52XXXXXXXXXX</span></label>
+              <input type="tel" id="cfg-whatsapp" class="form-control-admin"
+                placeholder="5216641234567" />
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-facebook">Facebook URL <span class="config-opcional">opcional</span></label>
+              <input type="text" id="cfg-facebook" class="form-control-admin"
+                placeholder="https://facebook.com/tu-pagina" />
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-instagram">Instagram URL <span class="config-opcional">opcional</span></label>
+              <input type="text" id="cfg-instagram" class="form-control-admin"
+                placeholder="https://instagram.com/tu-cuenta" />
+            </div>
+            <div class="config-campo config-campo-full">
+              <label class="config-label" for="cfg-servicios">Servicios <span class="config-opcional">formato: Nombre|Descripción, uno por línea</span></label>
+              <textarea id="cfg-servicios" class="form-control-admin" rows="4"
+                placeholder="Consulta general|Diagnóstico y tratamiento de enfermedades comunes&#10;Medicina preventiva|Chequeos y vacunación&#10;Urgencias|Atención inmediata"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Pestaña 4: Apariencia ────────────────────────────────────── -->
+        <div class="cfg-tab-panel" id="ctab-apariencia" role="tabpanel">
+          <p class="modal-desc">Personaliza los colores y tipografía de toda la plataforma. Los cambios se previsuan de inmediato — se guardan permanentemente al hacer clic en "Guardar cambios".</p>
+          <div class="config-grid">
+            <div class="config-campo">
+              <label class="config-label" for="cfg-color-primario">Color primario</label>
+              <div class="cfg-color-row">
+                <input type="color" id="cfg-color-primario" value="#1a6eb5" />
+                <span class="cfg-color-label" id="cfg-color-primario-label">#1a6eb5</span>
+              </div>
+              <p class="cfg-campo-desc">Botones, tabs y acentos principales</p>
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="cfg-color-acento">Color de acento</label>
+              <div class="cfg-color-row">
+                <input type="color" id="cfg-color-acento" value="#f59e0b" />
+                <span class="cfg-color-label" id="cfg-color-acento-label">#f59e0b</span>
+              </div>
+              <p class="cfg-campo-desc">Badges, estadísticas y elementos secundarios</p>
+            </div>
+            <div class="config-campo config-campo-full">
+              <label class="config-label">Tipografía</label>
+              <div class="cfg-tipo-opciones">
+                <label class="cfg-tipo-opcion">
+                  <input type="radio" name="cfg-tipografia" value="inter" />
+                  <div class="cfg-tipo-info">
+                    <span class="cfg-tipo-nombre">Inter</span>
+                    <span class="cfg-tipo-desc">Moderno y actual — recomendado</span>
+                  </div>
+                </label>
+                <label class="cfg-tipo-opcion">
+                  <input type="radio" name="cfg-tipografia" value="georgia" />
+                  <div class="cfg-tipo-info">
+                    <span class="cfg-tipo-nombre" style="font-family:Georgia,serif;">Georgia</span>
+                    <span class="cfg-tipo-desc">Clásico y formal</span>
+                  </div>
+                </label>
+                <label class="cfg-tipo-opcion">
+                  <input type="radio" name="cfg-tipografia" value="system" />
+                  <div class="cfg-tipo-info">
+                    <span class="cfg-tipo-nombre">System</span>
+                    <span class="cfg-tipo-desc">Fuente nativa del dispositivo</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Pestaña 5: Vista previa ──────────────────────────────────── -->
+        <div class="cfg-tab-panel" id="ctab-preview" role="tabpanel">
+          <p class="modal-desc">Preview en tiempo real de la landing page con la configuración actual. Se actualiza automáticamente al editar cualquier campo.</p>
+          <div class="cfg-preview-outer">
+            <div class="cfg-preview-wrap" id="cfg-preview-contenido">
+              <p class="cfg-preview-vacia">Completa los campos en las otras pestañas para ver la vista previa.</p>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /.modal-body -->
+
       <div class="modal-footer">
         <button type="button" id="btn-cancelar-config" class="btn-modal-cancelar">Cancelar</button>
-        <button type="button" id="btn-guardar-config" class="btn-modal-guardar">💾 Guardar</button>
+        <button type="button" id="btn-guardar-config" class="btn-modal-guardar">💾 Guardar cambios</button>
       </div>
     </div>
   </div>

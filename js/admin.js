@@ -11,6 +11,7 @@ let ejsPublicKeyAdmin  = "";
 
 /* ─── Init ────────────────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", () => {
+  aplicarAparienciaConfig(leerConfigClinica());
   cargarCitas();
   poblarFiltroDoctores();
   renderStats();
@@ -397,6 +398,9 @@ const CAMPOS_CONFIG = [
   ["cfg-whatsapp",        "whatsapp"],
   ["cfg-facebook",        "facebook"],
   ["cfg-instagram",       "instagram"],
+  // Apariencia
+  ["cfg-color-primario",  "colorPrimario"],
+  ["cfg-color-acento",    "colorAcento"],
 ];
 
 function leerConfigClinica() {
@@ -406,32 +410,53 @@ function leerConfigClinica() {
 function guardarConfigClinica() {
   const cfg = {};
   CAMPOS_CONFIG.forEach(([inputId, key]) => {
-    cfg[key] = document.getElementById(inputId).value.trim();
+    const el = document.getElementById(inputId);
+    if (el) cfg[key] = el.value.trim();
   });
+  const tipografiaEl = document.querySelector('input[name="cfg-tipografia"]:checked');
+  if (tipografiaEl) cfg.tipografia = tipografiaEl.value;
   localStorage.setItem("medicita_config_clinica", JSON.stringify(cfg));
+  aplicarAparienciaConfig(cfg);
 }
 
 function poblarFormConfig() {
   const cfg = leerConfigClinica();
   CAMPOS_CONFIG.forEach(([inputId, key]) => {
-    document.getElementById(inputId).value = cfg[key] || "";
+    const el = document.getElementById(inputId);
+    if (el) el.value = cfg[key] || "";
   });
-  // Pre-llenar campos de EmailJS desde memoria (no localStorage)
+
+  // Color inputs: aplicar valor guardado o default
+  const colorP = document.getElementById("cfg-color-primario");
+  if (colorP) colorP.value = cfg.colorPrimario || "#1a6eb5";
+  const colorA = document.getElementById("cfg-color-acento");
+  if (colorA) colorA.value = cfg.colorAcento || "#f59e0b";
+  actualizarEtiquetaColor("cfg-color-primario", "cfg-color-primario-label");
+  actualizarEtiquetaColor("cfg-color-acento",   "cfg-color-acento-label");
+
+  // Radio tipografía
+  const tipografia = cfg.tipografia || "inter";
+  const radioEl = document.querySelector(`input[name="cfg-tipografia"][value="${tipografia}"]`);
+  if (radioEl) radioEl.checked = true;
+
+  // Foto previews
+  actualizarFotoPreview("cfg-foto-medico", "cfg-foto-medico-preview");
+  actualizarFotoPreview("cfg-foto-hero",   "cfg-foto-hero-preview");
+
+  // EmailJS — solo en memoria, no en localStorage
   document.getElementById("cfg-ejs-service").value  = ejsServiceIdAdmin;
   document.getElementById("cfg-ejs-template").value = ejsTemplateIdAdmin;
   document.getElementById("cfg-ejs-key").value      = ejsPublicKeyAdmin;
 }
 
 function bindConfigModal() {
-  const modal   = document.getElementById("modal-config");
-  const overlay = modal;
+  const modal = document.getElementById("modal-config");
 
   document.getElementById("btn-config-clinica").addEventListener("click", abrirModalConfig);
   document.getElementById("btn-cerrar-config").addEventListener("click", cerrarModalConfig);
   document.getElementById("btn-cancelar-config").addEventListener("click", cerrarModalConfig);
   document.getElementById("btn-guardar-config").addEventListener("click", () => {
     guardarConfigClinica();
-    // Inicializar EmailJS desde los campos del formulario (no se persisten)
     ejsServiceIdAdmin  = document.getElementById("cfg-ejs-service").value.trim();
     ejsTemplateIdAdmin = document.getElementById("cfg-ejs-template").value.trim();
     ejsPublicKeyAdmin  = document.getElementById("cfg-ejs-key").value.trim();
@@ -440,17 +465,60 @@ function bindConfigModal() {
     mostrarToast("Configuración guardada.", "ok");
   });
 
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) cerrarModalConfig();
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) cerrarModalConfig();
   });
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !modal.classList.contains("oculto")) cerrarModalConfig();
   });
+
+  // Tabs internas del modal
+  modal.querySelectorAll(".cfg-tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      activarCfgTab(btn.dataset.ctab);
+      if (btn.dataset.ctab === "preview") actualizarPreview();
+    });
+  });
+
+  // Input listeners en todos los campos → actualizar preview en tiempo real
+  modal.querySelectorAll("input:not([type='color']):not([type='radio']), textarea, select").forEach((el) => {
+    el.addEventListener("input", actualizarPreview);
+  });
+  modal.querySelectorAll("input[type='radio']").forEach((el) => {
+    el.addEventListener("change", actualizarPreview);
+  });
+
+  // Color inputs: live preview de colores + etiqueta
+  const colorP = document.getElementById("cfg-color-primario");
+  const colorA = document.getElementById("cfg-color-acento");
+
+  if (colorP) {
+    colorP.addEventListener("input", () => {
+      actualizarEtiquetaColor("cfg-color-primario", "cfg-color-primario-label");
+      document.documentElement.style.setProperty("--azul-principal", colorP.value);
+      document.documentElement.style.setProperty("--azul-oscuro", ajustarBrillo(colorP.value, -24));
+      actualizarPreview();
+    });
+  }
+  if (colorA) {
+    colorA.addEventListener("input", () => {
+      actualizarEtiquetaColor("cfg-color-acento", "cfg-color-acento-label");
+      document.documentElement.style.setProperty("--ambar", colorA.value);
+      actualizarPreview();
+    });
+  }
+
+  // Foto previews al escribir URL
+  ["cfg-foto-medico", "cfg-foto-hero"].forEach((inputId) => {
+    const el = document.getElementById(inputId);
+    if (el) el.addEventListener("input", () => actualizarFotoPreview(inputId, `${inputId}-preview`));
+  });
 }
 
 function abrirModalConfig() {
   poblarFormConfig();
+  activarCfgTab("clinica");
   const modal = document.getElementById("modal-config");
   modal.classList.remove("oculto");
   document.body.style.overflow = "hidden";
@@ -460,6 +528,134 @@ function abrirModalConfig() {
 function cerrarModalConfig() {
   document.getElementById("modal-config").classList.add("oculto");
   document.body.style.overflow = "";
+  // Restaurar colores al estado guardado (en caso de previsualización sin guardar)
+  aplicarAparienciaConfig(leerConfigClinica());
+}
+
+/* ─── Apariencia: colores y tipografía ────────────────────────────────── */
+function aplicarAparienciaConfig(cfg) {
+  if (cfg.colorPrimario) {
+    document.documentElement.style.setProperty("--azul-principal", cfg.colorPrimario);
+    document.documentElement.style.setProperty("--azul-oscuro", ajustarBrillo(cfg.colorPrimario, -24));
+  }
+  if (cfg.colorAcento) {
+    document.documentElement.style.setProperty("--ambar", cfg.colorAcento);
+  }
+  if (cfg.tipografia) {
+    const fonts = {
+      inter:   "'Inter', 'Segoe UI', system-ui, sans-serif",
+      georgia: "Georgia, 'Times New Roman', serif",
+      system:  "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+    };
+    document.body.style.fontFamily = fonts[cfg.tipografia] || fonts.inter;
+  }
+}
+
+function ajustarBrillo(hex, amount) {
+  const clean = hex.replace("#", "");
+  const num   = parseInt(clean, 16);
+  const r     = Math.max(0, Math.min(255, (num >> 16) + amount));
+  const g     = Math.max(0, Math.min(255, ((num >> 8) & 0xff) + amount));
+  const b     = Math.max(0, Math.min(255, (num & 0xff) + amount));
+  return "#" + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+}
+
+function activarCfgTab(tabId) {
+  document.querySelectorAll(".cfg-tab-btn").forEach((btn) => {
+    const activa = btn.dataset.ctab === tabId;
+    btn.classList.toggle("activa", activa);
+    btn.setAttribute("aria-selected", activa ? "true" : "false");
+  });
+  document.querySelectorAll(".cfg-tab-panel").forEach((panel) => {
+    panel.classList.toggle("activa", panel.id === `ctab-${tabId}`);
+  });
+}
+
+function actualizarEtiquetaColor(inputId, labelId) {
+  const input = document.getElementById(inputId);
+  const label = document.getElementById(labelId);
+  if (input && label) label.textContent = input.value;
+}
+
+function actualizarFotoPreview(inputId, previewId) {
+  const input   = document.getElementById(inputId);
+  const preview = document.getElementById(previewId);
+  if (!input || !preview) return;
+  const url = input.value.trim();
+  if (url) {
+    preview.src = url;
+    preview.classList.remove("oculto");
+    preview.onerror = () => preview.classList.add("oculto");
+  } else {
+    preview.classList.add("oculto");
+  }
+}
+
+function leerValoresFormConfig() {
+  const vals = {};
+  CAMPOS_CONFIG.forEach(([inputId, key]) => {
+    const el = document.getElementById(inputId);
+    if (el) vals[key] = el.value.trim();
+  });
+  const tipografiaEl = document.querySelector('input[name="cfg-tipografia"]:checked');
+  vals.tipografia = tipografiaEl ? tipografiaEl.value : "inter";
+  return vals;
+}
+
+function actualizarPreview() {
+  const v            = leerValoresFormConfig();
+  const col          = v.colorPrimario || "#1a6eb5";
+  const nombre       = escapeHtml(v.nombreMedico           || "Dr. Nombre Apellido");
+  const especialidad = escapeHtml(v.especialidadPrincipal  || "Especialidad");
+  const ciudad       = escapeHtml(v.ciudad                 || "Ciudad");
+  const frase        = escapeHtml(v.fraseHero              || "Atención médica profesional y personalizada");
+  const bioRaw       = v.bioMedico || "Descripción del médico...";
+  const bio          = escapeHtml(bioRaw.substring(0, 120)) + (bioRaw.length > 120 ? "…" : "");
+  const cedula       = v.cedulaProfesional ? `Céd. ${escapeHtml(v.cedulaProfesional)}` : "";
+  const pacs         = escapeHtml(v.totalPacientes ? `+${Number(v.totalPacientes).toLocaleString("es-MX")}` : "+2,000");
+  const anos         = escapeHtml(v.anosExperiencia ? `${v.anosExperiencia}+` : "20+");
+  const calif        = escapeHtml(v.calificacionPromedio || "4.9");
+  const horario      = escapeHtml(v.horarioAtencion     || "Lun–Vie 9–18h");
+  const iniciales    = (v.nombreMedico || "M D").split(" ").slice(0, 2).map((w) => (w[0] || "")).join("").toUpperCase();
+
+  const fotoMedicoHtml = v.fotoMedico
+    ? `<img src="${v.fotoMedico}" class="prev-foto-medico" alt="" />`
+    : `<div class="prev-avatar-medico" style="background:${col};">${iniciales}</div>`;
+
+  const fotoHeroHtml = v.fotoHero
+    ? `<img src="${v.fotoHero}" alt="" style="width:100%;height:72px;object-fit:cover;border-radius:8px;margin-top:12px;opacity:.65;" />`
+    : "";
+
+  const contenedor = document.getElementById("cfg-preview-contenido");
+  if (!contenedor) return;
+
+  contenedor.innerHTML = `
+    <div class="prev-hero" style="background:${col};">
+      <div class="prev-badge">${especialidad} · ${ciudad}</div>
+      <h3 class="prev-titulo">${nombre}</h3>
+      <p class="prev-frase">${frase}</p>
+      <div class="prev-btns">
+        <span class="prev-btn-p" style="background:#fff;color:${col};">Agendar cita</span>
+        <span class="prev-btn-s">Ver servicios</span>
+      </div>
+      ${fotoHeroHtml}
+    </div>
+    <div class="prev-stats" style="background:${col};">
+      <div class="prev-stat"><div class="prev-stat-num">${pacs}</div><div class="prev-stat-label">Pacientes</div></div>
+      <div class="prev-stat"><div class="prev-stat-num">${anos}</div><div class="prev-stat-label">Años exp.</div></div>
+      <div class="prev-stat"><div class="prev-stat-num">${calif} ★</div><div class="prev-stat-label">Calificación</div></div>
+      <div class="prev-stat"><div class="prev-stat-num">📅</div><div class="prev-stat-label">${horario}</div></div>
+    </div>
+    <div class="prev-medico">
+      ${fotoMedicoHtml}
+      <div class="prev-medico-info">
+        <div class="prev-medico-nombre">${nombre}</div>
+        <div class="prev-medico-esp">${especialidad}</div>
+        ${cedula ? `<div class="prev-medico-ced">${cedula}</div>` : ""}
+        <p class="prev-medico-bio">${bio}</p>
+      </div>
+    </div>
+  `;
 }
 
 /* ─── Seguimientos post-consulta ──────────────────────────────────────── */

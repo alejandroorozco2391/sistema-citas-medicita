@@ -8,6 +8,7 @@ const estado = {
 /* ─── Inicialización ──────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", () => {
   const config = JSON.parse(localStorage.getItem("medicita_config_clinica") || "{}");
+  aplicarAparienciaLanding(config);
   poblarLanding(config);
   cargarOpinionesNPS();
   inicializarAnimaciones();
@@ -16,6 +17,32 @@ document.addEventListener("DOMContentLoaded", () => {
   inicializarNav();
   inicializarFechaMin();
 });
+
+function aplicarAparienciaLanding(cfg) {
+  if (cfg.colorPrimario) {
+    const darken = (hex, amt) => {
+      const n = parseInt(hex.replace("#", ""), 16);
+      const r = Math.max(0, Math.min(255, (n >> 16) + amt));
+      const g = Math.max(0, Math.min(255, ((n >> 8) & 0xff) + amt));
+      const b = Math.max(0, Math.min(255, (n & 0xff) + amt));
+      return "#" + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+    };
+    document.documentElement.style.setProperty("--color-primary",      cfg.colorPrimario);
+    document.documentElement.style.setProperty("--color-primary-dark", darken(cfg.colorPrimario, -24));
+    document.documentElement.style.setProperty("--color-primary-mid",  darken(cfg.colorPrimario, -8));
+  }
+  if (cfg.colorAcento) {
+    document.documentElement.style.setProperty("--color-accent", cfg.colorAcento);
+  }
+  if (cfg.tipografia) {
+    const fonts = {
+      inter:   "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+      georgia: "Georgia, 'Times New Roman', serif",
+      system:  "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+    };
+    document.body.style.fontFamily = fonts[cfg.tipografia] || fonts.inter;
+  }
+}
 
 /* ─── Landing: poblar desde config ───────────────────────────────────── */
 function poblarLanding(cfg) {
