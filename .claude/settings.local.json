@@ -1,7 +1,26 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(Get-ChildItem -Recurse \"c:\\\\Users\\\\aleja\\\\OneDrive\\\\Documentos\\\\CLAUDE\\\\sistema-citas-meicas\" | Where-Object { -not $_.PSIsContainer } | Select-Object @{N='Archivo';E={$_.FullName.Replace\\('c:\\\\Users\\\\aleja\\\\OneDrive\\\\Documentos\\\\CLAUDE\\\\sistema-citas-meicas\\\\',''\\)}}, @{N='KB';E={[math]::Round\\($_.Length/1KB,1\\)}} | Format-Table -AutoSize)"
+      "PowerShell(Get-ChildItem -Recurse \"c:\\\\Users\\\\aleja\\\\OneDrive\\\\Documentos\\\\CLAUDE\\\\sistema-citas-meicas\" | Where-Object { -not $_.PSIsContainer } | Select-Object @{N='Archivo';E={$_.FullName.Replace\\('c:\\\\Users\\\\aleja\\\\OneDrive\\\\Documentos\\\\CLAUDE\\\\sistema-citas-meicas\\\\',''\\)}}, @{N='KB';E={[math]::Round\\($_.Length/1KB,1\\)}} | Format-Table -AutoSize)",
+      "Bash(vercel --version)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(find / -iname \"chromium-cli*\" 2>/dev/null | head -20)",
+      "Read(//d//**)",
+      "Bash(npx --yes playwright --version)",
+      "Bash(python -c \"import playwright; print\\('has playwright'\\)\")",
+      "Bash(node --check js/medipost.js)",
+      "Bash(cd \"d:/TEMP/CLAUDE/sistema-citas-meicas\" && echo \"=== IDs referenced in JS ===\" && grep -oE \"getElementById\\\\\\(\\\\\"[^\\\\\"]+\\\\\"\\\\\\)\" js/medipost.js | sed -E 's/getElementById\\\\\\(\"\\(.*\\)\"\\\\\\)/\\\\1/' | sort -u > /tmp/js_ids.txt && cat /tmp/js_ids.txt && echo \"=== IDs defined in HTML ===\" && grep -oE 'id=\"[^\"]+\"' medipost.html | sed -E 's/id=\"\\(.*\\)\"/\\\\1/' | sort -u > /tmp/html_ids.txt && cat /tmp/html_ids.txt && echo \"=== Missing in HTML ===\" && comm -23 /tmp/js_ids.txt /tmp/html_ids.txt)",
+      "Read(//tmp/**)",
+      "Bash(node \"/c/Users/aleja/AppData/Local/Temp/claude/d--TEMP-CLAUDE-sistema-citas-meicas/a850b95d-6ca1-4a88-85ee-2fa100067272/scratchpad/test-parse.js\")",
+      "Bash(pkill -f \"http.server 8743\")",
+      "Bash(python3 *)",
+      "Bash(node --check /mnt/d/TEMP/CLAUDE/sistema-citas-meicas/js/pacientes.js)",
+      "Bash(node --check /mnt/d/TEMP/CLAUDE/sistema-citas-meicas/js/chat.js)",
+      "Bash(git -C /mnt/d/TEMP/CLAUDE/sistema-citas-meicas status)",
+      "Bash(git -C /mnt/d/TEMP/CLAUDE/sistema-citas-meicas log --oneline -5)",
+      "Bash(git add *)",
+      "Bash(git *)"
     ]
   }
 }
