@@ -26,6 +26,15 @@ HERRAMIENTAS DISPONIBLES:
 • crear_cita — Registra una nueva cita (solo tras confirmar datos con el usuario)
 • actualizar_estado_cita — Cambia estado: pendiente | confirmada | atendida | cancelada
 • eliminar_cita — Elimina permanentemente una cita (solo tras confirmación explícita)
+• ver_satisfaccion_pacientes — Muestra promedio NPS, últimas opiniones y seguimientos pendientes
+
+También tienes acceso al expediente completo:
+• buscar_paciente — busca por nombre o teléfono
+• ver_documentos_paciente — recetas, notas SOAP, constancias y otros docs de MediDocs
+• ver_notas_paciente — notas internas del perfil del paciente
+• ver_nps_paciente — encuestas de satisfacción de un paciente específico
+
+Úsalas proactivamente cuando el contexto lo requiera sin pedir permiso.
 
 FLUJO PARA AGENDAR CITA (sigue este orden exacto):
 1. Obtén: nombre completo y teléfono del paciente
@@ -61,6 +70,15 @@ FORMATO:
 • Texto plano con saltos de línea — sin markdown con ** ni ##
 • Listas con el símbolo •
 • Datos de citas de forma organizada y legible`;
+}
+
+/* ─── Utilidades de texto compartidas ────────────────────────────────── */
+function normalizarTexto(str) {
+  return (str || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 /* ─── Definición de herramientas ──────────────────────────────────────── */
@@ -145,6 +163,59 @@ const TOOLS = [
     },
   },
   {
+    name: "ver_satisfaccion_pacientes",
+    description: "Lee las respuestas de satisfacción NPS de los pacientes y la cantidad de seguimientos post-consulta pendientes. Usar para responder preguntas sobre satisfacción, calificaciones o seguimientos.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "buscar_paciente",
+    description: "Busca un paciente en el directorio por nombre, apellidos o teléfono. Usar cuando pregunten por datos de un paciente, su historial, o quieran saber si está registrado.",
+    input_schema: {
+      type: "object",
+      properties: {
+        nombre:   { type: "string", description: "Nombre o apellidos del paciente (parcial)" },
+        telefono: { type: "string", description: "Teléfono del paciente" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "ver_documentos_paciente",
+    description: "Muestra los documentos clínicos generados para un paciente. Usar cuando pregunten por recetas, notas, constancias, incapacidades o cualquier documento generado en MediDocs.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id_paciente: { type: "string", description: "ID del paciente (PAC-...)" },
+        folio_cita:  { type: "string", description: "Folio de cita (CIT-...)" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "ver_notas_paciente",
+    description: "Muestra las notas internas del expediente de un paciente. Usar cuando pregunten por observaciones, comentarios internos o el historial de notas de un paciente.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id_paciente: { type: "string", description: "ID del paciente (PAC-...)" },
+        nombre:      { type: "string", description: "Nombre o teléfono si no se tiene el ID" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "ver_nps_paciente",
+    description: "Muestra las respuestas NPS (encuestas de satisfacción) de un paciente. Usar cuando pregunten por la opinión, calificación o experiencia de un paciente.",
+    input_schema: {
+      type: "object",
+      properties: {
+        folio_cita: { type: "string", description: "Folio de cita del paciente" },
+        nombre:     { type: "string", description: "Nombre del paciente para buscar todos sus folios primero" },
+      },
+      required: [],
+    },
+  },
+  {
     name: "enviar_email_paciente",
     description: "Envía un email HTML automático al paciente notificando el estado de su cita. Llamar después de crear, confirmar, cancelar o modificar una cita, solo si el paciente tiene email.",
     input_schema: {
@@ -201,10 +272,10 @@ async function ejecutarHerramienta(nombre, p) {
           if (p.folio  && c.folio !== p.folio) return false;
           if (p.fecha  && c.fecha !== p.fecha) return false;
           if (p.estado && c.estado !== p.estado) return false;
-          if (p.doctor && !c.doctor.toLowerCase().includes(p.doctor.toLowerCase())) return false;
+          if (p.doctor && !normalizarTexto(c.doctor).includes(normalizarTexto(p.doctor))) return false;
           if (p.nombre) {
-            const full = `${c.nombre} ${c.apellidos}`.toLowerCase();
-            if (!full.includes(p.nombre.toLowerCase())) return false;
+            const full = normalizarTexto(`${c.nombre} ${c.apellidos}`);
+            if (!full.includes(normalizarTexto(p.nombre))) return false;
           }
           return true;
         }));
@@ -238,6 +309,138 @@ async function ejecutarHerramienta(nombre, p) {
         if (nuevas.length === citas.length) return JSON.stringify({ exito: false, error: "Cita no encontrada" });
         localStorage.setItem("medicita_citas", JSON.stringify(nuevas));
         return JSON.stringify({ exito: true, folio: p.folio });
+      }
+
+      case "ver_satisfaccion_pacientes": {
+        const nps          = JSON.parse(localStorage.getItem("medicita_nps") ?? "[]");
+        const seguimientos = JSON.parse(localStorage.getItem("medicita_followup_pendientes") ?? "[]");
+        const citasAll     = JSON.parse(localStorage.getItem("medicita_citas") ?? "[]");
+        const pendientes   = seguimientos.filter((s) => !s.emailEnviado_3d || !s.emailEnviado_30d);
+        const promedio     = nps.length > 0
+          ? (nps.reduce((sum, r) => sum + r.puntuacion, 0) / nps.length).toFixed(1)
+          : null;
+        const ultimas5 = nps.slice(0, 5).map((r) => {
+          const cita = citasAll.find((c) => c.folio === r.folio);
+          return {
+            folio: r.folio,
+            puntuacion: r.puntuacion,
+            comentario: r.comentario || "",
+            fechaRespuesta: r.fechaRespuesta,
+            paciente: cita ? `${cita.nombre} ${cita.apellidos}` : "Paciente desconocido",
+          };
+        });
+        return JSON.stringify({
+          promedioNPS: promedio,
+          totalRespuestas: nps.length,
+          ultimas5Opiniones: ultimas5,
+          seguimientosPendientes: pendientes.length,
+        });
+      }
+
+      case "buscar_paciente": {
+        const pacientes = JSON.parse(localStorage.getItem("medicita_pacientes") ?? "[]");
+        const citasAll  = JSON.parse(localStorage.getItem("medicita_citas") ?? "[]");
+        const resultados = pacientes.filter(pac => {
+          if (p.telefono && normalizarTexto(pac.telefono).includes(normalizarTexto(p.telefono))) return true;
+          if (p.nombre) {
+            const full = normalizarTexto(`${pac.nombre} ${pac.apellidos}`);
+            if (full.includes(normalizarTexto(p.nombre))) return true;
+          }
+          return false;
+        });
+        if (resultados.length === 0) {
+          return JSON.stringify({ encontrado: false, mensaje: "No se encontró ningún paciente con esos datos" });
+        }
+        return JSON.stringify(resultados.map(pac => {
+          const foliosCitas = pac.foliosCitas ?? [];
+          const citasPac    = citasAll.filter(c => foliosCitas.includes(c.folio));
+          const ultima      = citasPac[0] ?? null;
+          return {
+            id: pac.id, nombre: pac.nombre, apellidos: pac.apellidos,
+            telefono: pac.telefono, email: pac.email,
+            calificacionVIP: pac.calificacion === 3 ? "VIP Oro ⭐⭐⭐" : pac.calificacion === 2 ? "VIP Plata ⭐⭐" : "Regular ⭐",
+            tieneSeguro: pac.tieneSeguro, nombreSeguro: pac.nombreSeguro,
+            datosMedicos: {
+              peso: pac.peso || null,
+              estatura: pac.estatura || null,
+              tipoSangre: pac.tipoSangre || null,
+              alergias: pac.alergias || null,
+              enfermedadesCronicas: pac.enfermedadesCronicas || null,
+              medicamentosActuales: pac.medicamentosActuales || null,
+              ocupacion: pac.ocupacion || null,
+              ciudad: pac.ciudad || null,
+            },
+            totalCitas: foliosCitas.length,
+            ultimaCita: ultima ? { fecha: ultima.fecha, medico: ultima.doctor, estado: ultima.estado } : null,
+            foliosCitas,
+          };
+        }));
+      }
+
+      case "ver_documentos_paciente": {
+        const docs      = JSON.parse(localStorage.getItem("medicita_docs") ?? "[]");
+        const pacientes = JSON.parse(localStorage.getItem("medicita_pacientes") ?? "[]");
+        let filtrados   = [];
+        if (p.id_paciente) {
+          const pac      = pacientes.find(p2 => p2.id === p.id_paciente);
+          const idsDocs  = pac?.foliosDocs ?? [];
+          filtrados = docs.filter(d => idsDocs.includes(d.id));
+        } else if (p.folio_cita) {
+          filtrados = docs.filter(d => d.folio === p.folio_cita);
+        } else {
+          filtrados = docs;
+        }
+        if (filtrados.length === 0) {
+          return JSON.stringify({ encontrado: false, mensaje: "No se encontraron documentos para este paciente o cita" });
+        }
+        return JSON.stringify(filtrados.map(d => ({
+          tipo: d.tipodoc, folioCita: d.folio, fecha: d.creadoEn,
+          resumenInputs: JSON.stringify(d.inputs ?? {}).slice(0, 100),
+        })));
+      }
+
+      case "ver_notas_paciente": {
+        const pacientes = JSON.parse(localStorage.getItem("medicita_pacientes") ?? "[]");
+        let pac = null;
+        if (p.id_paciente) {
+          pac = pacientes.find(p2 => p2.id === p.id_paciente);
+        } else if (p.nombre) {
+          const q = normalizarTexto(p.nombre);
+          pac = pacientes.find(p2 =>
+            normalizarTexto(`${p2.nombre} ${p2.apellidos}`).includes(q) ||
+            normalizarTexto(p2.telefono).includes(q)
+          );
+        }
+        if (!pac) return JSON.stringify({ encontrado: false, mensaje: "No se encontró al paciente" });
+        return JSON.stringify({
+          paciente: `${pac.nombre} ${pac.apellidos}`,
+          notas: pac.notas || "Sin notas registradas",
+          historialNotas: pac.historialNotas ?? [],
+        });
+      }
+
+      case "ver_nps_paciente": {
+        const nps       = JSON.parse(localStorage.getItem("medicita_nps") ?? "[]");
+        const pacientes = JSON.parse(localStorage.getItem("medicita_pacientes") ?? "[]");
+        let folios = [];
+        if (p.folio_cita) {
+          folios = [p.folio_cita];
+        } else if (p.nombre) {
+          const q   = normalizarTexto(p.nombre);
+          const pac = pacientes.find(p2 =>
+            normalizarTexto(`${p2.nombre} ${p2.apellidos}`).includes(q) ||
+            normalizarTexto(p2.telefono).includes(q)
+          );
+          folios = pac?.foliosCitas ?? [];
+        }
+        const respuestas = nps.filter(r => folios.includes(r.folio));
+        if (respuestas.length === 0) {
+          return JSON.stringify({ encontrado: false, mensaje: "No se encontraron respuestas NPS para este paciente" });
+        }
+        return JSON.stringify(respuestas.map(r => ({
+          folio: r.folio, puntuacion: r.puntuacion,
+          comentario: r.comentario || "", fecha: r.fechaRespuesta,
+        })));
       }
 
       case "enviar_email_paciente":
@@ -448,14 +651,18 @@ function generarFolio() {
 
 function labelHerramienta(nombre) {
   return {
-    listar_especialidades:   "Consultando especialidades…",
-    listar_doctores:         "Buscando médicos disponibles…",
-    leer_todas_las_citas:    "Leyendo citas del sistema…",
-    buscar_citas:            "Buscando citas…",
-    crear_cita:              "Guardando la cita en el sistema…",
-    actualizar_estado_cita:  "Actualizando estado de la cita…",
-    eliminar_cita:           "Eliminando la cita…",
-    enviar_email_paciente:   "Enviando email al paciente…",
+    listar_especialidades:    "Consultando especialidades…",
+    listar_doctores:          "Buscando médicos disponibles…",
+    leer_todas_las_citas:     "Leyendo citas del sistema…",
+    buscar_citas:             "Buscando citas…",
+    crear_cita:               "Guardando la cita en el sistema…",
+    actualizar_estado_cita:   "Actualizando estado de la cita…",
+    eliminar_cita:            "Eliminando la cita…",
+    enviar_email_paciente:    "Enviando email al paciente…",
+    buscar_paciente:          "Buscando en expediente…",
+    ver_documentos_paciente:  "Buscando en expediente…",
+    ver_notas_paciente:       "Buscando en expediente…",
+    ver_nps_paciente:         "Buscando en expediente…",
   }[nombre] ?? "Procesando…";
 }
 

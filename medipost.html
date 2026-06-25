@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediPost — Generador de contenido | MediCita</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/medipost.css" />
+</head>
+<body>
+
+  <!-- ─── Header ──────────────────────────────────────────────────────── -->
+  <header id="mp-header">
+    <div class="mp-container header-inner">
+      <div class="header-marca">
+        <span aria-hidden="true">📣</span>
+        MediPost
+        <span class="mp-badge">Generador de contenido</span>
+      </div>
+      <div class="header-acciones">
+        <a href="admin.html" class="btn-header btn-admin">
+          ← Panel admin
+        </a>
+        <a href="index.html" target="_blank" class="btn-header btn-sitio">
+          ↗ Ver sitio
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ─── Main ────────────────────────────────────────────────────────── -->
+  <main>
+    <div class="mp-container">
+      <h1 class="pagina-titulo">
+        Generador de contenido para redes sociales
+        <span>Crea posts listos para publicar en segundos con ayuda de IA</span>
+      </h1>
+
+      <div class="mp-layout">
+
+        <!-- ── Columna formulario ── -->
+        <section class="form-card" aria-label="Configurar post">
+
+          <div class="form-grupo">
+            <label class="form-grupo-label">Red social</label>
+            <div class="selector-visual selector-redes" id="selector-redes" role="radiogroup" aria-label="Selecciona la red social">
+              <button type="button" class="opcion-visual" data-valor="instagram" role="radio" aria-checked="false">
+                <span class="opcion-icono" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                </span>
+                <span class="opcion-label">Instagram</span>
+              </button>
+              <button type="button" class="opcion-visual" data-valor="facebook" role="radio" aria-checked="false">
+                <span class="opcion-icono" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3.5l1-4H14V7a1 1 0 0 1 1-1h3z"/></svg>
+                </span>
+                <span class="opcion-label">Facebook</span>
+              </button>
+              <button type="button" class="opcion-visual" data-valor="google_business" role="radio" aria-checked="false">
+                <span class="opcion-icono" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                </span>
+                <span class="opcion-label">Google Business</span>
+              </button>
+              <button type="button" class="opcion-visual" data-valor="linkedin" role="radio" aria-checked="false">
+                <span class="opcion-icono" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4V8h4v1.5A5.97 5.97 0 0 1 16 8z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+                </span>
+                <span class="opcion-label">LinkedIn</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-grupo">
+            <label class="form-grupo-label">Tipo de post</label>
+            <div class="selector-visual selector-tipos" id="selector-tipos" role="radiogroup" aria-label="Selecciona el tipo de post">
+              <button type="button" class="opcion-visual opcion-tipo" data-valor="consejo" role="radio" aria-checked="false">
+                <span class="opcion-icono" aria-hidden="true">💡</span>
+                <span class="opcion-label">Consejo de salud</span>
+              </button>
+              <button type="button" class="opcion-visual opcion-tipo" data-valor="presentacion" role="radio" aria-checked="false">
+                <span class="opcion-icono" aria-hidden="true">🩺</span>
+                <span class="opcion-label">Presentación de servicio/doctor</span>
+              </button>
+              <button type="button" class="opcion-visual opcion-tipo" data-valor="recordatorio" role="radio" aria-checked="false">
+                <span class="opcion-icono" aria-hidden="true">📅</span>
+                <span class="opcion-label">Recordatorio estacional</span>
+              </button>
+              <button type="button" class="opcion-visual opcion-tipo" data-valor="promocion" role="radio" aria-checked="false">
+                <span class="opcion-icono" aria-hidden="true">🏷️</span>
+                <span class="opcion-label">Promoción o descuento</span>
+              </button>
+              <button type="button" class="opcion-visual opcion-tipo" data-valor="testimonio" role="radio" aria-checked="false">
+                <span class="opcion-icono" aria-hidden="true">💬</span>
+                <span class="opcion-label">Testimonio anonimizado</span>
+              </button>
+              <button type="button" class="opcion-visual opcion-tipo" data-valor="dato_curioso" role="radio" aria-checked="false">
+                <span class="opcion-icono" aria-hidden="true">🔎</span>
+                <span class="opcion-label">Dato curioso de salud</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-grupo">
+            <label class="form-grupo-label">Tono</label>
+            <div class="selector-visual selector-tonos" id="selector-tonos" role="radiogroup" aria-label="Selecciona el tono del post">
+              <button type="button" class="opcion-visual opcion-tono" data-valor="profesional" role="radio" aria-checked="false">
+                <span class="opcion-icono" aria-hidden="true">🎯</span>
+                <span class="opcion-label">Profesional</span>
+              </button>
+              <button type="button" class="opcion-visual opcion-tono" data-valor="cercano" role="radio" aria-checked="false">
+                <span class="opcion-icono" aria-hidden="true">🤝</span>
+                <span class="opcion-label">Cercano</span>
+              </button>
+              <button type="button" class="opcion-visual opcion-tono" data-valor="educativo" role="radio" aria-checked="false">
+                <span class="opcion-icono" aria-hidden="true">📚</span>
+                <span class="opcion-label">Educativo</span>
+              </button>
+              <button type="button" class="opcion-visual opcion-tono" data-valor="motivacional" role="radio" aria-checked="false">
+                <span class="opcion-icono" aria-hidden="true">✨</span>
+                <span class="opcion-label">Motivacional</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-grupo form-grupo-fila">
+            <div class="form-campo">
+              <label class="form-grupo-label" for="input-especialidad">Especialidad médica</label>
+              <input type="text" id="input-especialidad" class="form-control-mp" list="lista-especialidades"
+                placeholder="Ej. Cardiología, Pediatría…" autocomplete="off" />
+              <datalist id="lista-especialidades"></datalist>
+            </div>
+          </div>
+
+          <div class="form-grupo">
+            <label class="form-grupo-label" for="input-contexto">Información adicional <span class="opcional-tag">opcional</span></label>
+            <textarea id="input-contexto" class="form-control-mp" rows="3"
+              placeholder="Ej. nombre del doctor, % de descuento, fechas de la campaña, detalles del servicio…"></textarea>
+          </div>
+
+          <button type="button" id="btn-generar" class="btn-generar">
+            ✨ Generar post
+          </button>
+
+          <p class="form-error" id="form-error" role="alert" aria-live="assertive"></p>
+        </section>
+
+        <!-- ── Columna resultado ── -->
+        <section class="resultado-card" aria-label="Resultado generado">
+
+          <div id="resultado-vacio" class="resultado-vacio">
+            <div class="vacio-icono" aria-hidden="true">📣</div>
+            <p class="vacio-titulo">Aún no hay nada generado</p>
+            <p class="vacio-desc">Completa el formulario y presiona “Generar post” para ver aquí el resultado.</p>
+          </div>
+
+          <div id="resultado-cargando" class="resultado-cargando oculto">
+            <div class="spinner" aria-hidden="true"></div>
+            <p>Generando contenido con IA…</p>
+          </div>
+
+          <div id="resultado-contenido" class="resultado-contenido oculto">
+
+            <div class="resultado-header">
+              <span class="resultado-chip" id="resultado-chip-red"></span>
+              <span class="resultado-chip" id="resultado-chip-tipo"></span>
+              <button type="button" id="btn-regenerar" class="btn-regenerar" title="Generar otra versión">
+                ↻ Regenerar
+              </button>
+            </div>
+
+            <div class="bloque-resultado">
+              <div class="bloque-header">
+                <span class="bloque-titulo">📝 Caption</span>
+                <span class="contador-caracteres" id="contador-caracteres">0 / 125</span>
+                <button type="button" class="btn-copiar" data-target="texto-caption">Copiar</button>
+              </div>
+              <div class="bloque-cuerpo" id="texto-caption"></div>
+            </div>
+
+            <div class="bloque-resultado">
+              <div class="bloque-header">
+                <span class="bloque-titulo">#️⃣ Hashtags</span>
+                <button type="button" class="btn-copiar" data-target="texto-hashtags">Copiar</button>
+              </div>
+              <div class="bloque-cuerpo" id="texto-hashtags"></div>
+            </div>
+
+            <div class="bloque-resultado">
+              <div class="bloque-header">
+                <span class="bloque-titulo">🖼️ Sugerencia de imagen</span>
+                <button type="button" class="btn-copiar" data-target="texto-imagen">Copiar</button>
+              </div>
+              <div class="bloque-cuerpo" id="texto-imagen"></div>
+              <div id="zona-prompt-ia" class="zona-prompt-ia oculto">
+                <div class="prompt-ia-header">
+                  <span class="prompt-ia-label">🤖 Prompt para generador IA</span>
+                  <button type="button" class="btn-copiar" data-target="texto-imagen-prompt">Copiar prompt</button>
+                </div>
+                <div class="prompt-ia-codigo" id="texto-imagen-prompt"></div>
+                <div class="generadores-ia">
+                  <span class="generadores-label">Abrir en:</span>
+                  <a id="btn-firefly" href="#" target="_blank" rel="noopener noreferrer" class="btn-generador" title="Abre Adobe Firefly con el prompt pre-llenado en la URL">
+                    ✨ Adobe Firefly
+                  </a>
+                  <a href="https://app.leonardo.ai/" target="_blank" rel="noopener noreferrer" class="btn-generador" title="Copia el prompt primero y pégalo en Leonardo AI">
+                    🎨 Leonardo AI
+                  </a>
+                  <a href="https://www.canva.com/ai-image-generator/" target="_blank" rel="noopener noreferrer" class="btn-generador" title="Copia el prompt primero y pégalo en Canva IA">
+                    🖌️ Canva IA
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div class="bloque-resultado">
+              <div class="bloque-header">
+                <span class="bloque-titulo">📢 Llamada a la acción</span>
+                <button type="button" class="btn-copiar" data-target="texto-cta">Copiar</button>
+              </div>
+              <div class="bloque-cuerpo" id="texto-cta"></div>
+            </div>
+
+            <p class="aviso-manual">
+              ℹ️ MediPost no publica de forma automática. Copia el contenido y publícalo manualmente en la red social elegida.
+            </p>
+          </div>
+
+        </section>
+
+      </div>
+
+      <!-- ── Historial ── -->
+      <section class="historial-card" aria-label="Historial de posts generados">
+        <div class="historial-header">
+          <h3>Historial reciente</h3>
+          <span id="historial-contador" class="historial-contador">0 posts</span>
+        </div>
+        <div id="historial-lista" class="historial-lista">
+          <!-- Renderizado por medipost.js -->
+        </div>
+        <div id="historial-vacio" class="historial-vacio">
+          Todavía no has generado ningún post. Tu historial aparecerá aquí.
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Toast de notificaciones -->
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/medipost.js"></script>
+</body>
+</html>

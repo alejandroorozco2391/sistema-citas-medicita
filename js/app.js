@@ -74,6 +74,21 @@ function inicializarFormulario() {
   const selectEsp = document.getElementById("especialidad");
   const selectDoc = document.getElementById("doctor");
 
+  // Pre-fill desde perfil de paciente (M5)
+  const prefillTel = sessionStorage.getItem("medicita_prefill_tel");
+  if (prefillTel) {
+    const elTel = document.getElementById("telefono");
+    if (elTel) elTel.value = prefillTel;
+    const prefNombre = sessionStorage.getItem("medicita_prefill_nombre");
+    const prefApellidos = sessionStorage.getItem("medicita_prefill_apellidos");
+    if (prefNombre) { const el = document.getElementById("nombre"); if (el) el.value = prefNombre; }
+    if (prefApellidos) { const el = document.getElementById("apellidos"); if (el) el.value = prefApellidos; }
+    sessionStorage.removeItem("medicita_prefill_tel");
+    sessionStorage.removeItem("medicita_prefill_nombre");
+    sessionStorage.removeItem("medicita_prefill_apellidos");
+    document.getElementById("agendar")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   selectEsp.innerHTML = '<option value="">-- Selecciona una especialidad --</option>' +
     ESPECIALIDADES.map((e) => `<option value="${e.id}">${e.nombre}</option>`).join("");
 
@@ -94,6 +109,21 @@ function inicializarFormulario() {
   document.getElementById("fecha").addEventListener("change", () => {
     if (estado.doctorSeleccionado) cargarHorarios(estado.doctorSeleccionado);
   });
+
+  const toggleSeguro = document.getElementById("tiene-seguro");
+  const seguroCampos = document.getElementById("seguro-campos");
+  if (toggleSeguro && seguroCampos) {
+    toggleSeguro.addEventListener("change", () => {
+      seguroCampos.classList.toggle("visible", toggleSeguro.checked);
+    });
+  }
+  const selAseguradora = document.getElementById("aseguradora");
+  const asegOtroCampo  = document.getElementById("aseg-otro-campo");
+  if (selAseguradora && asegOtroCampo) {
+    selAseguradora.addEventListener("change", () => {
+      asegOtroCampo.style.display = selAseguradora.value === "Otro" ? "" : "none";
+    });
+  }
 }
 
 function inicializarFechaMin() {
@@ -166,6 +196,11 @@ function manejarEnvio(e) {
     return;
   }
 
+  const selAseg = document.getElementById("aseguradora");
+  const nombreSeguro = selAseg?.value === "Otro"
+    ? (document.getElementById("aseg-otro")?.value.trim() || "")
+    : (selAseg?.value || "");
+
   const datos = {
     nombre: document.getElementById("nombre").value.trim(),
     apellidos: document.getElementById("apellidos").value.trim(),
@@ -177,6 +212,9 @@ function manejarEnvio(e) {
     hora: horarioSeleccionado.dataset.hora,
     tipo: document.getElementById("tipo-consulta").value,
     notas: document.getElementById("notas").value.trim(),
+    tieneSeguro:  document.getElementById("tiene-seguro")?.checked || false,
+    nombreSeguro,
+    numeroPoliza: document.getElementById("poliza")?.value.trim() || "",
   };
 
 
@@ -247,10 +285,55 @@ function guardarCitaEnStorage(datos, folio) {
     hora: datos.hora,
     tipo: datos.tipo,
     notas: datos.notas,
+    tieneSeguro:  datos.tieneSeguro  || false,
+    nombreSeguro: datos.nombreSeguro || "",
+    numeroPoliza: datos.numeroPoliza || "",
     estado: "pendiente",
     creadaEn: new Date().toISOString(),
   });
   localStorage.setItem("medicita_citas", JSON.stringify(citas));
+
+  // M5: vincular cita con perfil de paciente
+  vincularPacienteDesdeIndex(folio, datos);
+}
+
+function vincularPacienteDesdeIndex(folio, datos) {
+  const KEY = "medicita_pacientes";
+  const pacientes = JSON.parse(localStorage.getItem(KEY) || "[]");
+  const tel = (datos.telefono || "").replace(/\s/g, "");
+  const idx = pacientes.findIndex(p => p.telefono.replace(/\s/g, "") === tel);
+  const ahora = new Date().toISOString();
+
+  if (idx >= 0) {
+    const actualizaciones = { actualizadoEn: ahora };
+    if (!pacientes[idx].foliosCitas.includes(folio)) {
+      actualizaciones.foliosCitas = [...pacientes[idx].foliosCitas, folio];
+    }
+    if (datos.tieneSeguro) {
+      actualizaciones.tieneSeguro  = true;
+      actualizaciones.nombreSeguro = datos.nombreSeguro || "";
+      actualizaciones.numeroPoliza = datos.numeroPoliza || "";
+    }
+    pacientes[idx] = { ...pacientes[idx], ...actualizaciones };
+  } else {
+    const d = new Date();
+    const id = `PAC-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}-${Math.floor(Math.random()*9000)+1000}`;
+    pacientes.unshift({
+      id,
+      nombre: datos.nombre || "", apellidos: datos.apellidos || "",
+      telefono: datos.telefono || "", email: datos.email || "",
+      fechaNacimiento: "", sexo: "", estatura: "", peso: "",
+      tipoSangre: "", alergias: "", enfermedadesCronicas: "", medicamentosActuales: "",
+      ciudad: "", comoNosEncontro: "", ocupacion: "",
+      calificacion: 1, notas: "",
+      tieneSeguro:  datos.tieneSeguro  || false,
+      nombreSeguro: datos.nombreSeguro || "",
+      numeroPoliza: datos.numeroPoliza || "",
+      foliosCitas: [folio], foliosDocs: [], respuestasNPS: [],
+      creadoEn: ahora, actualizadoEn: ahora,
+    });
+  }
+  localStorage.setItem(KEY, JSON.stringify(pacientes));
 }
 
 function mostrarExito(folio, datos) {

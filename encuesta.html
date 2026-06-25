@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Encuesta de satisfacción — MediCita</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/encuesta.css" />
+</head>
+<body>
+
+  <div class="encuesta-wrap">
+
+    <!-- ─── Header ─────────────────────────────────────────────────────── -->
+    <div class="enc-header">
+      <span aria-hidden="true">🏥</span>
+      MediCita
+    </div>
+
+    <!-- ─── Estado: validando (visible hasta que JS tome control) ─────── -->
+    <div id="estado-validando" class="enc-card" role="status" aria-live="polite">
+      <div class="spinner-enc" aria-hidden="true"></div>
+      <p>Validando tu enlace…</p>
+    </div>
+
+    <!-- ─── Estado: folio inválido ────────────────────────────────────── -->
+    <div id="estado-folio-invalido" class="enc-card oculto">
+      <div class="enc-icono-grande" aria-hidden="true">🔗</div>
+      <h2>Enlace no válido</h2>
+      <p>Este enlace de encuesta no es válido o ya no está disponible.<br>
+         Si crees que hay un error, contacta directamente a la clínica.</p>
+    </div>
+
+    <!-- ─── Estado: ya respondió ──────────────────────────────────────── -->
+    <div id="estado-ya-respondido" class="enc-card oculto">
+      <div class="enc-icono-grande" aria-hidden="true">✅</div>
+      <h2>¡Gracias por tu respuesta!</h2>
+      <p>Ya registramos tu opinión para esta cita.<br>
+         Tu retroalimentación es muy valiosa para nosotros.</p>
+    </div>
+
+    <!-- ─── Estado: formulario ────────────────────────────────────────── -->
+    <div id="estado-formulario" class="enc-card oculto">
+
+      <div class="enc-folio" id="enc-folio-display" aria-label="Número de cita"></div>
+
+      <div class="enc-pregunta">
+        Del 1 al 10, ¿qué tan probable es que recomiendes a tu médico con un familiar o amigo?
+      </div>
+
+      <div class="nps-escala">
+        <div class="nps-botones" id="nps-botones" role="group" aria-label="Selecciona tu calificación del 1 al 10">
+          <!-- Renderizado por encuesta.js -->
+        </div>
+        <div class="nps-etiquetas" aria-hidden="true">
+          <span>Muy poco probable</span>
+          <span>Muy probable</span>
+        </div>
+      </div>
+
+      <div class="enc-comentario-grupo">
+        <label for="enc-comentario">
+          ¿Algo que quieras comentarnos?
+          <span class="opcional-enc">Opcional</span>
+        </label>
+        <textarea id="enc-comentario" class="enc-textarea" rows="4"
+          placeholder="Cuéntanos cómo fue tu experiencia…"></textarea>
+      </div>
+
+      <p id="enc-error" class="enc-error" role="alert" aria-live="assertive"></p>
+
+      <button type="button" id="btn-enviar-encuesta" class="btn-enviar-enc">
+        Enviar mi calificación
+      </button>
+
+    </div>
+
+    <!-- ─── Estado: gracias ────────────────────────────────────────────── -->
+    <div id="estado-gracias" class="enc-card oculto">
+      <div class="enc-icono-grande" id="enc-icono-gracias" aria-hidden="true">⭐</div>
+      <h2>¡Gracias por tu tiempo!</h2>
+      <p id="enc-mensaje-gracias">Tu opinión nos ayuda a mejorar.</p>
+      <div class="enc-puntuacion-display" id="enc-puntuacion-display"></div>
+    </div>
+
+  </div>
+
+  <script src="js/encuesta.js"></script>
+</body>
+</html>

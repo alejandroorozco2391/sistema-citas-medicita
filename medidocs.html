@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediDocs — Documentos clínicos | MediCita</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/medidocs.css" />
+</head>
+<body>
+
+  <!-- ─── Header ──────────────────────────────────────────────────────── -->
+  <header id="md-header">
+    <div class="md-container header-inner">
+      <div class="header-marca">
+        <span aria-hidden="true">📄</span>
+        MediDocs
+        <span class="md-badge">Documentos clínicos</span>
+      </div>
+      <div class="header-acciones">
+        <button class="btn-header btn-config-email" id="btn-config-email" type="button">
+          ⚙️ EmailJS
+        </button>
+        <a href="admin.html" class="btn-header">← Panel admin</a>
+        <a href="index.html" target="_blank" class="btn-header">↗ Ver sitio</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ─── Main ─────────────────────────────────────────────────────────── -->
+  <main>
+    <div class="md-container">
+
+      <h1 class="pagina-titulo">
+        Generador de documentos clínicos
+        <span>Crea recetas, notas de consulta, constancias y más con ayuda de IA</span>
+      </h1>
+
+      <!-- ── Dos columnas: formulario + preview ── -->
+      <div class="md-layout">
+
+        <!-- ── Columna izquierda: formulario ── -->
+        <section class="md-form-card" aria-label="Configurar documento">
+
+          <!-- 1. Tipo de documento -->
+          <div>
+            <p class="md-card-titulo">1. Tipo de documento</p>
+            <div class="selector-tipo-doc" id="selector-tipo-doc" role="radiogroup" aria-label="Tipo de documento">
+              <button type="button" class="tipo-doc-btn" data-tipo="soap" role="radio" aria-checked="false">
+                <span class="tipo-doc-icono">📋</span>
+                <span class="tipo-doc-label">Nota de consulta</span>
+                <span class="tipo-doc-sub">SOAP</span>
+              </button>
+              <button type="button" class="tipo-doc-btn" data-tipo="receta" role="radio" aria-checked="false">
+                <span class="tipo-doc-icono">💊</span>
+                <span class="tipo-doc-label">Receta médica</span>
+                <span class="tipo-doc-sub">Con membrete</span>
+              </button>
+              <button type="button" class="tipo-doc-btn" data-tipo="referencia" role="radio" aria-checked="false">
+                <span class="tipo-doc-icono">📨</span>
+                <span class="tipo-doc-label">Carta de referencia</span>
+                <span class="tipo-doc-sub">A especialista</span>
+              </button>
+              <button type="button" class="tipo-doc-btn" data-tipo="constancia_atencion" role="radio" aria-checked="false">
+                <span class="tipo-doc-icono">📄</span>
+                <span class="tipo-doc-label">Constancia de atención</span>
+                <span class="tipo-doc-sub">Constancia médica</span>
+              </button>
+              <button type="button" class="tipo-doc-btn" data-tipo="incapacidad" role="radio" aria-checked="false">
+                <span class="tipo-doc-icono">🏥</span>
+                <span class="tipo-doc-label">Incapacidad temporal</span>
+                <span class="tipo-doc-sub">Constancia</span>
+              </button>
+              <button type="button" class="tipo-doc-btn" data-tipo="consentimiento" role="radio" aria-checked="false">
+                <span class="tipo-doc-icono">✍️</span>
+                <span class="tipo-doc-label">Consentimiento informado</span>
+                <span class="tipo-doc-sub">Genérico</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. Cita asociada -->
+          <div>
+            <p class="md-card-titulo">2. Cita asociada (folio)</p>
+            <div class="form-grupo-md">
+              <label for="input-folio">Buscar por folio</label>
+              <div class="folio-search-row">
+                <input type="text" id="input-folio" list="lista-folios"
+                  placeholder="CIT-260601-XXXX" autocomplete="off"
+                  class="input-md" />
+                <datalist id="lista-folios"></datalist>
+                <button type="button" id="btn-buscar-folio" class="btn-buscar-folio">Buscar</button>
+              </div>
+            </div>
+            <div id="cita-info" class="oculto"></div>
+          </div>
+
+          <!-- 3. Campos dinámicos según tipo de documento -->
+          <div id="campos-dinamicos-wrap">
+            <p class="md-card-titulo">3. Datos del documento</p>
+            <div id="campos-dinamicos">
+              <p style="font-size:.82rem;color:#64748b;padding:8px 0;">
+                Selecciona el tipo de documento para ver los campos requeridos.
+              </p>
+            </div>
+          </div>
+
+          <!-- Error -->
+          <div class="form-error-md" id="form-error-md"></div>
+
+          <!-- Botón generar -->
+          <button type="button" class="btn-generar-doc" id="btn-generar-doc">
+            ✨ Generar documento
+          </button>
+
+        </section>
+
+        <!-- ── Columna derecha: preview ── -->
+        <section class="md-preview-card" aria-label="Vista previa del documento">
+          <div class="preview-header">
+            <span class="preview-header-titulo">Vista previa del documento</span>
+            <div class="preview-acciones">
+              <button type="button" class="btn-preview-accion" id="btn-imprimir" disabled>
+                🖨 Imprimir
+              </button>
+              <button type="button" class="btn-preview-accion btn-email" id="btn-enviar-email" disabled>
+                ✉️ Enviar por email
+              </button>
+            </div>
+          </div>
+
+          <!-- Contenido imprimible -->
+          <div id="doc-imprimible">
+
+            <!-- Estado: vacío -->
+            <div id="preview-vacio" class="preview-placeholder">
+              <span class="placeholder-icono" aria-hidden="true">📄</span>
+              <p>Selecciona el tipo de documento, busca una cita por folio, completa los datos y haz clic en <strong>Generar documento</strong>.</p>
+            </div>
+
+            <!-- Estado: cargando -->
+            <div id="preview-cargando" class="preview-placeholder oculto">
+              <div class="md-spinner" role="status" aria-label="Generando documento…"></div>
+              <p>Claude está redactando el documento…</p>
+            </div>
+
+            <!-- Estado: documento generado -->
+            <div id="preview-doc" class="oculto">
+              <div id="md-membrete-completo"></div>
+            </div>
+
+          </div><!-- /doc-imprimible -->
+        </section>
+
+      </div><!-- /md-layout -->
+
+      <!-- ── Historial de documentos ── -->
+      <section class="md-historial-card" aria-label="Historial de documentos generados">
+        <div class="historial-header-md">
+          <h3>Historial de documentos</h3>
+          <span id="historial-contador">0 documentos guardados</span>
+        </div>
+        <div id="md-historial-lista"></div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ─── Modal: configurar EmailJS ───────────────────────────────────── -->
+  <div id="modal-email-config" class="md-modal oculto" role="dialog" aria-modal="true" aria-labelledby="modal-email-titulo">
+    <div class="md-modal-inner">
+      <h3 id="modal-email-titulo">Configurar EmailJS</h3>
+      <p>Las claves solo se guardan en esta sesión, nunca en el dispositivo.</p>
+
+      <div class="form-grupo-md">
+        <label for="md-ejs-service">Service ID</label>
+        <input type="text" id="md-ejs-service" class="input-md" placeholder="service_xxxxxx" autocomplete="off" />
+      </div>
+      <div class="form-grupo-md">
+        <label for="md-ejs-template">Template ID</label>
+        <input type="text" id="md-ejs-template" class="input-md" placeholder="template_xxxxxx" autocomplete="off" />
+      </div>
+      <div class="form-grupo-md">
+        <label for="md-ejs-key">Public Key</label>
+        <input type="text" id="md-ejs-key" class="input-md" placeholder="Clave pública de EmailJS" autocomplete="off" />
+      </div>
+
+      <div class="md-modal-acciones">
+        <button type="button" class="btn-modal-cancelar" id="btn-cancelar-email">Cancelar</button>
+        <button type="button" class="btn-modal-guardar" id="btn-guardar-email">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Toast ────────────────────────────────────────────────────────── -->
+  <div id="md-toast" class="md-toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/medidocs.js"></script>
+</body>
+</html>

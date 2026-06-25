@@ -238,6 +238,43 @@
                   maxlength="400"></textarea>
               </div>
 
+              <!-- Seguro médico (opcional) -->
+              <div class="form-grupo full seguro-seccion">
+                <div class="seguro-header">
+                  <span class="seguro-titulo">Información de seguro médico <span class="seguro-opcional">(opcional)</span></span>
+                  <label class="toggle-switch" aria-label="¿Cuento con seguro médico?">
+                    <input type="checkbox" id="tiene-seguro" />
+                    <span class="toggle-track"></span>
+                  </label>
+                </div>
+                <div id="seguro-campos" class="seguro-campos-wrapper">
+                  <div class="seguro-grid">
+                    <div class="seguro-grupo">
+                      <label for="aseguradora">Aseguradora</label>
+                      <select id="aseguradora" class="form-control">
+                        <option value="">Seleccionar aseguradora...</option>
+                        <option value="GNP">GNP Seguros</option>
+                        <option value="AXA">AXA Seguros</option>
+                        <option value="Metlife">Metlife</option>
+                        <option value="Mapfre">Mapfre</option>
+                        <option value="HDI">HDI Seguros</option>
+                        <option value="IMSS">IMSS</option>
+                        <option value="ISSSTE">ISSSTE</option>
+                        <option value="Otro">Otro</option>
+                      </select>
+                    </div>
+                    <div class="seguro-grupo" id="aseg-otro-campo" style="display:none">
+                      <label for="aseg-otro">¿Cuál?</label>
+                      <input type="text" id="aseg-otro" class="form-control" placeholder="Nombre de la aseguradora" />
+                    </div>
+                    <div class="seguro-grupo">
+                      <label for="poliza">Número de póliza</label>
+                      <input type="text" id="poliza" class="form-control" placeholder="Ej. GNP-123456" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Alerta -->
               <div id="alerta-form" class="alerta" role="alert" aria-live="assertive"></div>
 

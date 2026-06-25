@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/admin.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
 
@@ -20,15 +21,56 @@
         <span class="admin-badge">Panel Admin</span>
       </div>
       <div class="header-acciones">
-        <button class="btn-header btn-muestra" id="btn-muestra">
-          🧪 Cargar muestra
+        <button class="badge-seguimientos-btn oculto" id="badge-seguimientos-btn"
+                title="Seguimientos pendientes — haz clic para verlos">
+          ⏰ <span id="badge-seguimientos-num">0</span> pendientes
         </button>
-        <a href="index.html" target="_blank" class="btn-header btn-sitio">
-          ↗ Ver sitio
-        </a>
-        <button class="btn-header btn-exportar" id="btn-exportar">
-          ⬇ Exportar CSV
-        </button>
+
+        <!-- Grupo 1: Módulos -->
+        <div class="header-grupo">
+          <a href="medidocs.html" target="_blank" class="btn-header btn-medidocs" title="Generador de documentos clínicos">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            MediDocs
+          </a>
+          <a href="medipost.html" target="_blank" class="btn-header btn-medipost" title="Generador de posts para redes sociales">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            MediPost
+          </a>
+        </div>
+
+        <!-- Separador -->
+        <div class="header-sep" aria-hidden="true"></div>
+
+        <!-- Grupo 2: Admin -->
+        <div class="header-grupo">
+          <button class="btn-header btn-nueva-cita" id="btn-nueva-cita" title="Registrar una cita manualmente">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nueva cita
+          </button>
+          <button class="btn-header btn-config-clinica" id="btn-config-clinica" title="Configurar datos de la clínica">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Configurar clínica
+          </button>
+        </div>
+
+        <!-- Separador -->
+        <div class="header-sep" aria-hidden="true"></div>
+
+        <!-- Grupo 3: Utilidades -->
+        <div class="header-grupo">
+          <button class="btn-header btn-muestra" id="btn-muestra" title="Cargar datos de demostración">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+            Cargar muestra
+          </button>
+          <a href="index.html" target="_blank" class="btn-header btn-sitio" title="Ver el sitio de pacientes">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Ver sitio
+          </a>
+          <button class="btn-header btn-exportar" id="btn-exportar" title="Exportar tabla de citas a CSV">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar CSV
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -41,7 +83,7 @@
         <span>Clínica MediCita</span>
       </h1>
 
-      <!-- Stats -->
+      <!-- Stats — siempre visibles, fuera de las pestañas -->
       <div class="stats-grid" role="list" aria-label="Resumen de citas">
         <div class="stat-card card-total" role="listitem">
           <div class="stat-icono" aria-hidden="true">📋</div>
@@ -71,9 +113,16 @@
             <div class="stat-label">Confirmadas</div>
           </div>
         </div>
+        <div class="stat-card card-satisfaccion" role="listitem">
+          <div class="stat-icono" aria-hidden="true">⭐</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-nps">—</div>
+            <div class="stat-label">Satisfacción</div>
+          </div>
+        </div>
       </div>
 
-      <!-- Filtros -->
+      <!-- Filtros — siempre visibles, fuera de las pestañas -->
       <div class="filtros-card" role="search" aria-label="Filtrar citas">
         <div class="filtros-row">
           <div class="filtro-grupo busqueda">
@@ -108,51 +157,339 @@
         </div>
       </div>
 
-      <!-- Tabla -->
-      <div class="tabla-card">
-        <div class="tabla-header">
-          <div class="tabla-header-izq">
-            <h3>Citas agendadas</h3>
-            <span id="contador-resultados" aria-live="polite">0 resultados</span>
+      <!-- ─── Navegación de pestañas ─────────────────────────────────────── -->
+      <nav class="tabs-nav" role="tablist" aria-label="Secciones del panel">
+        <button class="tabs-nav-btn" data-tab="citas" role="tab"
+                id="tab-btn-citas" aria-controls="tab-citas" aria-selected="false">
+          📋 Citas
+        </button>
+        <button class="tabs-nav-btn" data-tab="seguimientos" role="tab"
+                id="tab-btn-seguimientos" aria-controls="tab-seguimientos" aria-selected="false">
+          ⏰ Seguimientos
+        </button>
+        <button class="tabs-nav-btn" data-tab="opiniones" role="tab"
+                id="tab-btn-opiniones" aria-controls="tab-opiniones" aria-selected="false">
+          ⭐ Opiniones
+        </button>
+        <button class="tabs-nav-btn" data-tab="pacientes" role="tab"
+                id="tab-btn-pacientes" aria-controls="tab-pacientes" aria-selected="false">
+          👥 Pacientes
+        </button>
+        <button class="tabs-nav-btn" data-tab="analytics" role="tab"
+                id="tab-btn-analytics" aria-controls="tab-analytics" aria-selected="false">
+          📊 Analytics
+        </button>
+      </nav>
+
+      <!-- ─── Pestaña: Citas ─────────────────────────────────────────────── -->
+      <div id="tab-citas" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-citas">
+        <div class="tabla-card">
+          <div class="tabla-header">
+            <div class="tabla-header-izq">
+              <h3>Citas agendadas</h3>
+              <span id="contador-resultados" aria-live="polite">0 resultados</span>
+            </div>
+            <div class="tabla-header-der">
+              <button class="btn-accion-tabla btn-muestra-tabla" id="btn-muestra-tabla" type="button">
+                🧪 <span>Cargar datos de muestra</span>
+              </button>
+            </div>
           </div>
-          <div class="tabla-header-der">
-            <button class="btn-accion-tabla btn-muestra-tabla" id="btn-muestra-tabla" type="button">
-              🧪 <span>Cargar datos de muestra</span>
+
+          <div class="tabla-scroll" role="region" aria-label="Tabla de citas" tabindex="0">
+            <table aria-label="Lista de citas médicas">
+              <thead>
+                <tr>
+                  <th scope="col">Folio</th>
+                  <th scope="col">Paciente</th>
+                  <th scope="col">Médico / Especialidad</th>
+                  <th scope="col">Fecha y hora</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-body">
+                <!-- Filas renderizadas por admin.js -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Estado vacío -->
+          <div id="empty-state" role="status">
+            <div class="empty-icono" aria-hidden="true">🗓️</div>
+            <div class="empty-titulo">No se encontraron citas</div>
+            <p class="empty-desc">
+              Aún no hay citas registradas, o ninguna coincide con los filtros aplicados.
+              Puedes cargar datos de muestra para explorar el panel.
+            </p>
+            <button class="empty-btn" id="btn-empty-muestra" onclick="cargarDatosMuestra()">
+              🧪 Cargar datos de muestra
             </button>
           </div>
         </div>
+      </div>
 
-        <div class="tabla-scroll" role="region" aria-label="Tabla de citas" tabindex="0">
-          <table aria-label="Lista de citas médicas">
-            <thead>
-              <tr>
-                <th scope="col">Folio</th>
-                <th scope="col">Paciente</th>
-                <th scope="col">Médico / Especialidad</th>
-                <th scope="col">Fecha y hora</th>
-                <th scope="col">Tipo</th>
-                <th scope="col">Estado</th>
-                <th scope="col">Acciones</th>
-              </tr>
-            </thead>
-            <tbody id="tabla-body">
-              <!-- Filas renderizadas por admin.js -->
-            </tbody>
-          </table>
+      <!-- ─── Pestaña: Seguimientos ──────────────────────────────────────── -->
+      <div id="tab-seguimientos" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-seguimientos">
+        <div id="seccion-seguimientos" class="seguimientos-card oculto">
+          <div class="seguimientos-header">
+            <div class="seguimientos-header-izq">
+              <h3>⏰ Seguimientos pendientes</h3>
+              <span id="seguimientos-badge" class="seguimientos-badge">0</span>
+            </div>
+            <p class="seguimientos-desc">
+              Emails de seguimiento post-consulta. Envíalos manualmente cuando corresponda (día 3 y día 30 tras la consulta).
+            </p>
+          </div>
+          <div class="tabla-scroll" role="region" aria-label="Tabla de seguimientos" tabindex="0">
+            <table aria-label="Seguimientos pendientes">
+              <thead>
+                <tr>
+                  <th scope="col">Paciente</th>
+                  <th scope="col">Fecha atendida</th>
+                  <th scope="col">Email día 3</th>
+                  <th scope="col">Email día 30</th>
+                </tr>
+              </thead>
+              <tbody id="seguimientos-body">
+                <!-- Filas renderizadas por admin.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p class="tab-sin-datos">No hay seguimientos pendientes en este momento.</p>
+      </div>
+
+      <!-- ─── Pestaña: Opiniones ─────────────────────────────────────────── -->
+      <div id="tab-opiniones" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-opiniones">
+        <div id="seccion-nps" class="nps-card oculto" data-expandido="false">
+          <div class="nps-card-header">
+            <div class="nps-card-header-izq">
+              <h3>⭐ Opiniones de pacientes</h3>
+              <span id="nps-total-badge" class="seguimientos-badge">0</span>
+            </div>
+            <button class="btn-ver-todas-nps" id="btn-ver-todas-nps" type="button">Ver todas</button>
+          </div>
+          <div class="tabla-scroll" role="region" aria-label="Tabla de opiniones" tabindex="0">
+            <table aria-label="Opiniones de pacientes">
+              <thead>
+                <tr>
+                  <th scope="col">Folio</th>
+                  <th scope="col">Paciente</th>
+                  <th scope="col">Puntuación</th>
+                  <th scope="col">Comentario</th>
+                  <th scope="col">Fecha</th>
+                </tr>
+              </thead>
+              <tbody id="nps-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <p class="tab-sin-datos">No hay opiniones registradas aún. Aparecerán aquí cuando los pacientes completen la encuesta de satisfacción.</p>
+      </div>
+
+      <!-- ─── Pestaña: Pacientes ────────────────────────────────────────────── -->
+      <div id="tab-pacientes" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-pacientes">
+
+        <!-- Header de la pestaña -->
+        <div class="pac-tab-header">
+          <div class="pac-tab-header-izq">
+            <h3>👥 Directorio de pacientes</h3>
+            <span id="pac-total-counter">0 pacientes registrados</span>
+          </div>
+          <div class="pac-tab-header-der">
+            <div class="pac-vista-toggle" role="group" aria-label="Tipo de vista">
+              <button class="pac-vista-btn activo" id="btn-vista-grid" title="Vista tarjetas" aria-label="Vista tarjetas">🗂</button>
+              <button class="pac-vista-btn" id="btn-vista-lista" title="Vista lista" aria-label="Vista lista">📋</button>
+            </div>
+            <button class="btn-exportar-pac" id="btn-exportar-pac" type="button" title="Exportar directorio a CSV">⬇ Exportar CSV</button>
+            <button class="btn-nuevo-pac" id="btn-nuevo-pac" type="button">+ Nuevo paciente</button>
+          </div>
         </div>
 
-        <!-- Estado vacío -->
-        <div id="empty-state" role="status">
-          <div class="empty-icono" aria-hidden="true">🗓️</div>
-          <div class="empty-titulo">No se encontraron citas</div>
-          <p class="empty-desc">
-            Aún no hay citas registradas, o ninguna coincide con los filtros aplicados.
-            Puedes cargar datos de muestra para explorar el panel.
-          </p>
-          <button class="empty-btn" id="btn-empty-muestra" onclick="cargarDatosMuestra()">
-            🧪 Cargar datos de muestra
-          </button>
+        <!-- Filtros -->
+        <div class="pac-filtros-bar">
+          <div class="filtro-grupo busqueda">
+            <label for="pac-busqueda">Buscar</label>
+            <input type="search" id="pac-busqueda" class="form-control-admin"
+                   placeholder="Nombre, teléfono o email…" autocomplete="off" />
+          </div>
+          <div class="filtro-grupo">
+            <label for="pac-filtro-calificacion">VIP</label>
+            <select id="pac-filtro-calificacion" class="form-control-admin">
+              <option value="">Todos</option>
+              <option value="3">⭐⭐⭐ VIP Oro</option>
+              <option value="2">⭐⭐ VIP Plata</option>
+              <option value="1">⭐ Regular</option>
+            </select>
+          </div>
+          <div class="filtro-grupo">
+            <label for="pac-filtro-sexo">Sexo</label>
+            <select id="pac-filtro-sexo" class="form-control-admin">
+              <option value="">Todos</option>
+              <option value="Masculino">Masculino</option>
+              <option value="Femenino">Femenino</option>
+              <option value="Prefiero no decir">Prefiero no decir</option>
+            </select>
+          </div>
+          <div class="filtro-grupo">
+            <label for="pac-filtro-origen">Origen</label>
+            <select id="pac-filtro-origen" class="form-control-admin">
+              <option value="">Todos</option>
+              <option value="Referido">Referido por amigo/familiar</option>
+              <option value="Google">Google / búsqueda</option>
+              <option value="Redes sociales">Redes sociales</option>
+              <option value="Seguro médico">Seguro médico</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div class="filtros-acciones">
+            <button class="btn-limpiar-filtros" id="btn-limpiar-pac" type="button">✕ Limpiar</button>
+          </div>
         </div>
+
+        <!-- Contador de resultados -->
+        <div class="pac-resultados-info">
+          <span id="pac-contador-resultados">0 pacientes</span>
+        </div>
+
+        <!-- Área de render (cards o tabla — poblada por pacientes.js) -->
+        <div id="pac-area"></div>
+
+      </div>
+
+      <!-- ─── Pestaña: Analytics ─────────────────────────────────────────── -->
+      <div id="tab-analytics" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-analytics">
+
+        <!-- Selector de rango -->
+        <div class="an-selector-rango" id="an-selector-rango" role="group" aria-label="Rango de tiempo para análisis">
+          <button class="an-rango-btn" data-rango="semana" type="button">Última semana</button>
+          <button class="an-rango-btn activo" data-rango="mes" type="button">Último mes</button>
+          <button class="an-rango-btn" data-rango="trimestre" type="button">Últimos 3 meses</button>
+          <button class="an-rango-btn" data-rango="todo" type="button">Todo el historial</button>
+        </div>
+
+        <!-- KPIs -->
+        <div class="an-kpis" role="list" aria-label="Métricas de rendimiento">
+          <div class="an-kpi-card" role="listitem">
+            <div class="an-kpi-num" id="kpi-ocupacion">—</div>
+            <div class="an-kpi-label">Tasa de ocupación</div>
+            <div class="an-kpi-desc">Citas atendidas / total</div>
+          </div>
+          <div class="an-kpi-card" role="listitem">
+            <div class="an-kpi-num" id="kpi-noshows">—</div>
+            <div class="an-kpi-label">No-shows</div>
+            <div class="an-kpi-desc">Citas canceladas / total</div>
+          </div>
+          <div class="an-kpi-card" role="listitem">
+            <div class="an-kpi-num" id="kpi-recurrentes">—</div>
+            <div class="an-kpi-label">Pacientes recurrentes</div>
+            <div class="an-kpi-desc">Con más de una cita</div>
+          </div>
+        </div>
+
+        <!-- Gráficas lado a lado -->
+        <div class="an-charts-row">
+          <div class="an-card">
+            <div class="an-card-header">
+              <h4 class="an-card-titulo">Citas por día de la semana</h4>
+            </div>
+            <div class="an-chart-wrap">
+              <canvas id="chart-dias" aria-label="Gráfica de barras: citas por día"></canvas>
+            </div>
+          </div>
+          <div class="an-card">
+            <div class="an-card-header">
+              <h4 class="an-card-titulo">Distribución por especialidad</h4>
+            </div>
+            <div class="an-chart-wrap">
+              <canvas id="chart-especialidades" aria-label="Gráfica de dona: citas por especialidad"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Heatmap de horarios -->
+        <div class="an-card">
+          <div class="an-card-header">
+            <h4 class="an-card-titulo">Horarios de mayor demanda</h4>
+            <span class="an-card-sub">Número de citas por franja horaria</span>
+          </div>
+          <div class="heatmap-container">
+            <table class="heatmap-tabla" id="heatmap-tabla" aria-label="Mapa de calor de horarios"></table>
+          </div>
+        </div>
+
+        <!-- Insights IA -->
+        <div class="an-card an-ia-card">
+          <div class="an-ia-header">
+            <div>
+              <h4 class="an-card-titulo">Análisis inteligente</h4>
+              <p class="an-ia-desc">Claude analiza los datos del período seleccionado y detecta patrones accionables</p>
+            </div>
+            <button class="btn-analizar-ia" id="btn-analizar-ia" type="button">
+              ✨ Analizar con IA
+            </button>
+          </div>
+          <div id="an-ia-resultado" class="an-ia-resultado">
+            <p class="an-ia-hint">Haz clic en "Analizar con IA" para obtener recomendaciones sobre el período seleccionado.</p>
+          </div>
+        </div>
+
+        <!-- Métricas de Pacientes (M5) -->
+        <div class="an-seccion-sep">
+          <span>Perfil de Pacientes</span>
+        </div>
+
+        <div class="an-charts-row">
+          <div class="an-card">
+            <div class="an-card-header">
+              <h4 class="an-card-titulo">Distribución por sexo</h4>
+            </div>
+            <div class="an-chart-wrap">
+              <canvas id="chart-pac-sexo" aria-label="Gráfica: distribución por sexo"></canvas>
+            </div>
+          </div>
+          <div class="an-card">
+            <div class="an-card-header">
+              <h4 class="an-card-titulo">Top 5 ciudades de origen</h4>
+            </div>
+            <div class="an-chart-wrap">
+              <canvas id="chart-pac-ciudades" aria-label="Gráfica: top 5 ciudades"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="an-charts-row">
+          <div class="an-card">
+            <div class="an-card-header">
+              <h4 class="an-card-titulo">Cómo nos encontraron</h4>
+            </div>
+            <div class="an-chart-wrap">
+              <canvas id="chart-pac-origen" aria-label="Gráfica: cómo nos encontraron"></canvas>
+            </div>
+          </div>
+          <div class="an-card">
+            <div class="an-card-header">
+              <h4 class="an-card-titulo">Perfil demográfico</h4>
+            </div>
+            <div class="an-pac-kpis">
+              <div class="an-pac-kpi">
+                <div class="an-pac-kpi-num" id="kpi-edad-prom">—</div>
+                <div class="an-pac-kpi-label">Promedio de edad</div>
+              </div>
+              <div class="an-pac-kpi">
+                <div class="an-pac-kpi-num" id="kpi-vip-pct">—</div>
+                <div class="an-pac-kpi-label">Pacientes VIP ⭐⭐⭐</div>
+              </div>
+              <div class="an-pac-kpi">
+                <div class="an-pac-kpi-num" id="kpi-total-pac-an">—</div>
+                <div class="an-pac-kpi-label">Total de pacientes</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </div>
@@ -161,7 +498,469 @@
   <!-- Toast de notificaciones -->
   <div id="toast" role="status" aria-live="polite"></div>
 
+  <!-- ─── Panel lateral: Perfil de paciente (M5 Paso 2) ─────────────────── -->
+  <div id="pac-perfil-overlay" class="pac-perfil-overlay oculto" onclick="cerrarPerfilPac()"></div>
+  <aside id="panel-perfil-pac" class="panel-perfil oculto"
+         role="dialog" aria-modal="true" aria-label="Perfil de paciente">
+    <div class="perfil-header">
+      <div class="perfil-avatar-lg" id="perfil-avatar-lg" aria-hidden="true">??</div>
+      <div class="perfil-header-info">
+        <div class="perfil-nombre-lg" id="perfil-nombre-lg">—</div>
+        <div class="perfil-estrellas-lg" id="perfil-estrellas-lg">⭐</div>
+      </div>
+      <button class="perfil-btn-cerrar" onclick="cerrarPerfilPac()"
+              aria-label="Cerrar perfil del paciente">✕</button>
+    </div>
+    <div class="perfil-tabs-nav" role="tablist">
+      <button class="perfil-tab-btn activo" data-ptab="datos" role="tab"
+              aria-selected="true">📋 Datos</button>
+      <button class="perfil-tab-btn" data-ptab="citas" role="tab"
+              aria-selected="false">🗓 Citas</button>
+      <button class="perfil-tab-btn" data-ptab="docs" role="tab"
+              aria-selected="false">📄 Docs</button>
+      <button class="perfil-tab-btn" data-ptab="notas" role="tab"
+              aria-selected="false">📝 Notas</button>
+    </div>
+    <div class="perfil-contenido" id="perfil-contenido" tabindex="0">
+      <!-- Renderizado dinámicamente por pacientes.js -->
+    </div>
+  </aside>
+
+  <!-- ─── Modal: Configurar clínica ─────────────────────────────────────── -->
+  <div id="modal-config" class="modal-overlay oculto" role="dialog" aria-modal="true"
+       aria-labelledby="modal-config-titulo">
+    <div class="modal-card" role="document">
+      <div class="modal-header">
+        <h2 id="modal-config-titulo">⚙️ Configurar clínica</h2>
+        <button type="button" id="btn-cerrar-config" class="modal-cerrar"
+                aria-label="Cerrar configuración">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          Esta información se usa en MediPost para personalizar el contenido generado con IA.
+        </p>
+        <div class="config-grid">
+          <div class="config-campo">
+            <label class="config-label" for="cfg-nombre-clinica">Nombre de la clínica</label>
+            <input type="text" id="cfg-nombre-clinica" class="form-control-admin"
+              placeholder="Ej. Clínica Santa Fe" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-ciudad">Ciudad</label>
+            <input type="text" id="cfg-ciudad" class="form-control-admin"
+              placeholder="Ej. Tijuana, Guadalajara…" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-especialidad">Especialidad principal</label>
+            <input type="text" id="cfg-especialidad" class="form-control-admin"
+              placeholder="Ej. Medicina General" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-medico">Médico representante</label>
+            <input type="text" id="cfg-medico" class="form-control-admin"
+              placeholder="Ej. Dra. Ana García" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-telefono">Teléfono de contacto</label>
+            <input type="text" id="cfg-telefono" class="form-control-admin"
+              placeholder="Ej. 664 123 4567" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-email">Email de contacto</label>
+            <input type="email" id="cfg-email" class="form-control-admin"
+              placeholder="contacto@clinica.com" />
+          </div>
+          <div class="config-campo config-campo-full">
+            <label class="config-label" for="cfg-logo">URL del logotipo <span class="config-opcional">opcional</span></label>
+            <input type="url" id="cfg-logo" class="form-control-admin"
+              placeholder="https://…" />
+          </div>
+        </div>
+
+        <div class="modal-seccion-sep"><span>Datos para documentos clínicos</span></div>
+        <p class="modal-desc" style="margin-bottom:16px;">
+          Se imprimen en el membrete y footer de los documentos generados en MediDocs.
+        </p>
+        <div class="config-grid">
+          <div class="config-campo">
+            <label class="config-label" for="cfg-cedula">Cédula profesional</label>
+            <input type="text" id="cfg-cedula" class="form-control-admin"
+              placeholder="Ej. 12345678" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-horario">Horario de atención</label>
+            <input type="text" id="cfg-horario" class="form-control-admin"
+              placeholder="Lun–Vie 9:00am–6:00pm" />
+          </div>
+          <div class="config-campo config-campo-full">
+            <label class="config-label" for="cfg-direccion">Dirección del consultorio</label>
+            <input type="text" id="cfg-direccion" class="form-control-admin"
+              placeholder="Av. Reforma 123, Col. Centro, Ciudad" />
+          </div>
+        </div>
+
+        <div class="modal-seccion-sep"><span>Configuración de Email (EmailJS)</span></div>
+        <p class="modal-desc" style="margin-bottom:16px;">
+          Credenciales para envío automático de emails. <strong>No se guardan</strong> en este dispositivo — deberás ingresarlas cada sesión.
+        </p>
+        <div class="config-grid">
+          <div class="config-campo">
+            <label class="config-label" for="cfg-ejs-service">Service ID <span class="config-opcional">sesión</span></label>
+            <input type="text" id="cfg-ejs-service" class="form-control-admin"
+              placeholder="service_xxxxxxx" autocomplete="off" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="cfg-ejs-template">Template ID <span class="config-opcional">sesión</span></label>
+            <input type="text" id="cfg-ejs-template" class="form-control-admin"
+              placeholder="template_xxxxxxx" autocomplete="off" />
+          </div>
+          <div class="config-campo config-campo-full">
+            <label class="config-label" for="cfg-ejs-key">Public Key <span class="config-opcional">sesión</span></label>
+            <input type="text" id="cfg-ejs-key" class="form-control-admin"
+              placeholder="xxxxxxxxxxxxxxx" autocomplete="off" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-cancelar-config" class="btn-modal-cancelar">Cancelar</button>
+        <button type="button" id="btn-guardar-config" class="btn-modal-guardar">💾 Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Modal: Paciente ─────────────────────────────────────────────────── -->
+  <div id="modal-paciente" class="modal-overlay oculto" role="dialog" aria-modal="true"
+       aria-labelledby="modal-pac-titulo">
+    <div class="modal-card modal-card-pac" role="document">
+      <div class="modal-header">
+        <h2 id="modal-pac-titulo">Nuevo paciente</h2>
+        <button type="button" id="btn-cerrar-modal-pac" class="modal-cerrar" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body pac-modal-body">
+
+        <!-- Identificación -->
+        <p class="modal-seccion-titulo">Identificación</p>
+        <div class="config-grid">
+          <div class="config-campo">
+            <label class="config-label" for="pac-nombre">Nombre <span class="config-opcional" style="color:var(--rojo)">*</span></label>
+            <input type="text" id="pac-nombre" class="form-control-admin" placeholder="Ej. Ana" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="pac-apellidos">Apellidos <span class="config-opcional" style="color:var(--rojo)">*</span></label>
+            <input type="text" id="pac-apellidos" class="form-control-admin" placeholder="Ej. Martínez Soto" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="pac-telefono">Teléfono <span class="config-opcional" style="color:var(--rojo)">*</span></label>
+            <input type="tel" id="pac-telefono" class="form-control-admin" placeholder="55 1234 5678" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="pac-email">Email <span class="config-opcional">opcional</span></label>
+            <input type="email" id="pac-email" class="form-control-admin" placeholder="paciente@email.com" />
+          </div>
+        </div>
+
+        <!-- Datos médicos -->
+        <div class="modal-seccion-sep"><span>Datos médicos</span></div>
+        <div class="config-grid">
+          <div class="config-campo">
+            <label class="config-label" for="pac-nacimiento">Fecha de nacimiento</label>
+            <input type="date" id="pac-nacimiento" class="form-control-admin" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="pac-sexo">Sexo</label>
+            <select id="pac-sexo" class="form-control-admin">
+              <option value="">— Seleccionar —</option>
+              <option value="Masculino">Masculino</option>
+              <option value="Femenino">Femenino</option>
+              <option value="Prefiero no decir">Prefiero no decir</option>
+            </select>
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="pac-estatura">Estatura (cm)</label>
+            <input type="number" id="pac-estatura" class="form-control-admin" placeholder="170" min="50" max="250" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="pac-peso">Peso (kg)</label>
+            <input type="number" id="pac-peso" class="form-control-admin" placeholder="70" min="1" max="500" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="pac-tipo-sangre">Tipo de sangre</label>
+            <select id="pac-tipo-sangre" class="form-control-admin">
+              <option value="">— Seleccionar —</option>
+              <option>A+</option><option>A-</option>
+              <option>B+</option><option>B-</option>
+              <option>AB+</option><option>AB-</option>
+              <option>O+</option><option>O-</option>
+            </select>
+          </div>
+          <div class="config-campo config-campo-full">
+            <label class="config-label" for="pac-alergias">Alergias conocidas <span class="config-opcional">opcional</span></label>
+            <input type="text" id="pac-alergias" class="form-control-admin" placeholder="Ej. Penicilina, látex…" />
+          </div>
+          <div class="config-campo config-campo-full">
+            <label class="config-label" for="pac-enfermedades">Enfermedades crónicas <span class="config-opcional">opcional</span></label>
+            <input type="text" id="pac-enfermedades" class="form-control-admin" placeholder="Ej. Diabetes tipo 2, hipertensión…" />
+          </div>
+          <div class="config-campo config-campo-full">
+            <label class="config-label" for="pac-medicamentos">Medicamentos actuales <span class="config-opcional">opcional</span></label>
+            <input type="text" id="pac-medicamentos" class="form-control-admin" placeholder="Ej. Metformina 500mg, Losartán 50mg…" />
+          </div>
+        </div>
+
+        <!-- Información adicional -->
+        <div class="modal-seccion-sep"><span>Información adicional</span></div>
+        <div class="config-grid">
+          <div class="config-campo">
+            <label class="config-label" for="pac-ciudad">Ciudad</label>
+            <input type="text" id="pac-ciudad" class="form-control-admin" placeholder="Ej. Tijuana" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="pac-origen">¿Cómo nos encontró?</label>
+            <select id="pac-origen" class="form-control-admin">
+              <option value="">— Seleccionar —</option>
+              <option value="Referido">Referido por amigo/familiar</option>
+              <option value="Google">Google / búsqueda</option>
+              <option value="Redes sociales">Redes sociales</option>
+              <option value="Seguro médico">Seguro médico</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div class="config-campo config-campo-full">
+            <label class="config-label" for="pac-ocupacion">Ocupación <span class="config-opcional">opcional</span></label>
+            <input type="text" id="pac-ocupacion" class="form-control-admin" placeholder="Ej. Maestro, ingeniero…" />
+          </div>
+        </div>
+
+        <!-- Calificación VIP -->
+        <div class="modal-seccion-sep"><span>Calificación VIP</span></div>
+        <div class="pac-vip-selector">
+          <button type="button" class="pac-star-btn activa" data-val="1" aria-label="1 estrella — Regular">⭐</button>
+          <button type="button" class="pac-star-btn" data-val="2" aria-label="2 estrellas — VIP Plata">⭐</button>
+          <button type="button" class="pac-star-btn" data-val="3" aria-label="3 estrellas — VIP Oro">⭐</button>
+          <input type="hidden" id="pac-modal-calificacion" value="1" />
+          <span class="pac-vip-label">Regular · VIP Plata · VIP Oro</span>
+        </div>
+
+        <!-- Notas internas -->
+        <div class="modal-seccion-sep"><span>Notas internas</span></div>
+        <div class="config-campo config-campo-full">
+          <label class="config-label" for="pac-notas">Notas <span class="config-opcional">solo visibles en el panel</span></label>
+          <textarea id="pac-notas" class="form-control-admin pac-notas-input"
+                    rows="3" placeholder="Observaciones internas sobre el paciente…"></textarea>
+        </div>
+
+        <!-- Seguro médico -->
+        <div class="modal-seccion-sep"><span>Seguro médico</span></div>
+        <div class="config-grid">
+          <div class="config-campo">
+            <label class="config-label" for="pac-aseguradora">Aseguradora</label>
+            <select id="pac-aseguradora" class="form-control-admin"
+                    onchange="document.getElementById('pac-aseg-otro-campo').style.display = this.value === 'Otro' ? '' : 'none'">
+              <option value="">Sin seguro médico</option>
+              <option value="GNP">GNP Seguros</option>
+              <option value="AXA">AXA</option>
+              <option value="Metlife">Metlife</option>
+              <option value="Mapfre">Mapfre</option>
+              <option value="HDI">HDI Seguros</option>
+              <option value="IMSS">IMSS</option>
+              <option value="ISSSTE">ISSSTE</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div class="config-campo" id="pac-aseg-otro-campo" style="display:none">
+            <label class="config-label" for="pac-aseg-otro">¿Cuál aseguradora?</label>
+            <input type="text" id="pac-aseg-otro" class="form-control-admin" placeholder="Nombre de la aseguradora" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="pac-poliza">Número de póliza <span class="config-opcional">opcional</span></label>
+            <input type="text" id="pac-poliza" class="form-control-admin" placeholder="Ej. GNP-123456" />
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-cancelar-pac" class="btn-modal-cancelar">Cancelar</button>
+        <button type="button" id="btn-guardar-pac" class="btn-modal-guardar">💾 Guardar paciente</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Modal: Nueva cita manual ───────────────────────────────────────── -->
+  <div id="modal-nueva-cita" class="modal-overlay oculto" role="dialog" aria-modal="true"
+       aria-labelledby="modal-nc-titulo">
+    <div class="modal-card modal-card-nc" role="document">
+      <div class="modal-header">
+        <h2 id="modal-nc-titulo">📋 Registrar cita manual</h2>
+        <button type="button" id="btn-cerrar-nc" class="modal-cerrar" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Paciente -->
+        <p class="modal-seccion-titulo">Paciente</p>
+        <div class="config-grid">
+          <div class="config-campo">
+            <label class="config-label" for="nc-nombre">Nombre <span class="config-opcional" style="color:var(--rojo)">*</span></label>
+            <input type="text" id="nc-nombre" class="form-control-admin" placeholder="Ej. María" autocomplete="off" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="nc-apellidos">Apellidos <span class="config-opcional" style="color:var(--rojo)">*</span></label>
+            <input type="text" id="nc-apellidos" class="form-control-admin" placeholder="Ej. López García" autocomplete="off" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="nc-telefono">Teléfono <span class="config-opcional" style="color:var(--rojo)">*</span></label>
+            <input type="tel" id="nc-telefono" class="form-control-admin" placeholder="55 1234 5678" autocomplete="off" />
+            <div id="nc-banner-pac" class="nc-banner oculto"></div>
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="nc-email">Email <span class="config-opcional">opcional</span></label>
+            <input type="email" id="nc-email" class="form-control-admin" placeholder="correo@ejemplo.com" autocomplete="off" />
+          </div>
+        </div>
+
+        <!-- Cita -->
+        <div class="modal-seccion-sep"><span>Datos de la cita</span></div>
+        <div class="config-grid">
+          <div class="config-campo">
+            <label class="config-label" for="nc-especialidad">Especialidad <span class="config-opcional" style="color:var(--rojo)">*</span></label>
+            <select id="nc-especialidad" class="form-control-admin">
+              <option value="">— Seleccionar —</option>
+            </select>
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="nc-doctor">Médico <span class="config-opcional" style="color:var(--rojo)">*</span></label>
+            <select id="nc-doctor" class="form-control-admin" disabled>
+              <option value="">— Selecciona especialidad —</option>
+            </select>
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="nc-fecha">Fecha <span class="config-opcional" style="color:var(--rojo)">*</span></label>
+            <input type="date" id="nc-fecha" class="form-control-admin" />
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="nc-horario">Horario <span class="config-opcional" style="color:var(--rojo)">*</span></label>
+            <select id="nc-horario" class="form-control-admin" disabled>
+              <option value="">— Selecciona médico —</option>
+            </select>
+          </div>
+          <div class="config-campo">
+            <label class="config-label" for="nc-tipo">Tipo de consulta <span class="config-opcional" style="color:var(--rojo)">*</span></label>
+            <select id="nc-tipo" class="form-control-admin">
+              <option value="">— Seleccionar —</option>
+              <option value="Primera vez">Primera vez</option>
+              <option value="Seguimiento">Seguimiento</option>
+              <option value="Urgencia">Urgencia</option>
+              <option value="Revisión de resultados">Revisión de resultados</option>
+            </select>
+          </div>
+          <div class="config-campo config-campo-full">
+            <label class="config-label" for="nc-notas">Notas adicionales <span class="config-opcional">opcional</span></label>
+            <textarea id="nc-notas" class="form-control-admin" rows="3" placeholder="Información relevante para la consulta…"></textarea>
+          </div>
+        </div>
+
+        <!-- Seguro médico -->
+        <div class="modal-seccion-sep"><span>Seguro médico</span></div>
+        <div class="nc-toggle-row" style="margin-top: 0; margin-bottom: 12px;">
+          <div>
+            <div class="nc-toggle-label">¿Tiene seguro médico?</div>
+          </div>
+          <label class="nc-toggle-switch" aria-label="¿Tiene seguro médico?">
+            <input type="checkbox" id="nc-tiene-seguro" />
+            <span class="nc-toggle-track"></span>
+          </label>
+        </div>
+        <div id="nc-seguro-campos" class="seguro-campos-wrapper">
+          <div class="config-grid">
+            <div class="config-campo">
+              <label class="config-label" for="nc-aseguradora">Aseguradora</label>
+              <select id="nc-aseguradora" class="form-control-admin">
+                <option value="">Seleccionar aseguradora...</option>
+                <option value="GNP">GNP Seguros</option>
+                <option value="AXA">AXA Seguros</option>
+                <option value="Metlife">Metlife</option>
+                <option value="Mapfre">Mapfre</option>
+                <option value="HDI">HDI Seguros</option>
+                <option value="IMSS">IMSS</option>
+                <option value="ISSSTE">ISSSTE</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </div>
+            <div class="config-campo" id="nc-aseg-otro-campo" style="display:none">
+              <label class="config-label" for="nc-aseg-otro">¿Cuál?</label>
+              <input type="text" id="nc-aseg-otro" class="form-control-admin" placeholder="Nombre de la aseguradora" />
+            </div>
+            <div class="config-campo">
+              <label class="config-label" for="nc-poliza">Número de póliza <span class="config-opcional">opcional</span></label>
+              <input type="text" id="nc-poliza" class="form-control-admin" placeholder="Ej. GNP-123456" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Toggle confirmar -->
+        <div class="nc-toggle-row">
+          <div>
+            <div class="nc-toggle-label">Confirmar inmediatamente</div>
+            <div class="nc-toggle-sub">Las citas manuales se confirman por defecto</div>
+          </div>
+          <label class="nc-toggle-switch" aria-label="Confirmar inmediatamente">
+            <input type="checkbox" id="nc-confirmar" checked />
+            <span class="nc-toggle-track"></span>
+          </label>
+        </div>
+
+        <!-- Error de validación -->
+        <div id="nc-error" class="nc-error-msg oculto"></div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-cancelar-nc" class="btn-modal-cancelar">Cancelar</button>
+        <button type="button" id="btn-guardar-nc" class="btn-modal-guardar">💾 Guardar cita</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Lógica de pestañas (sin modificar admin.js) ───────────────────── -->
+  <script>
+  (function () {
+    var STORAGE_KEY = 'medicita_tab_activa';
+
+    function activarTab(tabId) {
+      document.querySelectorAll('.tabs-nav-btn').forEach(function (btn) {
+        var activa = btn.dataset.tab === tabId;
+        btn.classList.toggle('activa', activa);
+        btn.setAttribute('aria-selected', activa ? 'true' : 'false');
+      });
+      document.querySelectorAll('.tab-panel').forEach(function (panel) {
+        panel.classList.toggle('tab-panel--activo', panel.id === 'tab-' + tabId);
+      });
+      localStorage.setItem(STORAGE_KEY, tabId);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.tabs-nav-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          activarTab(this.dataset.tab);
+        });
+      });
+
+      // Badge del header → switch a pestaña Seguimientos (capture phase, antes que admin.js)
+      var badgeBtn = document.getElementById('badge-seguimientos-btn');
+      if (badgeBtn) {
+        badgeBtn.addEventListener('click', function () {
+          activarTab('seguimientos');
+        }, true);
+      }
+
+      var tabGuardada = localStorage.getItem(STORAGE_KEY) || 'citas';
+      activarTab(tabGuardada);
+    });
+  })();
+  </script>
+
   <script src="js/data.js"></script>
   <script src="js/admin.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="js/analytics.js"></script>
+  <script src="js/pacientes.js"></script>
 </body>
 </html>
