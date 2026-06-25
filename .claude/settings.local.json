@@ -20,7 +20,9 @@
       "Bash(git -C /mnt/d/TEMP/CLAUDE/sistema-citas-meicas status)",
       "Bash(git -C /mnt/d/TEMP/CLAUDE/sistema-citas-meicas log --oneline -5)",
       "Bash(git add *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(node --check /mnt/d/TEMP/CLAUDE/sistema-citas-meicas/js/app.js)",
+      "Bash(node --check /mnt/d/TEMP/CLAUDE/sistema-citas-meicas/js/admin.js)"
     ]
   }
 }

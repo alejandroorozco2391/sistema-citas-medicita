@@ -118,31 +118,15 @@ function renderLogoNav(cfg) {
 function renderFotoHero(fotoUrl) {
   const col = document.getElementById("hero-foto-col");
   if (!col) return;
-  if (fotoUrl) {
-    col.innerHTML = `<img src="${fotoUrl}" alt="Foto del consultorio" class="hero-foto-img">`;
-  } else {
-    col.innerHTML = `
-      <div class="hero-foto-placeholder">
-        <svg viewBox="0 0 120 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="60" cy="52" r="28" fill="rgba(255,255,255,0.28)"/>
-          <path d="M10 130c0-27.614 22.386-50 50-50s50 22.386 50 50" stroke="rgba(255,255,255,0.28)" stroke-width="4" stroke-linecap="round"/>
-          <rect x="50" y="26" width="20" height="4" rx="2" fill="rgba(255,255,255,0.6)"/>
-          <rect x="58" y="18" width="4" height="20" rx="2" fill="rgba(255,255,255,0.6)"/>
-        </svg>
-        <p>Agrega tu foto aquí</p>
-        <span>Sube la URL en Configurar clínica</span>
-      </div>`;
-  }
+  const url = fotoUrl || "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&q=80";
+  col.innerHTML = `<img src="${url}" alt="Consultorio médico" class="hero-foto-img">`;
 }
 
 function renderFotoMedico(fotoUrl, nombre) {
   const wrap = document.getElementById("medico-foto-wrap");
   if (!wrap) return;
-  if (fotoUrl) {
-    wrap.innerHTML = `<img src="${fotoUrl}" alt="${nombre || 'Foto del médico'}" class="medico-foto-img">`;
-  } else {
-    wrap.innerHTML = `<div class="medico-avatar-placeholder">${obtenerIniciales(nombre)}</div>`;
-  }
+  const url = fotoUrl || "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&q=80";
+  wrap.innerHTML = `<img src="${url}" alt="${nombre || 'Foto del médico'}" class="medico-foto-img">`;
 }
 
 function renderFormacion(formacion) {
