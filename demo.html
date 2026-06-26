@@ -972,6 +972,148 @@
       .footer-main   { flex-direction: column; align-items: flex-start; gap: 16px; }
       .footer-bottom { flex-direction: column; align-items: flex-start; gap: 8px; }
     }
+
+    /* Tab description */
+    .tab-desc {
+      text-align: center;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.83rem;
+      color: var(--text-muted);
+      margin-top: 14px;
+      letter-spacing: 0.01em;
+      opacity: 0.8;
+    }
+
+    /* Comparativa */
+    .comparativa-section {
+      padding: 96px clamp(1rem, 6vw, 3rem);
+      max-width: 1100px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .comparativa-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.6rem, 4vw, 2.5rem);
+      letter-spacing: -0.025em;
+      line-height: 1.15;
+      color: var(--text-primary);
+      max-width: 640px;
+      margin: 0 auto 16px;
+    }
+
+    .comparativa-sub {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      color: var(--text-muted);
+      margin-bottom: 48px;
+    }
+
+    .comparativa-table-wrap {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .comparativa-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      text-align: left;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .comparativa-table col:nth-child(1) { width: 40%; }
+    .comparativa-table col:nth-child(2) { width: 35%; }
+    .comparativa-table col:nth-child(3) { width: 25%; }
+
+    .comparativa-table thead th {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 14px 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .comparativa-table tbody tr {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      transition: background var(--trans);
+    }
+
+    .comparativa-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .comparativa-table tbody td {
+      padding: 14px 20px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .comparativa-table tbody td:first-child {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .comparativa-table tbody td:last-child {
+      color: #4ade80;
+      font-weight: 600;
+    }
+
+    .comparativa-table tfoot tr {
+      background: rgba(255, 105, 47, 0.06);
+      border-top: 1px solid rgba(255, 105, 47, 0.2);
+    }
+
+    .comparativa-table tfoot td {
+      padding: 16px 20px;
+      color: var(--text-muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+    }
+
+    .comparativa-table tfoot td strong {
+      color: var(--text-primary);
+    }
+
+    .comparativa-table tfoot td:last-child {
+      color: var(--accent-orange);
+      font-weight: 600;
+    }
+
+    .comparativa-table tfoot td:last-child strong {
+      color: var(--accent-orange);
+    }
+
+    .comparativa-nota {
+      margin-top: 16px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      opacity: 0.55;
+    }
+
+    .comparativa-aviso {
+      margin-top: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.825rem;
+      color: var(--text-muted);
+      opacity: 0.8;
+    }
+
+    @media (max-width: 768px) {
+      .comparativa-section { padding: 64px clamp(1rem, 4vw, 2rem); }
+      .comparativa-table thead th:nth-child(2),
+      .comparativa-table tbody td:nth-child(2),
+      .comparativa-table tfoot td:first-child { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -1002,16 +1144,15 @@
   <main>
     <section class="hero" id="inicio">
       <div class="hero-inner">
-        <span class="hero-tag anim anim-1">Sistema de citas médicas con IA</span>
+        <span class="hero-tag anim anim-1">Sistema de gestión médica con IA · v2.0</span>
 
         <h1 class="hero-headline anim anim-2">
-          Muestra MediCita.<br />
-          <span class="line-accent">Convierte al instante.</span>
+          Tu clínica funciona sola.<br />
+          <span class="line-accent">Tú te dedicas a tus pacientes.</span>
         </h1>
 
         <p class="hero-sub anim anim-3">
-          Explora el sistema desde la perspectiva del paciente, del administrador
-          y del agente de IA — sin instalar nada.
+          MediCita es el sistema todo-en-uno que digitaliza tu consultorio o clínica desde el primer día: agenda online, expedientes, documentos clínicos, marketing médico y un agente de IA que trabaja 24/7 por ti.
         </p>
 
         <div class="hero-ctas anim anim-4">
@@ -1022,7 +1163,7 @@
         <div class="hero-badges anim anim-4">
           <span class="hero-badge"><span class="check">✓</span> Sin registro</span>
           <span class="hero-badge"><span class="check">✓</span> Sin tarjeta</span>
-          <span class="hero-badge"><span class="check">✓</span> 100% interactivo</span>
+          <span class="hero-badge"><span class="check">✓</span> Listo en 48 hrs</span>
         </div>
       </div>
     </section>
@@ -1038,6 +1179,14 @@
         <button class="tab-btn" role="tab" aria-selected="false"
                 aria-controls="pane-admin" data-tab="admin" id="btn-admin">
           ⚙️ Administración
+        </button>
+        <button class="tab-btn" role="tab" aria-selected="false"
+                aria-controls="pane-medidocs" data-tab="medidocs" id="btn-medidocs">
+          📄 MediDocs
+        </button>
+        <button class="tab-btn" role="tab" aria-selected="false"
+                aria-controls="pane-medipost" data-tab="medipost" id="btn-medipost">
+          📱 MediPost
         </button>
         <button class="tab-btn" role="tab" aria-selected="false"
                 aria-controls="pane-agente" data-tab="agente" id="btn-agente">
@@ -1063,6 +1212,7 @@
             <iframe src="index.html" title="Vista del paciente — MediCita"></iframe>
           </div>
         </div>
+        <p class="tab-desc">Landing personalizable · Agenda en 3 pasos · Confirmación automática por email</p>
       </div>
 
       <div class="tab-pane" id="pane-admin" role="tabpanel" aria-labelledby="btn-admin">
@@ -1077,6 +1227,37 @@
             <iframe src="admin.html" title="Panel de administración — MediCita"></iframe>
           </div>
         </div>
+        <p class="tab-desc">Panel completo · Expedientes · Documentos · Analytics · Marketing · Agente IA con acceso al expediente</p>
+      </div>
+
+      <div class="tab-pane" id="pane-medidocs" role="tabpanel" aria-labelledby="btn-medidocs">
+        <div class="browser-frame">
+          <div class="browser-chrome">
+            <div class="browser-dots">
+              <span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span>
+            </div>
+            <div class="browser-url">medicita.vercel.app/medidocs</div>
+          </div>
+          <div class="iframe-wrapper">
+            <iframe src="medidocs.html" title="MediDocs — Generador de documentos clínicos"></iframe>
+          </div>
+        </div>
+        <p class="tab-desc">Genera recetas, notas SOAP, constancias e incapacidades con IA — membrete profesional incluido</p>
+      </div>
+
+      <div class="tab-pane" id="pane-medipost" role="tabpanel" aria-labelledby="btn-medipost">
+        <div class="browser-frame">
+          <div class="browser-chrome">
+            <div class="browser-dots">
+              <span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span>
+            </div>
+            <div class="browser-url">medicita.vercel.app/medipost</div>
+          </div>
+          <div class="iframe-wrapper">
+            <iframe src="medipost.html" title="MediPost — Generador de contenido para redes sociales"></iframe>
+          </div>
+        </div>
+        <p class="tab-desc">Crea contenido para redes sociales con IA y organízalo en el calendario de publicaciones</p>
       </div>
 
       <div class="tab-pane" id="pane-agente" role="tabpanel" aria-labelledby="btn-agente">
@@ -1091,24 +1272,25 @@
             <iframe src="chat.html" id="iframe-agente" title="Agente IA MediBot — MediCita"></iframe>
           </div>
         </div>
+        <p class="tab-desc">Pregúntale por citas, pacientes, recetas o notas — en lenguaje natural</p>
       </div>
     </section>
 
     <section class="beneficios-section" id="seccion-beneficios">
       <div class="beneficios-inner">
         <div class="beneficios-heading">
-          <h2 class="beneficios-title">Menos costos. Más consultas. Médicos más productivos.</h2>
-          <p class="beneficios-sub">MediCita no es un gasto — es la diferencia entre una clínica que opera a su máximo y una que sigue perdiendo tiempo y pacientes.</p>
+          <h2 class="beneficios-title">Mientras tu competencia sigue con Excel y WhatsApp, tú ya vas un paso adelante.</h2>
+          <p class="beneficios-sub">MediCita no es un gasto — es la diferencia entre una clínica que crece y una que sobrevive.</p>
         </div>
 
         <div class="beneficios-grid">
           <div class="beneficios-bloque">
             <p class="beneficios-bloque-titulo">Lo que te ahorra</p>
             <ul class="beneficios-lista">
-              <li><i class="icono icono-dinero">$</i><span>Una recepcionista cuesta entre $8,000 y $12,000 MXN al mes. MediCita gestiona su trabajo de agendamiento desde $800/mes.</span></li>
-              <li><i class="icono icono-dinero">$</i><span>Cada llamada perdida fuera de horario es un paciente que se va con la competencia. El agente responde 24/7.</span></li>
-              <li><i class="icono icono-dinero">$</i><span>Los no-shows pueden representar hasta el 20% de tus consultas. Los recordatorios automáticos los reducen significativamente.</span></li>
-              <li><i class="icono icono-dinero">$</i><span>Seguimiento post-consulta manual toma 15 minutos por paciente. Automatizado: cero minutos, mismo resultado.</span></li>
+              <li><i class="icono icono-dinero">$</i><span>Una recepcionista cuesta entre $8,000 y $12,000 MXN/mes. MediCita automatiza su trabajo desde $800/mes — y nunca falta, nunca se enferma, nunca se va de vacaciones.</span></li>
+              <li><i class="icono icono-dinero">$</i><span>Cada llamada perdida fuera de horario es un paciente que se va con la competencia. MediCita agenda, confirma y recuerda citas las 24 horas, los 7 días.</span></li>
+              <li><i class="icono icono-dinero">$</i><span>Los no-shows representan hasta el 20% de tus consultas. Los seguimientos automáticos en día 3 y día 30 post-consulta mantienen a tus pacientes activos y reduce ausencias.</span></li>
+              <li><i class="icono icono-dinero">$</i><span>Generar una receta, una nota SOAP o una constancia toma minutos. Con MediDocs y IA, toma segundos — con membrete profesional listo para imprimir.</span></li>
             </ul>
           </div>
 
@@ -1117,10 +1299,10 @@
           <div class="beneficios-bloque">
             <p class="beneficios-bloque-titulo">Lo que ganan tus médicos</p>
             <ul class="beneficios-lista">
-              <li><i class="icono icono-star">✦</i><span>El médico le pide al agente que reagende una cita y listo — sin llamadas, sin intermediarios.</span></li>
-              <li><i class="icono icono-star">✦</i><span>Consulta en segundos el historial de citas de cualquier paciente con lenguaje natural.</span></li>
-              <li><i class="icono icono-star">✦</i><span>Recibe reportes automáticos: consultas por semana, especialidades más demandadas, horarios con más carga.</span></li>
-              <li><i class="icono icono-star">✦</i><span>Se enfoca en atender pacientes, no en administrar agenda.</span></li>
+              <li><i class="icono icono-star">✦</i><span>Expediente digital completo por paciente: historial de citas, documentos generados, notas internas y encuestas de satisfacción, todo en un solo lugar.</span></li>
+              <li><i class="icono icono-star">✦</i><span>El agente de IA consulta expedientes en lenguaje natural: "¿qué recetamos a López la semana pasada?" y obtiene la respuesta en segundos.</span></li>
+              <li><i class="icono icono-star">✦</i><span>Landing page médica profesional incluida — personalizable con foto, bio, servicios y colores de tu clínica. Lista para compartir desde el día uno.</span></li>
+              <li><i class="icono icono-star">✦</i><span>Contenido para redes sociales generado por IA con calendario de publicaciones — nunca más la pregunta "¿qué publico hoy?"</span></li>
             </ul>
           </div>
         </div>
@@ -1132,25 +1314,83 @@
       <div class="features-grid">
         <div class="feature-card">
           <span class="feature-icon">📅</span>
-          <p class="feature-name">Gestión completa</p>
-          <p class="feature-desc">El paciente agenda, el administrador gestiona y el agente de IA responde preguntas y actualiza citas las 24 horas.</p>
-        </div>
-        <div class="feature-card">
-          <span class="feature-icon">🌐</span>
-          <p class="feature-name">Sin instalación</p>
-          <p class="feature-desc">Funciona directo en el navegador desde cualquier dispositivo — computadora, tablet o celular — sin instalar nada.</p>
+          <p class="feature-name">Agenda online 24/7</p>
+          <p class="feature-desc">Pacientes agendan desde cualquier dispositivo sin llamar. Confirmación automática por email al instante.</p>
         </div>
         <div class="feature-card">
           <span class="feature-icon">🤖</span>
-          <p class="feature-name">Con IA real</p>
-          <p class="feature-desc">El agente usa Claude de Anthropic para entender lenguaje natural, buscar citas, crearlas y notificar al paciente por email.</p>
+          <p class="feature-name">Agente IA con acceso al expediente</p>
+          <p class="feature-desc">Busca citas, consulta recetas, lee notas y responde en lenguaje natural. Powered by Claude de Anthropic.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">📋</span>
+          <p class="feature-name">Expediente digital completo</p>
+          <p class="feature-desc">Historial, documentos, notas internas, seguro médico y calificación VIP por paciente. Todo en un clic.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">📄</span>
+          <p class="feature-name">Documentos clínicos con IA</p>
+          <p class="feature-desc">Recetas, notas SOAP, constancias e incapacidades con membrete profesional listo para imprimir. Norma mexicana incluida.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">📊</span>
+          <p class="feature-name">Analytics e inteligencia de negocio</p>
+          <p class="feature-desc">KPIs en tiempo real, heatmap de horarios, especialidades más demandadas e insights generados por IA.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">📱</span>
+          <p class="feature-name">Marketing médico con IA</p>
+          <p class="feature-desc">Genera posts para Instagram, Facebook y LinkedIn con un clic. Calendario de publicaciones para planear todo el mes.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">⭐</span>
+          <p class="feature-name">Encuestas NPS automáticas</p>
+          <p class="feature-desc">Seguimiento post-consulta en día 3 y día 30. Opiniones reales que construyen tu reputación digital.</p>
         </div>
         <div class="feature-card">
           <span class="feature-icon">🎨</span>
           <p class="feature-name">100% personalizable</p>
-          <p class="feature-desc">Adaptamos colores, logo, textos y flujos a la imagen de tu clínica. Tu marca, tu sistema.</p>
+          <p class="feature-desc">Logo, colores, foto, bio del médico y servicios. Tu marca reflejada en cada pantalla — en minutos desde el panel.</p>
         </div>
       </div>
+    </section>
+
+    <section class="comparativa-section">
+      <h2 class="comparativa-title">Un sistema. Ocho módulos. Una sola mensualidad.</h2>
+      <p class="comparativa-sub">Mientras otras soluciones te cobran por separado cada función, MediCita lo incluye todo desde el día uno.</p>
+
+      <div class="comparativa-table-wrap">
+        <table class="comparativa-table">
+          <colgroup>
+            <col><col><col>
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Funcionalidad</th>
+              <th>Solución tradicional</th>
+              <th>MediCita</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Agenda online</td><td>$500–2,000/mes</td><td>✓ Incluido</td></tr>
+            <tr><td>Expediente digital</td><td>$800–3,000/mes</td><td>✓ Incluido</td></tr>
+            <tr><td>Documentos clínicos</td><td>$400–1,500/mes</td><td>✓ Incluido</td></tr>
+            <tr><td>Marketing en redes</td><td>$3,000–8,000/mes</td><td>✓ Incluido</td></tr>
+            <tr><td>Agente IA 24/7</td><td>$2,000–5,000/mes</td><td>✓ Incluido</td></tr>
+            <tr><td>Encuestas NPS</td><td>$500–1,500/mes</td><td>✓ Incluido</td></tr>
+            <tr><td>Analytics</td><td>$600–2,000/mes</td><td>✓ Incluido</td></tr>
+            <tr><td>Landing médica</td><td>$5,000–15,000 única</td><td>✓ Incluido</td></tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2">Valor individual estimado: <strong>$12,800–38,000/mes</strong></td>
+              <td>MediCita: <strong>desde $800/mes según el plan</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p class="comparativa-nota">Precios de referencia del mercado mexicano de software médico 2026.</p>
+      <p class="comparativa-aviso">Cada plan incluye un conjunto diferente de módulos — consulta los planes abajo para ver qué incluye cada uno.</p>
     </section>
 
     <section class="planes-section" id="seccion-planes">
@@ -1166,11 +1406,13 @@
           </div>
           <div class="plan-divider"></div>
           <ul class="plan-features">
-            <li>Agendamiento online</li>
-            <li>Panel de administración</li>
-            <li>Agente IA básico</li>
-            <li>Emails automáticos</li>
-            <li>Bilingüe (español / inglés)</li>
+            <li>Landing page médica personalizable</li>
+            <li>Agenda online con confirmación por email</li>
+            <li>Panel de administración completo</li>
+            <li>Agente IA básico (citas y disponibilidad)</li>
+            <li>Expediente digital de pacientes</li>
+            <li>Analytics básico con KPIs</li>
+            <li>Soporte en español 24/7</li>
           </ul>
           <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="btn-plan">Solicitar este plan</a>
         </div>
@@ -1185,10 +1427,12 @@
           <div class="plan-divider"></div>
           <ul class="plan-features">
             <li>Todo lo del Plan Esencial</li>
-            <li>Agente con conocimiento de tu clínica</li>
-            <li>Responde preguntas sobre servicios y precios</li>
-            <li>Carga tu documento y el agente lo aprende</li>
-            <li>Indicaciones pre y post operatorias</li>
+            <li>MediDocs: recetas, notas SOAP, constancias, incapacidades, cartas y consentimientos</li>
+            <li>Membrete profesional personalizado</li>
+            <li>MediPost: generador de contenido para redes sociales con IA + calendario</li>
+            <li>Agente IA con acceso al expediente completo (recetas, notas, historial, NPS)</li>
+            <li>Encuestas NPS post-consulta automatizadas (seguimiento día 3 y día 30)</li>
+            <li>Analytics avanzado con insights de IA</li>
           </ul>
           <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="btn-plan">Solicitar este plan</a>
         </div>
@@ -1203,9 +1447,11 @@
           <ul class="plan-features">
             <li>Todo lo del Plan Profesional</li>
             <li>Integración WhatsApp Business</li>
-            <li>Seguimiento post-consulta automatizado</li>
-            <li>Recordatorios de medicamentos</li>
-            <li>Encuesta de satisfacción automática</li>
+            <li>Agente IA en WhatsApp para pacientes</li>
+            <li>Recordatorios de medicamentos y citas por WhatsApp</li>
+            <li>Panel de personalización global con preview en tiempo real</li>
+            <li>Soporte prioritario y onboarding personalizado</li>
+            <li>Actualizaciones anticipadas</li>
           </ul>
           <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="btn-plan">Solicitar este plan</a>
         </div>
@@ -1259,12 +1505,14 @@
     const tipBtn   = document.getElementById('tip-btn');
 
     const tipTexts = {
-      paciente: 'Aquí el paciente selecciona su especialidad, médico y horario para solicitar una cita médica en línea.',
-      admin:    'Panel del administrador: visualiza todas las citas, filtra por fecha o médico y actualiza estados en tiempo real.',
-      agente:   'El agente de IA puede buscar, crear y actualizar citas usando lenguaje natural. Pruébalo con una pregunta.',
+      paciente:  'Landing médica personalizable con foto, bio y servicios del médico. El paciente agenda en 3 pasos sin llamar.',
+      admin:     'Panel completo: citas, expedientes de pacientes, documentos clínicos con IA, analytics, marketing y agente IA — todo en un solo lugar.',
+      medidocs:  'Selecciona el tipo de documento, vincula una cita y Claude genera el documento con membrete profesional. Listo para imprimir o enviar por email.',
+      medipost:  'Elige la red social, el tono y el tipo de post — Claude genera el caption, los hashtags y la sugerencia de imagen. Organízalos en el calendario mensual.',
+      agente:    'El agente tiene acceso al expediente completo. Prueba: "¿cuántas citas tenemos mañana?" o "busca el expediente de García".',
     };
 
-    const tipDismissed = { paciente: false, admin: false, agente: false };
+    const tipDismissed = { paciente: false, admin: false, medidocs: false, medipost: false, agente: false };
 
     function showTip(tabId) {
       if (tipDismissed[tabId]) return;
