@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Términos y Condiciones de uso del sistema MediCita — Symbiotiq." />
+  <title>Términos y Condiciones · MediCita</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-deep:       #000107;
+      --bg-dark:       #0f0123;
+      --accent-orange: #ff692f;
+      --accent-amber:  #ffa426;
+      --accent-blue:   #15baff;
+      --text-primary:  #f0f0f0;
+      --text-muted:    #8b8b9a;
+      --header-h:      64px;
+      --radius:        12px;
+      --trans:         0.25s ease;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: calc(var(--header-h) + 32px);
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background-color: var(--bg-deep);
+      background-image: radial-gradient(ellipse 80% 40% at 50% -5%, var(--bg-dark) 0%, transparent 70%);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────── */
+    .site-header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      height: var(--header-h);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 clamp(1rem, 5vw, 3rem);
+      transition: background var(--trans), border-color var(--trans);
+      border-bottom: 1px solid transparent;
+    }
+
+    .site-header.scrolled {
+      background: rgba(0, 1, 7, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom-color: rgba(255, 255, 255, 0.06);
+    }
+
+    .header-logo {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: var(--text-primary);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+
+    .header-logo .dot { color: var(--accent-orange); }
+
+    .btn-back {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      transition: color var(--trans), border-color var(--trans), background var(--trans);
+    }
+
+    .btn-back:hover {
+      color: var(--text-primary);
+      border-color: rgba(255, 255, 255, 0.28);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    /* ── Page hero ──────────────────────────── */
+    .page-hero {
+      padding: calc(var(--header-h) + 72px) clamp(1rem, 6vw, 3rem) 56px;
+      text-align: center;
+    }
+
+    .page-hero-tag {
+      display: inline-block;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--accent-orange);
+      background: rgba(255, 105, 47, 0.1);
+      border: 1px solid rgba(255, 105, 47, 0.3);
+      border-radius: 999px;
+      padding: 6px 14px;
+      margin-bottom: 24px;
+    }
+
+    .page-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.75rem, 5vw, 2.75rem);
+      letter-spacing: -0.025em;
+      line-height: 1.1;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .page-subtitle {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Content ────────────────────────────── */
+    .content-wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 clamp(1rem, 6vw, 3rem) 96px;
+    }
+
+    /* ── TOC ────────────────────────────────── */
+    .toc {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-bottom: 64px;
+    }
+
+    .toc-label {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 0.7rem;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+    }
+
+    .toc-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .toc-list li {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .toc-num {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--accent-orange);
+      flex-shrink: 0;
+      width: 22px;
+    }
+
+    .toc-list a {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      line-height: 1.4;
+      transition: color var(--trans);
+    }
+
+    .toc-list a:hover { color: var(--text-primary); }
+
+    /* ── Sections ───────────────────────────── */
+    .legal-section {
+      margin-bottom: 52px;
+      padding-bottom: 52px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .legal-section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .section-num {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 0.8rem;
+      color: var(--accent-orange);
+      flex-shrink: 0;
+    }
+
+    .section-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+    }
+
+    .legal-p {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.85;
+      margin-bottom: 14px;
+    }
+
+    .legal-p:last-child { margin-bottom: 0; }
+
+    .legal-subhead {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: var(--text-primary);
+      margin-top: 22px;
+      margin-bottom: 8px;
+    }
+
+    .legal-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .legal-list li {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+      padding-left: 22px;
+      position: relative;
+    }
+
+    .legal-list li::before {
+      content: '—';
+      position: absolute;
+      left: 0;
+      color: rgba(255, 255, 255, 0.2);
+    }
+
+    .contact-link {
+      color: var(--accent-blue);
+      text-decoration: none;
+      transition: opacity var(--trans);
+    }
+
+    .contact-link:hover { opacity: 0.72; }
+
+    /* ── Footer ─────────────────────────────── */
+    .site-footer {
+      background: var(--bg-dark);
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .footer-main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px clamp(1rem, 6vw, 3rem);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .footer-brand {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    .footer-brand a {
+      color: var(--text-primary);
+      text-decoration: none;
+      transition: color var(--trans);
+    }
+
+    .footer-brand a:hover { color: var(--accent-orange); }
+
+    .footer-cta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-cta-text {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .btn-footer {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent-orange), var(--accent-amber));
+      border: none;
+      border-radius: 999px;
+      padding: 8px 24px;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: opacity var(--trans), transform var(--trans);
+    }
+
+    .btn-footer:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    .footer-bottom {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px clamp(1rem, 6vw, 3rem);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-copy,
+    .footer-location {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      opacity: 0.65;
+    }
+
+    @media (max-width: 768px) {
+      .page-hero   { padding-top: calc(var(--header-h) + 48px); padding-bottom: 40px; }
+      .toc         { padding: 20px 22px; margin-bottom: 48px; }
+      .footer-main { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .footer-bottom { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header" id="site-header">
+    <a href="demo.html" class="header-logo">MediCita<span class="dot">·</span></a>
+    <a href="demo.html" class="btn-back">← Volver a la demo</a>
+  </header>
+
+  <main>
+    <div class="page-hero">
+      <span class="page-hero-tag">Legal</span>
+      <h1 class="page-title">Términos y Condiciones de Uso</h1>
+      <p class="page-subtitle">MediCita · Última actualización: Junio 2026</p>
+    </div>
+
+    <div class="content-wrap">
+
+      <nav class="toc" aria-label="Índice de secciones">
+        <p class="toc-label">Índice</p>
+        <ol class="toc-list">
+          <li><span class="toc-num">1</span><a href="#s1">Aceptación de los términos</a></li>
+          <li><span class="toc-num">2</span><a href="#s2">Descripción del servicio</a></li>
+          <li><span class="toc-num">3</span><a href="#s3">Planes y límites de uso</a></li>
+          <li><span class="toc-num">4</span><a href="#s4">Implementación y pago</a></li>
+          <li><span class="toc-num">5</span><a href="#s5">Propiedad intelectual</a></li>
+          <li><span class="toc-num">6</span><a href="#s6">Datos y privacidad</a></li>
+          <li><span class="toc-num">7</span><a href="#s7">Disponibilidad del servicio (SLA)</a></li>
+          <li><span class="toc-num">8</span><a href="#s8">Responsabilidad del Cliente</a></li>
+          <li><span class="toc-num">9</span><a href="#s9">Limitación de responsabilidad</a></li>
+          <li><span class="toc-num">10</span><a href="#s10">Cancelación y portabilidad de datos</a></li>
+          <li><span class="toc-num">11</span><a href="#s11">Modificaciones al servicio</a></li>
+          <li><span class="toc-num">12</span><a href="#s12">Legislación aplicable</a></li>
+          <li><span class="toc-num">13</span><a href="#s13">Contacto</a></li>
+        </ol>
+      </nav>
+
+      <section class="legal-section" id="s1">
+        <div class="section-header">
+          <span class="section-num">1</span>
+          <h2 class="section-title">Aceptación de los términos</h2>
+        </div>
+        <p class="legal-p">Al contratar, acceder o utilizar el sistema MediCita ("el Sistema"), el cliente ("el Cliente") acepta quedar vinculado por los presentes Términos y Condiciones. Si no está de acuerdo con alguno de estos términos, no debe utilizar el Sistema.</p>
+      </section>
+
+      <section class="legal-section" id="s2">
+        <div class="section-header">
+          <span class="section-num">2</span>
+          <h2 class="section-title">Descripción del servicio</h2>
+        </div>
+        <p class="legal-p">MediCita es un sistema de gestión médica basado en inteligencia artificial que incluye módulos de agendamiento de citas, expediente digital de pacientes, generación de documentos clínicos, marketing médico, analíticas y agente de IA conversacional. El Sistema se presta como servicio en la nube (SaaS) y se accede a través de navegador web.</p>
+      </section>
+
+      <section class="legal-section" id="s3">
+        <div class="section-header">
+          <span class="section-num">3</span>
+          <h2 class="section-title">Planes y límites de uso</h2>
+        </div>
+        <p class="legal-p">El Sistema se ofrece en tres planes:</p>
+
+        <p class="legal-subhead">Plan Esencial</p>
+        <p class="legal-p">Hasta 2 especialidades, hasta 150 citas/mes, 1 usuario admin. No incluye MediDocs, MediPost ni agente IA con acceso al expediente.</p>
+
+        <p class="legal-subhead">Plan Profesional</p>
+        <p class="legal-p">Hasta 5 especialidades, hasta 500 citas/mes, 2 usuarios admin, hasta 200 documentos MediDocs/mes, hasta 30 publicaciones MediPost/mes.</p>
+
+        <p class="legal-subhead">Plan Premium</p>
+        <p class="legal-p">Hasta 15 especialidades, citas ilimitadas, 5 usuarios admin, documentos y publicaciones ilimitados, integración WhatsApp.</p>
+
+        <p class="legal-subhead">Uso excesivo</p>
+        <p class="legal-p">Si el Cliente supera los límites de su plan durante dos meses consecutivos, Symbiotiq le notificará y propondrá un ajuste de plan. El servicio no se interrumpirá de forma automática durante este proceso.</p>
+
+        <p class="legal-subhead">Uso indebido de IA</p>
+        <p class="legal-p">El uso del agente de IA y los módulos de generación de contenido está sujeto a una política de uso razonable. Symbiotiq se reserva el derecho de limitar o suspender el acceso si detecta un uso automatizado masivo, abusivo o que comprometa la estabilidad del sistema para otros clientes.</p>
+      </section>
+
+      <section class="legal-section" id="s4">
+        <div class="section-header">
+          <span class="section-num">4</span>
+          <h2 class="section-title">Implementación y pago</h2>
+        </div>
+        <p class="legal-p">El precio de implementación es un pago único no reembolsable. La mensualidad se cobra de forma anticipada al inicio de cada período. El impago de dos mensualidades consecutivas faculta a Symbiotiq a suspender el acceso. Los precios están en pesos mexicanos (MXN). Symbiotiq puede ajustar las tarifas mensuales con aviso previo de 30 días.</p>
+      </section>
+
+      <section class="legal-section" id="s5">
+        <div class="section-header">
+          <span class="section-num">5</span>
+          <h2 class="section-title">Propiedad intelectual</h2>
+        </div>
+        <p class="legal-p">El Sistema es propiedad exclusiva de Symbiotiq. El Cliente obtiene una licencia de uso limitada, no exclusiva e intransferible. El contenido generado por IA es del Cliente, quien asume la responsabilidad de revisarlo antes de su uso profesional o publicación.</p>
+      </section>
+
+      <section class="legal-section" id="s6">
+        <div class="section-header">
+          <span class="section-num">6</span>
+          <h2 class="section-title">Datos y privacidad</h2>
+        </div>
+        <p class="legal-p">El Cliente es el responsable del tratamiento de los datos personales de sus pacientes conforme a la LFPDPPP. Symbiotiq actúa como encargado del tratamiento. Symbiotiq no vende, cede ni comparte los datos con terceros, salvo requerimiento legal expreso.</p>
+      </section>
+
+      <section class="legal-section" id="s7">
+        <div class="section-header">
+          <span class="section-num">7</span>
+          <h2 class="section-title">Disponibilidad del servicio (SLA)</h2>
+        </div>
+        <p class="legal-p">Symbiotiq procurará una disponibilidad del 95% mensual. Quedan excluidos los mantenimientos programados, fallas de terceros proveedores (Vercel, Anthropic API, EmailJS) y causas de fuerza mayor. Symbiotiq no será responsable por pérdidas derivadas de la no disponibilidad temporal del sistema.</p>
+      </section>
+
+      <section class="legal-section" id="s8">
+        <div class="section-header">
+          <span class="section-num">8</span>
+          <h2 class="section-title">Responsabilidad del Cliente</h2>
+        </div>
+        <p class="legal-p">El Cliente se compromete a:</p>
+        <ul class="legal-list">
+          <li>Usar el sistema para fines lícitos.</li>
+          <li>No eludir los límites del plan contratado.</li>
+          <li>Verificar la información generada por IA antes de usarla en decisiones clínicas.</li>
+          <li>Mantener la confidencialidad de sus credenciales de acceso.</li>
+          <li>No compartir acceso con usuarios no autorizados.</li>
+        </ul>
+      </section>
+
+      <section class="legal-section" id="s9">
+        <div class="section-header">
+          <span class="section-num">9</span>
+          <h2 class="section-title">Limitación de responsabilidad</h2>
+        </div>
+        <p class="legal-p">El contenido generado por inteligencia artificial no sustituye el criterio médico profesional. La responsabilidad máxima de Symbiotiq no excederá el equivalente a tres mensualidades del plan contratado.</p>
+      </section>
+
+      <section class="legal-section" id="s10">
+        <div class="section-header">
+          <span class="section-num">10</span>
+          <h2 class="section-title">Cancelación y portabilidad de datos</h2>
+        </div>
+        <p class="legal-p">El Cliente puede cancelar con aviso previo de 15 días naturales. Tras la cancelación tendrá 30 días para exportar sus datos en CSV/JSON. Pasado ese plazo los datos serán eliminados. El pago de implementación no es reembolsable.</p>
+      </section>
+
+      <section class="legal-section" id="s11">
+        <div class="section-header">
+          <span class="section-num">11</span>
+          <h2 class="section-title">Modificaciones al servicio</h2>
+        </div>
+        <p class="legal-p">Symbiotiq puede actualizar el Sistema en cualquier momento. Los cambios que afecten funciones contratadas se notificarán con 15 días de anticipación.</p>
+      </section>
+
+      <section class="legal-section" id="s12">
+        <div class="section-header">
+          <span class="section-num">12</span>
+          <h2 class="section-title">Legislación aplicable</h2>
+        </div>
+        <p class="legal-p">Estos Términos se rigen por las leyes de los Estados Unidos Mexicanos. Cualquier controversia se someterá a los tribunales de Tijuana, Baja California.</p>
+      </section>
+
+      <section class="legal-section" id="s13">
+        <div class="section-header">
+          <span class="section-num">13</span>
+          <h2 class="section-title">Contacto</h2>
+        </div>
+        <p class="legal-p">
+          Symbiotiq · Tijuana, Baja California, México<br>
+          <a href="https://symbiotiq.com.mx" target="_blank" rel="noopener" class="contact-link">symbiotiq.com.mx</a>
+          &nbsp;·&nbsp;
+          <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="contact-link">symbiotiq.com.mx/#contacto</a>
+        </p>
+      </section>
+
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-main">
+      <p class="footer-brand">
+        MediCita · por <a href="https://symbiotiq.com.mx" target="_blank" rel="noopener">Symbiotiq</a>
+      </p>
+      <div class="footer-cta">
+        <span class="footer-cta-text">¿Tu clínica necesita esto?</span>
+        <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="btn-footer">Solicitar demo →</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span class="footer-copy">© 2026 Symbiotiq. Todos los derechos reservados.</span>
+      <span class="footer-location">Tijuana, México</span>
+    </div>
+  </footer>
+
+  <script>
+    const header = document.getElementById('site-header');
+    window.addEventListener('scroll', () => {
+      header.classList.toggle('scrolled', window.scrollY > 20);
+    }, { passive: true });
+  </script>
+</body>
+</html>

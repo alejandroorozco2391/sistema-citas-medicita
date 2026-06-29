@@ -713,7 +713,7 @@
     /* Planes */
     .planes-section {
       padding: 96px clamp(1rem, 6vw, 3rem);
-      max-width: 1100px;
+      max-width: 1160px;
       margin: 0 auto;
       text-align: center;
     }
@@ -735,155 +735,166 @@
       margin-bottom: 48px;
     }
 
-    .planes-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-      align-items: start;
-    }
-
-    .plan-card {
-      background: var(--bg-dark);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+    .planes-table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       border-radius: var(--radius);
-      padding: 32px;
-      text-align: left;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-      transition: border-color var(--trans);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
     }
 
-    .plan-card.destacado {
-      background: rgba(255, 105, 47, 0.04);
-      border: 1.5px solid var(--accent-orange);
-      position: relative;
+    .planes-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.88rem;
+      min-width: 640px;
+      text-align: center;
     }
 
-    .plan-badge {
-      position: absolute;
-      top: -13px;
-      left: 50%;
-      transform: translateX(-50%);
+    .planes-table .col-feature    { width: 36%; }
+    .planes-table .col-esencial   { width: 17%; }
+    .planes-table .col-profesional{ width: 23%; }
+    .planes-table .col-premium    { width: 24%; }
+
+    .plan-th-header {
+      padding: 28px 14px 22px;
+      vertical-align: top;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .plan-th-header.col-pro-header {
+      background: rgba(21, 186, 255, 0.08);
+      border-top: 2px solid var(--accent-blue);
+    }
+
+    .plan-th-feature { background: transparent; }
+
+    .plan-popular-badge {
+      display: inline-block;
       font-family: 'Plus Jakarta Sans', sans-serif;
       font-weight: 600;
-      font-size: 0.75rem;
-      letter-spacing: 0.04em;
+      font-size: 0.67rem;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      color: #fff;
-      background: linear-gradient(135deg, var(--accent-orange), var(--accent-amber));
+      color: var(--accent-blue);
+      background: rgba(21, 186, 255, 0.14);
+      border: 1px solid rgba(21, 186, 255, 0.28);
       border-radius: 999px;
-      padding: 4px 16px;
-      white-space: nowrap;
+      padding: 3px 12px;
+      margin-bottom: 10px;
     }
 
-    .plan-header {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .plan-name {
+    .plan-th-name {
       font-family: 'Plus Jakarta Sans', sans-serif;
       font-weight: 700;
-      font-size: 1.1rem;
+      font-size: 0.95rem;
       color: var(--text-primary);
+      margin-bottom: 10px;
     }
 
-    .plan-precio-impl {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
-
-    .plan-precio-impl strong {
+    .plan-th-precio {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      font-weight: 700;
-      font-size: 1.5rem;
+      font-weight: 800;
+      font-size: 1.6rem;
       color: var(--text-primary);
-      letter-spacing: -0.02em;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 4px;
     }
 
-    .plan-mensualidad {
+    .plan-th-mensual {
       font-family: 'DM Sans', sans-serif;
-      font-size: 0.85rem;
+      font-size: 0.77rem;
       color: var(--text-muted);
+      margin-bottom: 16px;
     }
 
-    .plan-mensualidad strong {
-      color: var(--accent-amber);
-      font-weight: 600;
-    }
-
-    .plan-divider {
-      height: 1px;
-      background: rgba(255, 255, 255, 0.07);
-    }
-
-    .plan-features {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      flex: 1;
-    }
-
-    .plan-features li {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 0.875rem;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
-
-    .plan-features li::before {
-      content: '✓';
-      color: var(--accent-orange);
-      font-weight: 700;
-      font-size: 0.8rem;
-      flex-shrink: 0;
-      margin-top: 2px;
-    }
-
-    .btn-plan {
+    .plan-th-btn {
+      display: inline-block;
       font-family: 'Plus Jakarta Sans', sans-serif;
       font-weight: 600;
-      font-size: 0.9rem;
+      font-size: 0.82rem;
       color: var(--text-primary);
       background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 999px;
-      padding: 12px 24px;
+      padding: 8px 18px;
       text-decoration: none;
-      text-align: center;
+      white-space: nowrap;
       transition: background var(--trans), border-color var(--trans), transform var(--trans);
     }
 
-    .btn-plan:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.25);
+    .plan-th-btn:hover {
+      background: rgba(255, 255, 255, 0.11);
+      border-color: rgba(255, 255, 255, 0.28);
       transform: translateY(-1px);
     }
 
-    .plan-card.destacado .btn-plan {
+    .plan-th-btn-pro {
       color: #fff;
-      background: linear-gradient(135deg, var(--accent-orange), var(--accent-amber));
+      background: linear-gradient(135deg, #0ea5e9, var(--accent-blue));
       border-color: transparent;
     }
 
-    .plan-card.destacado .btn-plan:hover {
-      opacity: 0.9;
+    .plan-th-btn-pro:hover { opacity: 0.88; }
+
+    .planes-section-row td {
+      background: rgba(255, 255, 255, 0.03);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 600;
+      font-size: 0.69rem;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 10px 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      text-align: left;
     }
 
-    @media (max-width: 900px) {
-      .planes-grid { grid-template-columns: 1fr; max-width: 480px; margin: 0 auto; }
+    .planes-table tbody tr:not(.planes-section-row) td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      vertical-align: middle;
+    }
+
+    .planes-table tbody tr:not(.planes-section-row):hover td {
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    .planes-table tbody tr:not(.planes-section-row) td:first-child {
+      text-align: left;
+      color: var(--text-primary);
+      font-weight: 500;
+      padding-left: 20px;
+    }
+
+    .col-pro-data { background: rgba(21, 186, 255, 0.05); }
+
+    .chk  { color: #4ade80; font-weight: 700; font-size: 1rem; }
+    .dash { color: rgba(255, 255, 255, 0.18); font-size: 1rem; }
+    .lim  { color: var(--accent-blue); font-weight: 600; }
+
+    .planes-nota {
+      margin-top: 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      opacity: 0.55;
+      text-align: left;
+      line-height: 1.65;
     }
 
     @media (max-width: 768px) {
-      .planes-section { padding: 64px clamp(1rem, 4vw, 2rem); }
-      .planes-sub     { margin-bottom: 40px; }
+      .planes-section   { padding: 64px clamp(1rem, 4vw, 2rem); }
+      .planes-sub       { margin-bottom: 32px; }
+      .planes-table     { font-size: 0.82rem; min-width: 560px; }
+      .plan-th-precio   { font-size: 1.3rem; }
+      .plan-th-btn      { padding: 7px 13px; font-size: 0.78rem; }
     }
 
     /* Footer */
@@ -966,6 +977,37 @@
       font-size: 0.78rem;
       color: var(--text-muted);
       opacity: 0.65;
+    }
+
+    .footer-legal {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 10px clamp(1rem, 6vw, 3rem) 20px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .footer-legal a {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      opacity: 0.65;
+      text-decoration: none;
+      transition: opacity var(--trans), text-decoration-color var(--trans);
+    }
+
+    .footer-legal a:hover {
+      opacity: 1;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .footer-legal-sep {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      opacity: 0.35;
     }
 
     @media (max-width: 768px) {
@@ -1397,65 +1439,181 @@
       <h2 class="planes-title">Elige el plan para tu clínica</h2>
       <p class="planes-sub">Implementación única + mensualidad fija. Sin sorpresas, sin contratos largos.</p>
 
-      <div class="planes-grid">
-        <div class="plan-card">
-          <div class="plan-header">
-            <p class="plan-name">Plan Esencial</p>
-            <p class="plan-precio-impl"><strong>$20,000</strong> MXN implementación</p>
-            <p class="plan-mensualidad">+ <strong>$800 MXN/mes</strong></p>
-          </div>
-          <div class="plan-divider"></div>
-          <ul class="plan-features">
-            <li>Landing page médica personalizable</li>
-            <li>Agenda online con confirmación por email</li>
-            <li>Panel de administración completo</li>
-            <li>Agente IA básico (citas y disponibilidad)</li>
-            <li>Expediente digital de pacientes</li>
-            <li>Analytics básico con KPIs</li>
-            <li>Soporte en español 24/7</li>
-          </ul>
-          <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="btn-plan">Solicitar este plan</a>
-        </div>
+      <div class="planes-table-wrap">
+        <table class="planes-table">
+          <colgroup>
+            <col class="col-feature">
+            <col class="col-esencial">
+            <col class="col-profesional">
+            <col class="col-premium">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="plan-th-header plan-th-feature"></th>
+              <th class="plan-th-header">
+                <p class="plan-th-name">Esencial</p>
+                <p class="plan-th-precio">$20,000</p>
+                <p class="plan-th-mensual">+ $800 MXN/mes</p>
+                <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="plan-th-btn">Solicitar</a>
+              </th>
+              <th class="plan-th-header col-pro-header">
+                <span class="plan-popular-badge">Más popular</span>
+                <p class="plan-th-name">Profesional</p>
+                <p class="plan-th-precio">$32,000</p>
+                <p class="plan-th-mensual">+ $1,800 MXN/mes</p>
+                <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="plan-th-btn plan-th-btn-pro">Solicitar</a>
+              </th>
+              <th class="plan-th-header">
+                <p class="plan-th-name">Premium</p>
+                <p class="plan-th-precio">$45,000</p>
+                <p class="plan-th-mensual">+ $3,200 MXN/mes</p>
+                <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="plan-th-btn">Solicitar</a>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Capacidad -->
+            <tr class="planes-section-row"><td colspan="4">Capacidad</td></tr>
+            <tr>
+              <td>Especialidades / médicos</td>
+              <td><span class="lim">Hasta 2</span></td>
+              <td class="col-pro-data"><span class="lim">Hasta 5</span></td>
+              <td><span class="lim">Hasta 15</span></td>
+            </tr>
+            <tr>
+              <td>Citas al mes</td>
+              <td><span class="lim">Hasta 150</span></td>
+              <td class="col-pro-data"><span class="lim">Hasta 500</span></td>
+              <td><span class="lim">Ilimitadas</span></td>
+            </tr>
+            <tr>
+              <td>Usuarios admin</td>
+              <td><span class="lim">1</span></td>
+              <td class="col-pro-data"><span class="lim">2</span></td>
+              <td><span class="lim">5</span></td>
+            </tr>
 
-        <div class="plan-card destacado">
-          <span class="plan-badge">Más popular</span>
-          <div class="plan-header">
-            <p class="plan-name">Plan Profesional</p>
-            <p class="plan-precio-impl"><strong>$32,000</strong> MXN implementación</p>
-            <p class="plan-mensualidad">+ <strong>$1,400 MXN/mes</strong></p>
-          </div>
-          <div class="plan-divider"></div>
-          <ul class="plan-features">
-            <li>Todo lo del Plan Esencial</li>
-            <li>MediDocs: recetas, notas SOAP, constancias, incapacidades, cartas y consentimientos</li>
-            <li>Membrete profesional personalizado</li>
-            <li>MediPost: generador de contenido para redes sociales con IA + calendario</li>
-            <li>Agente IA con acceso al expediente completo (recetas, notas, historial, NPS)</li>
-            <li>Encuestas NPS post-consulta automatizadas (seguimiento día 3 y día 30)</li>
-            <li>Analytics avanzado con insights de IA</li>
-          </ul>
-          <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="btn-plan">Solicitar este plan</a>
-        </div>
+            <!-- Módulos incluidos -->
+            <tr class="planes-section-row"><td colspan="4">Módulos incluidos</td></tr>
+            <tr>
+              <td>Landing médica personalizable</td>
+              <td><span class="chk">✓</span></td>
+              <td class="col-pro-data"><span class="chk">✓</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+            <tr>
+              <td>Agenda online 24/7</td>
+              <td><span class="chk">✓</span></td>
+              <td class="col-pro-data"><span class="chk">✓</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+            <tr>
+              <td>Panel de administración</td>
+              <td><span class="chk">✓</span></td>
+              <td class="col-pro-data"><span class="chk">✓</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+            <tr>
+              <td>Expediente digital de pacientes</td>
+              <td><span class="chk">✓</span></td>
+              <td class="col-pro-data"><span class="chk">✓</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+            <tr>
+              <td>Analytics básico (KPIs)</td>
+              <td><span class="chk">✓</span></td>
+              <td class="col-pro-data"><span class="chk">✓</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+            <tr>
+              <td>Emails de confirmación automáticos</td>
+              <td><span class="chk">✓</span></td>
+              <td class="col-pro-data"><span class="chk">✓</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+            <tr>
+              <td>Agente IA (citas y disponibilidad)</td>
+              <td><span class="chk">✓</span></td>
+              <td class="col-pro-data"><span class="chk">✓</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
 
-        <div class="plan-card">
-          <div class="plan-header">
-            <p class="plan-name">Plan Premium</p>
-            <p class="plan-precio-impl"><strong>$45,000</strong> MXN implementación</p>
-            <p class="plan-mensualidad">+ <strong>$2,200 MXN/mes</strong></p>
-          </div>
-          <div class="plan-divider"></div>
-          <ul class="plan-features">
-            <li>Todo lo del Plan Profesional</li>
-            <li>Integración WhatsApp Business</li>
-            <li>Agente IA en WhatsApp para pacientes</li>
-            <li>Recordatorios de medicamentos y citas por WhatsApp</li>
-            <li>Panel de personalización global con preview en tiempo real</li>
-            <li>Soporte prioritario y onboarding personalizado</li>
-            <li>Actualizaciones anticipadas</li>
-          </ul>
-          <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="btn-plan">Solicitar este plan</a>
-        </div>
+            <!-- Módulos avanzados -->
+            <tr class="planes-section-row"><td colspan="4">Módulos avanzados</td></tr>
+            <tr>
+              <td>MediDocs — documentos con IA</td>
+              <td><span class="dash">—</span></td>
+              <td class="col-pro-data"><span class="lim">Hasta 200/mes</span></td>
+              <td><span class="lim">Ilimitados</span></td>
+            </tr>
+            <tr>
+              <td>MediPost — contenido para redes</td>
+              <td><span class="dash">—</span></td>
+              <td class="col-pro-data"><span class="lim">Hasta 30/mes</span></td>
+              <td><span class="lim">Ilimitados</span></td>
+            </tr>
+            <tr>
+              <td>Agente IA con acceso al expediente</td>
+              <td><span class="dash">—</span></td>
+              <td class="col-pro-data"><span class="chk">✓</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+            <tr>
+              <td>Encuestas NPS post-consulta</td>
+              <td><span class="dash">—</span></td>
+              <td class="col-pro-data"><span class="chk">✓</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+            <tr>
+              <td>Analytics avanzado + insights IA</td>
+              <td><span class="dash">—</span></td>
+              <td class="col-pro-data"><span class="chk">✓</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+            <tr>
+              <td>Seguimiento día 3 y día 30</td>
+              <td><span class="dash">—</span></td>
+              <td class="col-pro-data"><span class="chk">✓</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+
+            <!-- Solo Plan Premium -->
+            <tr class="planes-section-row"><td colspan="4">Solo Plan Premium</td></tr>
+            <tr>
+              <td>Integración WhatsApp Business</td>
+              <td><span class="dash">—</span></td>
+              <td class="col-pro-data"><span class="dash">—</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+            <tr>
+              <td>Agente IA en WhatsApp</td>
+              <td><span class="dash">—</span></td>
+              <td class="col-pro-data"><span class="dash">—</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+            <tr>
+              <td>Panel personalización global</td>
+              <td><span class="dash">—</span></td>
+              <td class="col-pro-data"><span class="dash">—</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+            <tr>
+              <td>Onboarding personalizado</td>
+              <td><span class="dash">—</span></td>
+              <td class="col-pro-data"><span class="dash">—</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+            <tr>
+              <td>Soporte prioritario</td>
+              <td><span class="dash">—</span></td>
+              <td class="col-pro-data"><span class="dash">—</span></td>
+              <td><span class="chk">✓</span></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+
+      <p class="planes-nota">* Clínicas que superen los límites del plan durante dos meses consecutivos recibirán una propuesta de ajuste. Precios en MXN. Implementación única + mensualidad fija sin contratos largos.</p>
     </section>
   </main>
 
@@ -1472,6 +1630,11 @@
     <div class="footer-bottom">
       <span class="footer-copy">© 2026 Symbiotiq. Todos los derechos reservados.</span>
       <span class="footer-location">Tijuana, México</span>
+    </div>
+    <div class="footer-legal">
+      <a href="terminos.html">Términos y condiciones</a>
+      <span class="footer-legal-sep">·</span>
+      <a href="privacidad.html">Política de privacidad</a>
     </div>
   </footer>
 
