@@ -295,11 +295,25 @@
       font-weight: 600;
       font-size: 0.95rem;
       color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .footer-brand-logo {
+      height: 20px;
+      width: auto;
+      display: block;
+      vertical-align: middle;
     }
 
     .footer-brand a {
       color: var(--text-primary);
       text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       transition: color var(--trans);
     }
 
@@ -535,7 +549,11 @@
   <footer class="site-footer">
     <div class="footer-main">
       <p class="footer-brand">
-        MediCita · por <a href="https://symbiotiq.com.mx" target="_blank" rel="noopener">Symbiotiq</a>
+        MediCita · por
+        <a href="https://symbiotiq.com.mx" target="_blank" rel="noopener">
+          <img src="assets/symbiotiq/logo-icon-white.png" alt="" class="footer-brand-logo" aria-hidden="true">
+          Symbiotiq
+        </a>
       </p>
       <div class="footer-cta">
         <span class="footer-cta-text">¿Tu clínica necesita esto?</span>

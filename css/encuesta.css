@@ -42,6 +42,22 @@ textarea { font-family: inherit; }
   align-items: center;
 }
 
+/* ─── Footer marca ───────────────────────────────────────────────────────── */
+.enc-footer-marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 28px;
+  text-decoration: none;
+  color: var(--gris-suave);
+  font-size: .76rem;
+  font-weight: 600;
+  opacity: .75;
+  transition: opacity var(--transicion);
+}
+.enc-footer-marca:hover { opacity: 1; }
+.enc-footer-marca img { height: 15px; width: auto; display: block; }
+
 /* ─── Header ─────────────────────────────────────────────────────────────── */
 .enc-header {
   display: flex;

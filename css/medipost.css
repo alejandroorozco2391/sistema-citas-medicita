@@ -83,6 +83,27 @@ a { text-decoration: none; }
   border: 1px solid rgba(255,255,255,.18);
 }
 .header-acciones { display: flex; align-items: center; gap: 10px; }
+.header-symbiotiq {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 4px 0 10px;
+  margin-left: 4px;
+  border-left: 1px solid rgba(255,255,255,.15);
+  text-decoration: none;
+  opacity: .55;
+  transition: opacity var(--transicion);
+}
+.header-symbiotiq:hover { opacity: 1; }
+.header-symbiotiq img { height: 16px; width: auto; display: block; }
+.header-symbiotiq span {
+  font-size: .7rem;
+  font-weight: 700;
+  color: var(--blanco);
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
 .btn-header {
   display: inline-flex;
   align-items: center;

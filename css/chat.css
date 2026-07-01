@@ -242,6 +242,16 @@ details[open] .ejs-summary::after { transform: rotate(90deg); }
   text-decoration: none;
 }
 .btn-hdr:hover { background: var(--wa-hover); color: var(--wa-text); }
+.btn-hdr-symbiotiq {
+  width: auto;
+  min-width: 0;
+  padding: 0 9px;
+  border-radius: 10px;
+  opacity: .6;
+  transition: opacity .15s, background .15s;
+}
+.btn-hdr-symbiotiq:hover { opacity: 1; }
+.btn-hdr-symbiotiq img { height: 17px; width: auto; display: block; }
 
 /* Messages area */
 #area-mensajes {

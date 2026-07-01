@@ -93,6 +93,26 @@ input, select { font-family: inherit; }
   margin: 0 4px;
   flex-shrink: 0;
 }
+.header-symbiotiq {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 4px;
+  text-decoration: none;
+  opacity: .55;
+  transition: opacity var(--transicion);
+  flex-shrink: 0;
+}
+.header-symbiotiq:hover { opacity: 1; }
+.header-symbiotiq img { height: 16px; width: auto; display: block; }
+.header-symbiotiq span {
+  font-size: .7rem;
+  font-weight: 700;
+  color: var(--blanco);
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
 .btn-header {
   display: inline-flex;
   align-items: center;
