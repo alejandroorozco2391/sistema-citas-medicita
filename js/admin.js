@@ -23,6 +23,9 @@ document.addEventListener("DOMContentLoaded", () => {
   actualizarBadgeSeguimientos();
   renderOpinionesRecientes();
 
+  // Demo: en la primera visita (localStorage vacío) carga datos de muestra automáticamente
+  sembrarDemoSiVacio();
+
   // Refresca si el paciente guarda una cita en otra pestaña
   window.addEventListener("storage", (e) => {
     if (e.key === "medicita_citas") {
@@ -57,8 +60,8 @@ function bindEventos() {
   document.getElementById("btn-hoy").addEventListener("click", filtrarHoy);
   document.getElementById("btn-exportar").addEventListener("click", exportarCSV);
   document.getElementById("btn-nueva-cita").addEventListener("click", abrirModalNuevaCita);
-  document.getElementById("btn-muestra").addEventListener("click", cargarDatosMuestra);
-  document.getElementById("btn-muestra-tabla").addEventListener("click", cargarDatosMuestra);
+  document.getElementById("btn-muestra").addEventListener("click", () => cargarDatosMuestra());
+  document.getElementById("btn-muestra-tabla").addEventListener("click", () => cargarDatosMuestra());
   document.getElementById("badge-seguimientos-btn").addEventListener("click", () => {
     document.getElementById("seccion-seguimientos").scrollIntoView({ behavior: "smooth", block: "start" });
   });
@@ -275,8 +278,22 @@ function exportarCSV() {
 }
 
 /* ─── Datos de muestra ────────────────────────────────────────────────── */
-function cargarDatosMuestra() {
+// Auto-carga de datos de muestra en la primera visita a la demo.
+// Solo actúa si nunca se ha sembrado y no hay citas guardadas, para no
+// re-poblar los datos si el usuario los borró intencionalmente después.
+function sembrarDemoSiVacio() {
+  const yaSembrado = localStorage.getItem("medicita_demo_seeded") === "true";
+  if (yaSembrado) return;
   if (estadoAdmin.citas.length > 0) {
+    // Ya hay datos reales: marca como sembrado y no toca nada.
+    localStorage.setItem("medicita_demo_seeded", "true");
+    return;
+  }
+  cargarDatosMuestra(true);
+}
+
+function cargarDatosMuestra(auto = false) {
+  if (!auto && estadoAdmin.citas.length > 0) {
     if (!confirm("Ya hay citas guardadas. ¿Agregar los datos de muestra encima?")) return;
   }
   const HOY = new Date().toISOString().split("T")[0];
@@ -297,9 +314,15 @@ function cargarDatosMuestra() {
   ];
   estadoAdmin.citas = [...MUESTRA, ...estadoAdmin.citas];
   guardarCitas();
+  localStorage.setItem("medicita_demo_seeded", "true");
   renderStats();
   renderTabla();
-  mostrarToast(`${MUESTRA.length} citas de muestra cargadas.`, "ok");
+  mostrarToast(
+    auto
+      ? "👋 Datos de demostración cargados. ¡Explora la suite completa!"
+      : `${MUESTRA.length} citas de muestra cargadas.`,
+    "ok"
+  );
 
   // M5: vincular citas de muestra con perfiles de paciente
   if (typeof pacientesAsegurarVinculo === "function") {

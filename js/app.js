@@ -16,6 +16,14 @@ document.addEventListener("DOMContentLoaded", () => {
   inicializarFormulario();
   inicializarNav();
   inicializarFechaMin();
+
+  // En la demo, admin.html siembra los datos de muestra (incluido el NPS)
+  // dentro de un iframe hermano. Refresca las opiniones cuando eso ocurra.
+  window.addEventListener("storage", (e) => {
+    if (e.key === "medicita_nps") {
+      cargarOpinionesNPS();
+    }
+  });
 });
 
 function aplicarAparienciaLanding(cfg) {
