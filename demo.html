@@ -795,21 +795,14 @@
       margin-bottom: 10px;
     }
 
-    .plan-th-precio {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      font-weight: 800;
-      font-size: 1.6rem;
-      color: var(--text-primary);
-      letter-spacing: -0.03em;
-      line-height: 1;
-      margin-bottom: 4px;
-    }
-
-    .plan-th-mensual {
+    .plan-th-desc {
       font-family: 'DM Sans', sans-serif;
-      font-size: 0.77rem;
+      font-weight: 400;
+      font-size: 0.78rem;
+      line-height: 1.45;
       color: var(--text-muted);
       margin-bottom: 16px;
+      white-space: normal;
     }
 
     .plan-th-btn {
@@ -893,7 +886,7 @@
       .planes-section   { padding: 64px clamp(1rem, 4vw, 2rem); }
       .planes-sub       { margin-bottom: 32px; }
       .planes-table     { font-size: 0.82rem; min-width: 560px; }
-      .plan-th-precio   { font-size: 1.3rem; }
+      .plan-th-desc     { font-size: 0.72rem; }
       .plan-th-btn      { padding: 7px 13px; font-size: 0.78rem; }
     }
 
@@ -1343,7 +1336,7 @@
           <div class="beneficios-bloque">
             <p class="beneficios-bloque-titulo">Lo que te ahorra</p>
             <ul class="beneficios-lista">
-              <li><i class="icono icono-dinero">$</i><span>Una recepcionista cuesta entre $8,000 y $12,000 MXN/mes. MediCita automatiza su trabajo desde $800/mes — y nunca falta, nunca se enferma, nunca se va de vacaciones.</span></li>
+              <li><i class="icono icono-dinero">$</i><span>MediCita automatiza el trabajo repetitivo de recepción por una fracción de lo que cuesta una persona de medio tiempo — y nunca falta, nunca se enferma, nunca se va de vacaciones.</span></li>
               <li><i class="icono icono-dinero">$</i><span>Cada llamada perdida fuera de horario es un paciente que se va con la competencia. MediCita agenda, confirma y recuerda citas las 24 horas, los 7 días.</span></li>
               <li><i class="icono icono-dinero">$</i><span>Los no-shows representan hasta el 20% de tus consultas. Los seguimientos automáticos en día 3 y día 30 post-consulta mantienen a tus pacientes activos y reduce ausencias.</span></li>
               <li><i class="icono icono-dinero">$</i><span>Generar una receta, una nota SOAP o una constancia toma minutos. Con MediDocs y IA, toma segundos — con membrete profesional listo para imprimir.</span></li>
@@ -1428,30 +1421,30 @@
             </tr>
           </thead>
           <tbody>
-            <tr><td>Agenda online</td><td>$500–2,000/mes</td><td>✓ Incluido</td></tr>
-            <tr><td>Expediente digital</td><td>$800–3,000/mes</td><td>✓ Incluido</td></tr>
-            <tr><td>Documentos clínicos</td><td>$400–1,500/mes</td><td>✓ Incluido</td></tr>
-            <tr><td>Marketing en redes</td><td>$3,000–8,000/mes</td><td>✓ Incluido</td></tr>
-            <tr><td>Agente IA 24/7</td><td>$2,000–5,000/mes</td><td>✓ Incluido</td></tr>
-            <tr><td>Encuestas NPS</td><td>$500–1,500/mes</td><td>✓ Incluido</td></tr>
-            <tr><td>Analytics</td><td>$600–2,000/mes</td><td>✓ Incluido</td></tr>
-            <tr><td>Landing médica</td><td>$5,000–15,000 única</td><td>✓ Incluido</td></tr>
+            <tr><td>Agenda online</td><td>Suscripción aparte</td><td>✓ Incluido</td></tr>
+            <tr><td>Expediente digital</td><td>Software aparte</td><td>✓ Incluido</td></tr>
+            <tr><td>Documentos clínicos</td><td>Software aparte</td><td>✓ Incluido</td></tr>
+            <tr><td>Marketing en redes</td><td>Agencia externa</td><td>✓ Incluido</td></tr>
+            <tr><td>Agente IA 24/7</td><td>Desarrollo a la medida</td><td>✓ Incluido</td></tr>
+            <tr><td>Encuestas NPS</td><td>Herramienta aparte</td><td>✓ Incluido</td></tr>
+            <tr><td>Analytics</td><td>Herramienta aparte</td><td>✓ Incluido</td></tr>
+            <tr><td>Landing médica</td><td>Proyecto de diseño web</td><td>✓ Incluido</td></tr>
           </tbody>
           <tfoot>
             <tr>
-              <td colspan="2">Valor individual estimado: <strong>$12,800–38,000/mes</strong></td>
-              <td>MediCita: <strong>desde $800/mes según el plan</strong></td>
+              <td colspan="2">Por separado: <strong>8 proveedores, 8 contratos, 8 facturas</strong></td>
+              <td>MediCita: <strong>un solo sistema, una sola mensualidad</strong></td>
             </tr>
           </tfoot>
         </table>
       </div>
-      <p class="comparativa-nota">Precios de referencia del mercado mexicano de software médico 2026.</p>
+      <p class="comparativa-nota">Cada función por separado significa otra suscripción, otro proveedor y otro número al que llamar cuando algo falla.</p>
       <p class="comparativa-aviso">Cada plan incluye un conjunto diferente de módulos — consulta los planes abajo para ver qué incluye cada uno.</p>
     </section>
 
     <section class="planes-section" id="seccion-planes">
       <h2 class="planes-title">Elige el plan para tu clínica</h2>
-      <p class="planes-sub">Implementación única + mensualidad fija. Sin sorpresas, sin contratos largos.</p>
+      <p class="planes-sub">Tres niveles según el tamaño de tu clínica. Implementación única + mensualidad fija, sin contratos largos. Hablamos 15 minutos y te armamos la propuesta a tu medida.</p>
 
       <div class="planes-table-wrap">
         <table class="planes-table">
@@ -1466,22 +1459,19 @@
               <th class="plan-th-header plan-th-feature"></th>
               <th class="plan-th-header">
                 <p class="plan-th-name">Esencial</p>
-                <p class="plan-th-precio">$20,000</p>
-                <p class="plan-th-mensual">+ $800 MXN/mes</p>
-                <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="plan-th-btn">Solicitar</a>
+                <p class="plan-th-desc">Para el consultorio que da su primer paso a lo digital.</p>
+                <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="plan-th-btn">Cotizar</a>
               </th>
               <th class="plan-th-header col-pro-header">
                 <span class="plan-popular-badge">Más popular</span>
                 <p class="plan-th-name">Profesional</p>
-                <p class="plan-th-precio">$32,000</p>
-                <p class="plan-th-mensual">+ $1,800 MXN/mes</p>
-                <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="plan-th-btn plan-th-btn-pro">Solicitar</a>
+                <p class="plan-th-desc">Para la clínica en crecimiento que vive de su agenda.</p>
+                <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="plan-th-btn plan-th-btn-pro">Cotizar</a>
               </th>
               <th class="plan-th-header">
                 <p class="plan-th-name">Premium</p>
-                <p class="plan-th-precio">$45,000</p>
-                <p class="plan-th-mensual">+ $3,200 MXN/mes</p>
-                <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="plan-th-btn">Solicitar</a>
+                <p class="plan-th-desc">Para la clínica consolidada que quiere automatizarlo todo.</p>
+                <a href="https://symbiotiq.com.mx/#contacto" target="_blank" rel="noopener" class="plan-th-btn">Cotizar</a>
               </th>
             </tr>
           </thead>
@@ -1627,7 +1617,7 @@
         </table>
       </div>
 
-      <p class="planes-nota">* Clínicas que superen los límites del plan durante dos meses consecutivos recibirán una propuesta de ajuste. Precios en MXN. Implementación única + mensualidad fija sin contratos largos.</p>
+      <p class="planes-nota">* Clínicas que superen los límites del plan durante dos meses consecutivos recibirán una propuesta de ajuste. La inversión depende del plan y del tamaño de tu clínica — escríbenos y te compartimos la propuesta sin compromiso.</p>
     </section>
   </main>
 
