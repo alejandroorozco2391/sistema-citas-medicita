@@ -1,0 +1,20 @@
+{
+  "name": "medicita",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Suite de productividad para clínicas médicas. Frontend sin build step; este package.json solo existe para las pruebas y la CLI de Supabase.",
+  "scripts": {
+    "dev": "node scripts/servidor.mjs",
+    "test": "node --test \"tests/*.test.js\"",
+    "test:db": "node --test --test-concurrency=1 \"tests/*.test.mjs\"",
+    "test:all": "node --test --test-concurrency=1 \"tests/*.test.js\" \"tests/*.test.mjs\"",
+    "db:bundle": "node scripts/bundle-migraciones.mjs",
+    "db:verificar": "node scripts/verificar-supabase.mjs",
+    "db:push": "supabase db push",
+    "db:diff": "supabase db diff"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4",
+    "supabase": "^2.0.0"
+  }
+}

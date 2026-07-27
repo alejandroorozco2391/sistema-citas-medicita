@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Migrar datos a la nube | MediCita</title>
+
+  <!-- Se rellenan al desplegar cada clínica (ver docs/nueva-clinica.md).
+       La publishable key es pública por diseño: va escrita en el HTML y
+       no protege nada. Lo que protege los datos son las políticas de RLS.
+       En el repositorio quedan en marcador a propósito, para que la
+       plantilla no venga apuntando a la base de otra clínica; para
+       desarrollar, copia js/config-local.ejemplo.mjs. -->
+  <meta name="supabase-url" content="TU_PROYECTO.supabase.co">
+  <meta name="supabase-anon-key" content="TU_PUBLISHABLE_KEY">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --azul-principal: #1a6eb5; --azul-oscuro: #0f4c8a; --azul-claro: #e8f2fc;
+      --verde-salud: #10b981; --verde-claro: #d1fae5;
+      --ambar: #f59e0b; --ambar-claro: #fef3c7;
+      --rojo: #ef4444; --rojo-claro: #fee2e2;
+      --gris-texto: #1e293b; --gris-suave: #64748b; --gris-borde: #e2e8f0;
+      --blanco: #fff; --fondo: #f1f5f9;
+      --radio: 12px; --radio-sm: 8px; --transicion: .18s ease;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, system-ui, sans-serif; background: var(--fondo);
+      color: var(--gris-texto); line-height: 1.6; padding: 32px 16px;
+    }
+    .envoltura { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 6px; }
+    .sub { color: var(--gris-suave); font-size: .95rem; margin-bottom: 26px; }
+
+    .tarjeta {
+      background: var(--blanco); border: 1px solid var(--gris-borde);
+      border-radius: var(--radio); padding: 22px; margin-bottom: 18px;
+    }
+    .tarjeta h2 { font-size: 1.05rem; font-weight: 600; margin-bottom: 12px; }
+
+    .aviso {
+      border-radius: var(--radio-sm); padding: 12px 14px;
+      font-size: .88rem; margin-bottom: 16px; border: 1px solid transparent;
+    }
+    .aviso-info   { background: var(--azul-claro); border-color: #bfdcf5; color: var(--azul-oscuro); }
+    .aviso-ok     { background: var(--verde-claro); border-color: #a7f3d0; color: #065f46; }
+    .aviso-alerta { background: var(--ambar-claro); border-color: #fde68a; color: #92400e; }
+    .aviso-error  { background: var(--rojo-claro); border-color: #fecaca; color: #991b1b; }
+
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--gris-borde); }
+    th { font-weight: 600; color: var(--gris-suave); font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tr:last-child td { border-bottom: none; }
+
+    .btn {
+      font: inherit; font-weight: 600; font-size: .92rem; cursor: pointer;
+      border-radius: var(--radio-sm); padding: 11px 20px; border: 1px solid transparent;
+      transition: background var(--transicion), border-color var(--transicion);
+    }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+    .btn-primario { background: var(--azul-principal); color: var(--blanco); }
+    .btn-primario:not(:disabled):hover { background: var(--azul-oscuro); }
+    .btn-peligro { background: var(--blanco); color: var(--rojo); border-color: #fecaca; }
+    .btn-peligro:not(:disabled):hover { background: var(--rojo-claro); }
+    .btn:focus-visible { outline: 2px solid var(--azul-principal); outline-offset: 2px; }
+
+    .fila-botones { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .progreso { font-size: .88rem; color: var(--gris-suave); margin-top: 12px; min-height: 1.4em; }
+    .errores { margin-top: 14px; font-size: .84rem; }
+    .errores li { margin-left: 18px; color: #991b1b; }
+    .oculto { display: none; }
+    a { color: var(--azul-principal); }
+  </style>
+</head>
+<body>
+  <div class="envoltura">
+
+    <h1>Migrar datos a la nube</h1>
+    <p class="sub">
+      Sube a la base de datos lo que hoy vive en este navegador: expedientes,
+      citas, conversaciones, documentos y encuestas.
+    </p>
+
+    <div id="aviso-principal" class="aviso aviso-info">Revisando este navegador…</div>
+
+    <!-- Inventario -->
+    <section class="tarjeta" id="tarjeta-inventario">
+      <h2>Qué hay en este navegador</h2>
+      <p class="sub" style="margin-bottom:14px">
+        Los datos viven en <strong>este</strong> navegador, no en la nube.
+        Si la clínica los capturó en otra computadora, hay que correr esto ahí.
+      </p>
+      <table>
+        <thead><tr><th>Tipo</th><th class="num">Registros</th></tr></thead>
+        <tbody id="tabla-inventario"></tbody>
+      </table>
+
+      <div class="fila-botones">
+        <button type="button" id="btn-migrar" class="btn btn-primario" disabled>
+          Subir todo a la nube
+        </button>
+      </div>
+      <p class="progreso" id="progreso"></p>
+    </section>
+
+    <!-- Resultado -->
+    <section class="tarjeta oculto" id="tarjeta-resultado">
+      <h2>Resultado</h2>
+      <table>
+        <thead>
+          <tr><th>Tipo</th><th class="num">Nuevos</th><th class="num">Ya estaban</th><th class="num">Omitidos</th></tr>
+        </thead>
+        <tbody id="tabla-resultado"></tbody>
+      </table>
+      <div id="bloque-errores" class="errores oculto">
+        <strong>Detalles:</strong>
+        <ul id="lista-errores"></ul>
+      </div>
+
+      <div class="aviso aviso-alerta" style="margin-top:18px">
+        Los datos locales <strong>siguen intactos</strong>. Verifica en el panel
+        que todo esté correcto antes de borrarlos — una vez borrados, no hay vuelta atrás.
+      </div>
+
+      <div class="fila-botones">
+        <a class="btn btn-primario" href="admin.html" style="text-decoration:none">Ir al panel a revisar</a>
+        <button type="button" id="btn-limpiar" class="btn btn-peligro">Borrar los datos locales</button>
+      </div>
+    </section>
+
+  </div>
+
+  <script type="module">
+    import { inventario, migrarTodo, limpiarLocal } from "./js/migrar.mjs";
+    import { sesionPerfil } from "./js/sesion.mjs";
+    import { hayBackendConfigurado } from "./js/supabase-client.mjs";
+
+    const $ = id => document.getElementById(id);
+
+    const ETIQUETAS = {
+      config: "Configuración de la clínica",
+      pacientes: "Expedientes de pacientes",
+      citas: "Citas",
+      conversaciones: "Conversaciones",
+      mensajes: "Mensajes",
+      documentos: "Documentos clínicos",
+      posts: "Posts de redes",
+      nps: "Respuestas de encuestas",
+      seguimientos: "Seguimientos pendientes",
+    };
+
+    function aviso(texto, tipo = "info") {
+      const el = $("aviso-principal");
+      el.className = `aviso aviso-${tipo}`;
+      el.innerHTML = texto;
+    }
+
+    function pintarInventario() {
+      const inv = inventario();
+      const total = Object.values(inv).reduce((s, n) => s + n, 0);
+      $("tabla-inventario").innerHTML = Object.entries(inv)
+        .map(([k, n]) => `<tr><td>${ETIQUETAS[k] || k}</td><td class="num">${n}</td></tr>`)
+        .join("");
+      return total;
+    }
+
+    async function arrancar() {
+      const total = pintarInventario();
+
+      if (!hayBackendConfigurado()) {
+        aviso(
+          "Este despliegue no tiene backend configurado. Rellena las etiquetas " +
+          "<code>supabase-url</code> y <code>supabase-anon-key</code> en el HTML " +
+          "(ver <a href=\"docs/nueva-clinica.md\">docs/nueva-clinica.md</a>).",
+          "alerta"
+        );
+        return;
+      }
+
+      const perfil = await sesionPerfil();
+      if (!perfil) {
+        const destino = encodeURIComponent("migrar.html");
+        aviso(`Necesitas iniciar sesión. <a href="login.html?destino=${destino}">Entrar</a>`, "alerta");
+        return;
+      }
+
+      if (total === 0) {
+        aviso("No hay datos locales que migrar en este navegador.", "info");
+        return;
+      }
+
+      aviso(
+        `Sesión de <strong>${perfil.nombre}</strong> (${perfil.rol}). ` +
+        `Se subirán <strong>${total}</strong> registros.`,
+        "info"
+      );
+      $("btn-migrar").disabled = false;
+    }
+
+    $("btn-migrar").addEventListener("click", async () => {
+      const boton = $("btn-migrar");
+      boton.disabled = true;
+      boton.textContent = "Subiendo…";
+
+      try {
+        const perfil = await sesionPerfil();
+        const reporte = await migrarTodo({
+          clinicaId: perfil.clinicaId,
+          alAvanzar: t => ($("progreso").textContent = t),
+        });
+
+        $("tabla-resultado").innerHTML = reporte.pasos
+          .map(p => `<tr>
+              <td>${p.entidad}</td>
+              <td class="num">${p.insertados || 0}</td>
+              <td class="num">${p.existentes || 0}</td>
+              <td class="num">${p.omitidos || 0}</td>
+            </tr>`)
+          .join("");
+
+        if (reporte.errores.length) {
+          $("bloque-errores").classList.remove("oculto");
+          $("lista-errores").innerHTML = reporte.errores
+            .map(e => `<li>${e.replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]))}</li>`)
+            .join("");
+        }
+
+        $("tarjeta-resultado").classList.remove("oculto");
+        aviso(
+          reporte.errores.length
+            ? `Migración terminada con ${reporte.errores.length} incidencia(s). Revisa el detalle.`
+            : "Migración completada sin incidencias.",
+          reporte.errores.length ? "alerta" : "ok"
+        );
+        $("progreso").textContent = "";
+        boton.textContent = "Volver a subir (no duplica)";
+        boton.disabled = false;
+      } catch (e) {
+        aviso(`No se pudo completar: ${e.message}`, "error");
+        $("progreso").textContent = "";
+        boton.textContent = "Reintentar";
+        boton.disabled = false;
+      }
+    });
+
+    $("btn-limpiar").addEventListener("click", () => {
+      if (!confirm(
+        "Se borrarán los datos de este navegador de forma permanente.\n\n" +
+        "Hazlo solo si ya verificaste en el panel que todo subió correctamente.\n\n" +
+        "¿Continuar?"
+      )) return;
+      limpiarLocal();
+      pintarInventario();
+      aviso("Datos locales borrados. La clínica ya trabaja contra la nube.", "ok");
+      $("btn-limpiar").disabled = true;
+    });
+
+    arrancar();
+  </script>
+</body>
+</html>

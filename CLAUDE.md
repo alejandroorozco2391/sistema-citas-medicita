@@ -4,9 +4,11 @@ Aplicación web para clínicas medianas en México que permite a los pacientes c
 
 ## Stack tecnológico
 
-- **Frontend:** HTML5, CSS3, JavaScript puro (sin frameworks)
+- **Frontend:** HTML5, CSS3, JavaScript puro (sin frameworks, sin build step)
 - **Fuentes:** Inter (Google Fonts)
-- **Persistencia:** `localStorage` — múltiples claves por módulo (ver abajo)
+- **Backend:** Supabase (Postgres + Auth + RLS) — **un proyecto por clínica**
+- **Serverless:** funciones de Vercel (`api/chat.js` para el proxy de Anthropic)
+- **Persistencia:** doble modo — `localStorage` sin sesión (demo pública), Supabase con sesión. Ver *Fase B1* abajo.
 - **IA:** API de Anthropic (Claude) con tool use, llamada directamente desde el navegador
 - **Email:** EmailJS v4 (CDN) — envío de emails HTML desde el frontend sin backend
 - **Gráficas:** Chart.js vía CDN (se agrega en Módulo 3 — MediAnalytics)
@@ -18,6 +20,7 @@ sistema-citas-medicas/
 ├── index.html          # Página principal (formulario de citas para pacientes)
 ├── admin.html          # Panel de administración (tabla, filtros, cambio de estado)
 ├── chat.html           # Chat con agente de IA (MediBot)
+├── conversaciones.html # [NUEVO F0] MediInbox — inbox unificado multicanal
 ├── medipost.html       # [NUEVO M1] Generador de contenido para redes sociales
 ├── encuesta.html       # [NUEVO M2] Encuesta de satisfacción post-consulta
 ├── medidocs.html       # [NUEVO M4] Generador de documentos clínicos
@@ -28,6 +31,7 @@ sistema-citas-medicas/
 │   ├── styles.css      # Estilos de index.html
 │   ├── admin.css       # Estilos del panel de administración
 │   ├── chat.css        # Estilos del chat (tema oscuro WhatsApp-like)
+│   ├── conversaciones.css # [NUEVO F0] Estilos de MediInbox (2 paneles, burbujas)
 │   ├── medipost.css    # [NUEVO M1] Estilos del generador de posts
 │   ├── encuesta.css    # [NUEVO M2] Estilos de la encuesta NPS (mobile-first)
 │   └── medidocs.css    # [NUEVO M4] Estilos del generador de documentos + @media print
@@ -36,12 +40,53 @@ sistema-citas-medicas/
 │   ├── app.js          # Lógica de index.html + guardarCitaEnStorage()
 │   ├── admin.js        # Lógica del panel de administración
 │   ├── chat.js         # Lógica del chat: loop agéntico, tools, EmailJS
+│   ├── sesion.js       # [NUEVO F0] Gate de rol (demo, NO es seguridad real)
+│   ├── conversaciones-store.js    # [NUEVO F0] Única capa que toca localStorage del inbox
+│   ├── conversaciones-adapters.js # [NUEVO F0] Normalizadores por canal (puros, testeables)
+│   ├── conversaciones-envio.js    # [NUEVO F0] Dispatcher de salida por canal
+│   ├── conversaciones-demo.js     # [NUEVO F0] Payloads crudos de muestra de los 4 canales
+│   ├── conversaciones.js          # [NUEVO F0] Lógica de la vista del inbox
 │   ├── medipost.js     # [NUEVO M1] Lógica del generador de posts
 │   ├── analytics.js    # [NUEVO M3] Cálculo de métricas + integración Chart.js
 │   ├── medidocs.js     # [NUEVO M4] Lógica del generador de documentos
 │   └── encuesta.js     # [NUEVO M2] Lógica de la encuesta NPS
+├── tests/              # [NUEVO F0] Pruebas con el runner nativo de node (sin dependencias)
+│   ├── stub-localstorage.js
+│   ├── adapters.test.js
+│   ├── store.test.js
+│   └── integracion.test.js
 └── assets/             # Reservado para imágenes y recursos estáticos
 ```
+
+## Cómo levantar el sitio
+
+```bash
+npm run dev       # http://localhost:5173
+```
+
+**Hace falta un servidor de verdad desde la Fase B1.** Los archivos `.mjs` son módulos ES y el navegador los rechaza bajo `file://` (origen opaco). Abrir `login.html` con doble clic hace que el `<script type="module">` nunca corra: el formulario se envía de forma nativa, la página se recarga y parece que el botón "no hace nada".
+
+`scripts/servidor.mjs` son 60 líneas del `http` de node sirviendo archivos tal cual. No es un build step ni una dependencia — la restricción de "sin frameworks, sin build" sigue intacta.
+
+## Verificación
+
+No hay linter ni build step. La verificación corre con el runner nativo de node:
+
+```bash
+npm test           # 65 pruebas del frontend, cero dependencias
+npm run test:db    # 65 pruebas contra un Postgres real (pglite, WebAssembly)
+npm run test:all   # las 130
+npm run db:verificar  # contra el proyecto de Supabase real, ya desplegado
+```
+
+`test:all` verifica que el esquema **está bien diseñado**; `db:verificar` que **está bien aplicado** — se conecta al proyecto de verdad con la llave pública e intenta leer las 11 tablas protegidas. Si alguna devolviera renglones, RLS no estaría funcionando y esa clínica no sale a producción.
+
+Dos trampas conocidas:
+
+- `node --test tests/` **falla en Windows** (interpreta el directorio como archivo). Hay que pasar el glob entrecomillado, como hacen los scripts de `package.json`.
+- Las pruebas de base de datos corren con `--test-concurrency=1`. Cada archivo levanta su propio Postgres en WebAssembly, y en paralelo se estorban.
+
+Las pruebas de base de datos no necesitan Docker ni la CLI de Supabase: `tests/db-harness.mjs` levanta Postgres en WebAssembly y le simula encima el entorno de Supabase (esquema `auth`, `auth.uid()`, roles `anon`/`authenticated` y los permisos por omisión sobre `public`). Eso último importa: en Supabase toda tabla nueva nace con permisos para `anon`, y lo único que impide que un anónimo lea la base entera es RLS. El arnés reproduce esa concesión para que las pruebas midan la seguridad real.
 
 ## Claves de localStorage
 
@@ -53,6 +98,9 @@ sistema-citas-medicas/
 | `medicita_followup_pendientes` | M2 MediFollow | Array de folios con seguimiento diferido pendiente (folio, fechaAtendida, emailEnviado_3d, emailEnviado_30d) |
 | `medicita_docs` | M4 MediDocs | Array de metadatos de documentos (id, folio, tipodoc, inputs, creadoEn) — solo metadatos, el HTML se regenera |
 | `medicita_pacientes` | M5 MediPacientes | Array de perfiles de paciente (ver estructura abajo) |
+| `medicita_conversaciones` | F0 MediInbox | Array de conversaciones (id, claveExterna, pacienteId, telefono, nombreContacto, canal, canalMeta, estado, asunto, ultimoMensaje, noLeidos, creadaEn, actualizadaEn, cerradaEn) |
+| `medicita_mensajes` | F0 MediInbox | Array de mensajes (id, conversacionId, remitente, autorNombre, tipo, contenido, audioUrl, duracionSeg, estadoEnvio, metadata, fecha) |
+| `medicita_sesion` | F0 MediInbox | Objeto único con el rol activo (rol, nombre, iniciadaEn) — **gate de demo, no es autenticación** |
 | `medicita_config_clinica` | Global | Objeto único con configuración de la clínica: nombreClinica, nombreMedico, especialidadPrincipal, ciudad, telefono, email, logoUrl, cedulaProfesional, horarioAtencion, direccionConsultorio, fraseHero, fotoHero, fotoMedico, bioMedico, formacionMedico, totalPacientes, anosExperiencia, calificacionPromedio, serviciosClinica, whatsapp, facebook, instagram, **colorPrimario, colorAcento, tipografia** |
 
 ### Estructura de `medicita_pacientes`
@@ -83,6 +131,8 @@ sistema-citas-medicas/
 - Las credenciales (API Key de Anthropic, claves de EmailJS) viven en memoria durante la sesión — nunca en `localStorage`; en la versión demo están precargadas como `value` en los inputs de `chat.html`
 - No usar frameworks ni librerías externas sin consenso previo (Chart.js es la excepción aprobada para M3)
 - Los documentos en MediDocs se guardan solo como metadatos + inputs; el HTML completo se regenera con Claude al abrirlos (evita llenar los 5MB de localStorage)
+- **Todo lo del inbox pasa por `conversaciones-store.js`** — ningún otro archivo del módulo lee ni escribe `medicita_conversaciones`, `medicita_mensajes` ni `medicita_pacientes`. Esto es a propósito: el resto del proyecto arrastra la búsqueda de paciente por teléfono copiada en `app.js`, `medidocs.js` y `chat.js`, y ese error no se repite aquí
+- Los adaptadores de canal son funciones **puras** — sin DOM, sin localStorage, sin fetch. Es lo que permite probarlos en node y lo que hará que conectar un webhook real sea cableado y no reescritura
 
 ---
 
@@ -406,6 +456,167 @@ Los módulos se monetizan por nivel de plan:
 
 ---
 
+## Fase B1 — Cimientos del backend (Supabase)
+
+**Estado:** ✅ Completo (26 julio 2026)
+
+**Por qué existe:** las dos funciones que siguen —escalar a un humano y contacto proactivo del agente— son *imposibles* sin backend, no difíciles. Una pestaña del navegador no puede despertar a las 9 am a recordarle su cita a un paciente, y un webhook de WhatsApp no puede escribir en el `localStorage` de nadie.
+
+**B1 no rompió nada.** El sistema sigue corriendo como antes; encima existe ahora una base de datos real, con autenticación real y verificada por pruebas.
+
+### Modelo de despliegue
+
+**Un proyecto de Supabase por clínica** ($25 USD el primero, $10 cada adicional). Cada cliente tiene su base; nadie comparte tabla con nadie.
+
+Aun así, el esquema está diseñado como multi-inquilino: `clinica_id` + RLS en las 11 tablas. Suena contradictorio y no lo es — agregar `clinica_id` hoy cuesta casi nada y deja las dos puertas abiertas; agregarlo después, con expedientes reales adentro, es la migración que nadie quiere hacer. RLS queda además como segunda cerradura.
+
+### Doble modo — por qué no se tiró el código viejo
+
+| Sin sesión | Con sesión |
+|---|---|
+| `api-local.mjs` → `localStorage` | `api-remoto.mjs` → Supabase |
+| Es la demo pública: clicable por cualquiera sin registrarse | Es una clínica de verdad |
+
+El interruptor es la sesión, y vive en `supabase-client.mjs`. La demo abierta es la herramienta de venta, así que conservar el camino local no es deuda: es un requisito de producto.
+
+### Archivos
+
+```
+supabase/migrations/     0001 utilidades · 0002 clínicas y staff · 0003 pacientes
+                         0004 citas · 0005 conversaciones y módulos · 0006 RPC públicas
+supabase/seed-clinica.sql  Alta de una clínica nueva (se pega en el panel)
+docs/nueva-clinica.md      Procedimiento completo de aprovisionamiento
+js/supabase-client.mjs     Cliente por CDN + detección de modo
+js/api.mjs                 Interfaz única (39 métodos) + despachador
+js/api-local.mjs           Implementación localStorage
+js/api-remoto.mjs          Implementación Supabase + traducción de formas
+js/sesion.mjs              Autenticación real (reemplaza el teatro de sesion.js)
+js/migrar.mjs              localStorage → Postgres, idempotente
+js/config-local.ejemplo.mjs  Plantilla de credenciales de desarrollo
+login.html + css/login.css
+migrar.html
+scripts/servidor.mjs       Servidor estático de desarrollo (npm run dev)
+scripts/bundle-migraciones.mjs  Concatena las migraciones para pegarlas de una
+scripts/verificar-supabase.mjs  Comprueba el proyecto real (npm run db:verificar)
+tests/db-harness.mjs       Postgres en WASM + entorno de Supabase simulado
+tests/db-aislamiento.test.mjs · db-flujos.test.mjs · api-paridad.test.mjs
+```
+
+**Convención nueva:** los archivos `.mjs` son módulos ES; los `.js` siguen siendo scripts clásicos que definen globales. La distinción no es cosmética — en node, un `.js` sin `"type": "module"` es CommonJS y no se puede importar.
+
+### Dónde viven las credenciales
+
+En el repositorio, las etiquetas `<meta name="supabase-url">` y `<meta name="supabase-anon-key">` quedan **en marcador (`TU_…`) a propósito**, y con marcador el sistema cae en modo local.
+
+No es por ocultar la publishable key —es pública por diseño, va escrita en el HTML de cualquier despliegue y cualquiera puede leerla; lo que protege los datos es RLS—. Es porque **este repositorio es la plantilla de la siguiente clínica**: si viniera con las credenciales de un cliente anterior, un despliegue nuevo arrancaría escribiendo en la base de otra clínica. Eso no sería una fuga, sería un cruce de expedientes, y silencioso.
+
+Para desarrollar se copia `js/config-local.ejemplo.mjs` como `js/config-local.mjs` (está en `.gitignore`). Aplica a todas las páginas de una vez y **solo se carga en localhost**, para que ningún despliegue real pida un archivo que nunca va a existir. Es también de donde `npm run db:verificar` toma las credenciales.
+
+La `sb_secret_…` (antes *service_role*) no aparece en ninguna parte del repositorio ni del frontend: se salta RLS por completo y vive solo en variables de entorno de Vercel.
+
+### Contrato de formas
+
+Lo que sale de `api.mjs` son **las mismas formas que ya vivían en localStorage** (camelCase, `folio`, `creadoEn`). Postgres usa snake_case y la traducción se concentra en los mapeadores `deDb*`/`aDb*` de `api-remoto.mjs`.
+
+Es deliberado: cuando los 9 módulos pasen a esta capa (B2), no van a cambiar *cómo* leen un paciente, solo *de dónde*.
+
+### Seguridad — lo que la base garantiza
+
+- **RLS en las 11 tablas.** Verificado por prueba automática, no por inspección: `tests/db-aislamiento.test.mjs` levanta dos clínicas y comprueba tabla por tabla que ninguna alcanza los datos de la otra, ni leyendo ni escribiendo.
+- **El rol anónimo no tiene política sobre ninguna tabla.** Los dos flujos públicos (pedir cita desde la landing, responder la encuesta) pasan por funciones `SECURITY DEFINER` que validan por dentro. La anon key va escrita en el HTML y es pública por diseño; lo que protege es RLS.
+- **La landing lee `clinica_publica`**, una vista que expone solo lo que la clínica publica de todos modos. El plan contratado no sale por ahí.
+- **`solicitar_cita` frena abuso**: máximo 5 solicitudes por teléfono cada 24 h.
+- **La service role key nunca toca el frontend.** Solo variables de entorno de Vercel.
+
+### Invariantes que ahora sostiene la base, no el código
+
+| Antes (buena voluntad del JS) | Ahora (garantía de Postgres) |
+|---|---|
+| Cruce de teléfonos copiado en 4 archivos | Columna generada `telefono_clave` (últimos 10 dígitos) + índice único |
+| Idempotencia de mensajes por convención | Índice único sobre la clave del proveedor |
+| Identidad de conversación por búsqueda esperanzada | Índice único: clave externa, o canal + teléfono |
+| Resumen del último mensaje actualizado por quien escribe | Disparador — importa porque los webhooks insertarán sin pasar por el navegador |
+| Una encuesta por cita, comprobada en el navegador | Índice único sobre `cita_id` |
+
+### Dos bugs que encontraron las pruebas
+
+1. **Colisión de folios y de códigos de paciente.** `CIT-AAMMDD-XXXX` y `PAC-YYYYMMDD-XXXX` llevan 4 dígitos aleatorios: 10 000 combinaciones por día. Con ~60 registros diarios la probabilidad de choque ronda el 16%, y ahora son únicos en la base. Sin reintento, el formulario se le caería en la cara a un paciente. `solicitar_cita` reintenta hasta 12 veces, y si el choque fue de teléfono, reutiliza el expediente existente (que además cubre la carrera de dos solicitudes simultáneas).
+2. **Pruebas intermitentes** por levantar varios Postgres en WebAssembly en paralelo. Se corrigió con `--test-concurrency=1`.
+
+### Lo que NO entró en B1
+
+Los 9 módulos siguen leyendo `localStorage` directamente: **el corte es B2**. Un estado híbrido sería peor que el actual — `pacientes` lo leen cinco archivos distintos, y tenerlo a medias en Postgres rompería los vínculos.
+
+Por lo mismo, `js/sesion.js` (el gate falso) sigue existiendo y lo sigue usando el inbox. Se borra en B2, cuando `conversaciones.html` pase a `js/sesion.mjs`.
+
+---
+
+## Fase 0 — MediInbox: inbox unificado de conversaciones
+
+**Estado:** ✅ Completo (26 julio 2026)
+
+**Concepto:** El lugar donde toda conversación con un paciente queda registrada, buscable y vinculada a su expediente, **sin importar por qué canal llegó**. No es "el historial de MediBot": MediBot es apenas el primer canal que lo alimenta. Está diseñado para recibir WhatsApp, agentes de voz (ElevenLabs y similares), Doctoralia y lo que venga.
+
+Se llama Fase 0 porque es la capa sobre la que se apoyan las integraciones con terceros, aunque se construyó después de la Fase 2.
+
+### Arquitectura — 4 módulos con fronteras duras
+
+| Archivo | Responsabilidad | Regla |
+|---|---|---|
+| `conversaciones-store.js` | Persistencia | **Único** módulo del inbox que toca localStorage. Todas sus funciones devuelven `Promise` aunque localStorage sea síncrono, para que migrar a `fetch('/api/conversaciones')` sea reescribir cuerpos, no llamadas. |
+| `conversaciones-adapters.js` | Normalización por canal | Funciones **puras** `(payload) → {conversacion, mensajes[]}`. Sin DOM, sin localStorage, sin fetch. Por eso se prueban en node. |
+| `conversaciones-envio.js` | Salida por canal | Decide si un mensaje realmente sale o queda pendiente. La UI nunca miente sobre esto. |
+| `conversaciones.js` | Vista | No toca localStorage; todo pasa por el store. |
+
+### Los adaptadores están escritos contra el payload REAL de cada proveedor
+
+No contra un formato inventado. Ese es el punto entero del diseño:
+
+- `adaptarMediBot` — formato Messages API de Anthropic. Filtra la fontanería de tool use: los bloques `text` son el hilo, los `tool_use` se guardan en `metadata.herramientas`, los `tool_result` se descartan (un `role:"user"` con bloques `tool_result` **no** es algo que dijo el paciente).
+- `adaptarWhatsApp` — webhook de WhatsApp Cloud API: `entry[].changes[].value` con `contacts[]` y `messages[]`. Soporta texto, audio, botones e interactivos.
+- `adaptarVozElevenLabs` — webhook post-call de ElevenLabs Agents: `data.transcript[]`, `data.analysis`, `data.metadata`. Si `analysis.call_successful !== "success"`, la conversación entra marcada como `requiere_atencion_humana` — el agente no pudo resolverlo y alguien debe devolver la llamada.
+- `adaptarChatWeb` — widget genérico del sitio.
+
+El día que exista backend, el webhook llama al mismo adaptador con el mismo payload. Es cableado, no reescritura.
+
+### Identidad y vínculo con el expediente
+
+- **Upsert de conversación:** por `claveExterna` si el canal la aporta (`conversation_id` de ElevenLabs, id de sesión de MediBot); si no, por la dupla canal + teléfono, que es lo correcto para WhatsApp donde el hilo es continuo.
+- **Cruce de teléfonos (`claveTel`):** compara por los **últimos 10 dígitos**. WhatsApp entrega `525588112233` y el expediente guarda `55 8811 2233`; sin esto, ninguna conversación de WhatsApp se vincularía a su paciente.
+- **Idempotencia:** cada mensaje lleva id determinista derivado del proveedor (`MSG-wa-<wamid>`, `MSG-11l-<conv>-<i>`, `MSG-mb-<sesion>-<i>`). Reingerir el mismo payload no duplica nada.
+
+### Captura en vivo desde MediBot
+
+`chat.js` vuelca la conversación **completa** al inbox tras cada turno (en el `finally` de `procesarMensaje`). Funciona porque los ids son deterministas: los mensajes ya guardados se reconocen y solo se agrega lo nuevo. Antes de esto, todo lo que decía un paciente se perdía al recargar.
+
+El teléfono se descubre a media conversación (cuando el bot llama a `crear_cita`), y el vínculo con el expediente se completa retroactivamente sin romper el hilo.
+
+### Honestidad en el envío
+
+Hoy **ningún canal tiene salida viva**: WhatsApp necesita la Business API con backend, un agente de voz no recibe texto, y la sesión del visitante ya terminó. El único envío real es por correo vía EmailJS.
+
+Por eso el compositor **no finge**: el mensaje se guarda en el hilo con `estadoEnvio: "pendiente"` y un chip visible con el motivo, más la opción explícita de mandarlo por correo si el paciente tiene email. Nunca hay sustitución silenciosa de canal ni un ✓ enviado falso. `capacidadCanal()` centraliza qué puede hacer cada canal, para que la vista no tenga ese conocimiento regado.
+
+Las notas internas (`tipo: "nota_interna"`) quedan en el hilo, se ven distintas y **no** aparecen como último mensaje en la lista.
+
+### Control de acceso — ⚠️ es teatro, no seguridad
+
+`js/sesion.js` guarda el rol en `medicita_sesion`. **Cualquiera lo cambia con devtools en dos segundos.** No protege nada.
+
+Existe por dos razones: crea la costura donde el auth real se enchufa cuando haya backend, y permite demostrar vistas por rol. La UI muestra el aviso de `sesionAvisoDemo()` de forma visible; **no quitarlo** mientras no exista autenticación de verdad.
+
+### Vista
+
+Dos paneles estilo WhatsApp Web, tema claro y clínico. Izquierda: buscador (que busca también **dentro** del cuerpo de los mensajes, sin acentos), chips de canal y de estado, lista por `actualizadaEn` desc con borde ámbar en las que requieren atención. Derecha: hilo con burbujas por remitente, separadores de día, audio con transcripción colapsable, y el compositor. En móvil colapsa a una columna con la clase `viendo-hilo`.
+
+"Ver perfil" escribe `medicita_tab_activa = "pacientes"` antes de abrir `admin.html` — usa el contrato que admin ya tenía, sin modificar `admin.js`.
+
+### Limitación conocida
+
+Un webhook de WhatsApp o ElevenLabs **no puede escribir en el localStorage de un navegador**. La ingesta real de terceros requiere la fase backend. Lo que ya está resuelto es el formato: los adaptadores y sus pruebas existen y funcionan contra los payloads reales.
+
+---
+
 ## Historial de construcción
 
 - **2 junio 2026** — index.html, styles.css, data.js, app.js (formulario + persistencia localStorage)
@@ -434,7 +645,10 @@ Los módulos se monetizan por nivel de plan:
 - **29 junio 2026** — Tabla comparativa de planes en `demo.html`: reemplaza las 3 tarjetas por tabla de 4 columnas (Característica / Esencial / Profesional / Premium) con 4 secciones agrupadas (Capacidad · Módulos incluidos · Módulos avanzados · Solo Plan Premium), columna Profesional destacada en azul suave, precios mensuales actualizados a $800 / $1,800 / $3,200 MXN. Pie de tabla con nota de ajuste de plan.
 - **29 junio 2026** — Páginas legales: `terminos.html` (13 secciones, T&C completos) y `privacidad.html` (11 secciones, LFPDPPP). Ambas con navbar idéntico a `demo.html` (logo + "← Volver a la demo"), footer completo, índice de secciones clicable con anchor links y diseño responsive consistente con el resto del proyecto. Links a ambas páginas agregados en el footer de `demo.html`.
 - **8 julio 2026** — Auto-seed de datos de muestra en la demo: en la primera visita a `admin.html` (localStorage vacío y sin bandera `medicita_demo_seeded`), `sembrarDemoSiVacio()` carga automáticamente los datos de muestra (citas, seguimientos, NPS, pacientes) para que ningún visitante vea la demo vacía. La bandera `medicita_demo_seeded` evita re-poblar si el usuario borra los datos intencionalmente. Botón "Cargar muestra" sigue disponible para recargar manualmente (ahora con `cargarDatosMuestra(auto)` — toast de bienvenida en modo auto). Listener `storage` para `medicita_nps` agregado en `app.js` para refrescar las opiniones de la landing cuando el iframe de admin siembra el NPS en paralelo. Archivos modificados: `js/admin.js`, `js/app.js`.
+- **26 julio 2026** — **Fase B1 — Cimientos del backend**: Supabase (un proyecto por clínica) + esquema multi-inquilino con RLS en las 11 tablas. Nuevos: `supabase/migrations/` (6 archivos), `supabase/seed-clinica.sql`, `docs/nueva-clinica.md`, `js/supabase-client.mjs`, `js/api.mjs` (interfaz de 39 métodos), `js/api-local.mjs`, `js/api-remoto.mjs`, `js/sesion.mjs`, `js/migrar.mjs`, `login.html`, `css/login.css`, `migrar.html`, `package.json`, y 65 pruebas nuevas (`tests/db-harness.mjs`, `db-aislamiento`, `db-flujos`, `api-paridad`) que corren contra un Postgres real en WebAssembly, sin Docker. Total: 130 pruebas. Modo doble: sin sesión el sistema sigue en `localStorage` (la demo pública no se tocó); con sesión, contra Supabase. Los 9 módulos **todavía no** usan la capa nueva — ese corte es B2. Dos bugs cazados por las pruebas: colisión de folios y de códigos de paciente por usar 4 dígitos aleatorios contra un índice único (se resolvió con reintento, que de paso cubre la carrera de dos solicitudes simultáneas del mismo teléfono), y pruebas intermitentes por levantar varios Postgres WASM en paralelo.
+- **26 julio 2026** — **Fase 0 — MediInbox completo**: inbox unificado multicanal. Nuevos: `conversaciones.html`, `css/conversaciones.css`, `js/sesion.js`, `js/conversaciones-store.js`, `js/conversaciones-adapters.js`, `js/conversaciones-envio.js`, `js/conversaciones-demo.js`, `js/conversaciones.js`, y `tests/` (65 pruebas con el runner nativo de node, cero dependencias). Modificados: `js/chat.js` (captura idempotente de la conversación al inbox tras cada turno + captura del teléfono en `crear_cita`), `chat.html` (carga store y adaptadores), `admin.html` + `css/admin.css` (botón MediInbox en el header). Adaptadores escritos contra los payloads reales de WhatsApp Cloud API y ElevenLabs Agents. Claves nuevas: `medicita_conversaciones`, `medicita_mensajes`, `medicita_sesion`. Dos bugs cazados por las pruebas durante la construcción: el cruce de teléfonos fallaba con la lada 52 de WhatsApp (se corrigió con `claveTel`, últimos 10 dígitos) y reingerir duplicaba los hilos de MediBot y chat web por falta de ids deterministas.
 - **1 julio 2026** — Branding Symbiotiq: logos copiados desde el proyecto `symbiotiq-web` a `assets/symbiotiq/` (`logo.png`, `logo-white.png`, `logo-icon.png`, `logo-icon-white.png`). Insignia "creado por Symbiotiq" con logo agregada en: header de `admin.html`, `medipost.html`, `medidocs.html` y `chat.html` (variante blanca, fondos oscuros); footer de `demo.html`, `terminos.html`, `privacidad.html` e `index.html` (variante blanca); pie de `encuesta.html` (variante a color, fondo claro). Refuerza que los módulos de la suite fueron creados por Symbiotiq en todas las superficies del sistema, no solo en la demo comercial. Archivos modificados: `admin.html`, `chat.html`, `medipost.html`, `medidocs.html`, `demo.html`, `terminos.html`, `privacidad.html`, `index.html`, `encuesta.html`, `css/admin.css`, `css/medipost.css`, `css/medidocs.css`, `css/chat.css`, `css/styles.css`, `css/encuesta.css`.
+- **26 julio 2026** — **B1 puesto en marcha contra un proyecto real.** Esquema aplicado, clínica dada de alta y `npm run db:verificar` en verde: 11 tablas, la vista pública, las 3 funciones anónimas, y RLS negándole a la llave pública un solo renglón de cada tabla. Nuevos: `scripts/servidor.mjs` (+ `npm run dev`), `scripts/bundle-migraciones.mjs`, `scripts/verificar-supabase.mjs`, `js/config-local.ejemplo.mjs`. Cuatro cosas que salieron mal y se corrigieron: (1) el flujo de recuperación de contraseña estaba a medias — el correo salía pero al volver no había pantalla donde escribir la nueva; se agregó, junto con `sesionCambiarContrasena()` y el aviso de enlace vencido; (2) los errores de Supabase se traducían adivinando sobre el texto en inglés, así que `email_not_confirmed` caía en el mensaje genérico — ahora se traducen por código, lo que importa porque ese caso no se arregla cambiando la contraseña; (3) `db:verificar` sondeaba las funciones con cuerpo vacío y PostgREST devuelve 404 tanto si faltan como si los argumentos no cuadran — daba tres falsas alarmas por clínica; (4) `seed-clinica.sql` obligaba a cambiar el nombre de la clínica en tres lugares, y olvidar uno dejaba al personal sin clínica — se reescribió como bloque `DO` con un solo lugar editable, probado contra pglite en cuatro escenarios. Las credenciales salieron del repositorio: los `<meta>` quedan en marcador y el desarrollo usa `js/config-local.mjs` (ignorado por git). No es por ocultar la publishable key, que es pública por diseño, sino porque el repo es la plantilla de la siguiente clínica y no debe venir apuntando a la base de la anterior.
 
 ---
 
@@ -459,6 +673,39 @@ Los módulos se monetizan por nivel de plan:
 
 ### Calendario MediPost ✅ Completo
 - [x] Vista mensual, pastillas drag & drop, historial con scroll, campo `fechaProgramada`
+
+### Fase 0 — MediInbox ✅ Completo
+- [x] Modelos `Conversacion` y `Mensaje` + capa de persistencia con forma async
+- [x] Adaptadores contra payloads reales: MediBot, WhatsApp Cloud API, ElevenLabs Agents, chat web
+- [x] Control de acceso por rol (gate de demo, documentado como tal)
+- [x] Vista de 2 paneles con filtros por canal/estado y buscador
+- [x] Compositor con dispatcher de salida honesto por canal
+- [x] Captura en vivo desde MediBot + 65 pruebas automatizadas
+
+### Fase B1 — Backend ✅ Completo
+- [x] Esquema con RLS en las 11 tablas + funciones para los flujos públicos
+- [x] Autenticación real (`login.html` + `js/sesion.mjs`), un usuario por persona
+- [x] Capa de datos de doble modo (`api.mjs` + local + remoto)
+- [x] Migración `localStorage` → Postgres, idempotente
+- [x] Aprovisionamiento documentado + 65 pruebas contra Postgres real
+
+### ← SIGUIENTE PASO: B2, el corte
+- [ ] Los 9 módulos pasan a `js/api.mjs`. Un solo cambio, reversible. Se hace de golpe y no por partes: un estado híbrido rompería los vínculos entre pacientes, citas y conversaciones.
+- [ ] `conversaciones.html` pasa a `js/sesion.mjs` y se borra `js/sesion.js`
+- [ ] Rellenar las etiquetas `<meta>` de Supabase en los HTML que lo necesiten
+
+### Después de B2 — las dos mejoras pedidas
+- [ ] **Escalación a humano:** herramienta `escalar_a_humano` en MediBot, ruteo a recepción o doctor según el motivo y el horario, notificación al staff, y **ciclo de acuse con re-alerta** si nadie la toma en N minutos. Una escalación sin acuse es un hoyo negro: el paciente queda peor que si nunca hubiera pedido un humano. El estado `requiere_atencion_humana` y el inbox ya son el sustrato.
+- [ ] **Contacto proactivo:** cron + tabla de tareas programadas + consentimiento por canal + tope de frecuencia + salida fácil.
+  **Restricción que condiciona el diseño, no un detalle:** WhatsApp no permite texto libre fuera de las 24 h posteriores al último mensaje del paciente — solo plantillas pre-aprobadas por Meta y con opt-in registrado. Mandar texto libre proactivo tumba el número. Texto generado por Claude funciona por correo y SMS; en WhatsApp, solo dentro de la ventana o con plantillas. Súmale la LFPDPPP: contacto proactivo con datos de salud exige consentimiento registrado.
+
+### Integración con Doctoralia
+- [ ] Adaptador `adaptarDoctoralia(payload)` en `js/conversaciones-adapters.js`, contra la forma real de su API/webhook (mensajes de pacientes y solicitudes de cita)
+- [ ] Mapear el estado de la cita de Doctoralia al ciclo de `medicita_citas` para no duplicar agenda
+- [ ] Definir la identidad de la conversación: `claveExterna` con el id de Doctoralia, o canal + teléfono si su API no expone uno estable
+- [ ] Agregar `doctoralia` a `CANALES` en el store, a `CANAL_INFO` en la vista y a `CAPACIDADES` en el dispatcher de envío
+- [ ] Pruebas del adaptador nuevo en `tests/adapters.test.js` con un payload de ejemplo real
+- [ ] **Bloqueador conocido:** la ingesta real necesita backend que reciba el webhook — un webhook no puede escribir en el localStorage del navegador
 
 ### Backlog core (pendiente de Fase 1)
 - [ ] Sección "Mis citas" en `index.html` para que el paciente vea y cancele sus citas

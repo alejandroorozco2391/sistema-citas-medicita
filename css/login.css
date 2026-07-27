@@ -1,0 +1,272 @@
+/* ─── Variables ───────────────────────────────────────────────────────── */
+:root {
+  --azul-principal: #1a6eb5;
+  --azul-oscuro: #0f4c8a;
+  --gris-texto: #1e293b;
+  --gris-suave: #64748b;
+  --gris-borde: #e2e8f0;
+  --blanco: #fff;
+  --fondo: #f1f5f9;
+  --rojo: #ef4444;
+  --verde-salud: #10b981;
+  --radio: 12px;
+  --radio-sm: 8px;
+  --transicion: .18s ease;
+  --sombra-sm: 0 1px 3px rgba(0,0,0,.07);
+  --sombra-md: 0 4px 16px rgba(0,0,0,.09);
+}
+
+/* ─── Reset ───────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  color: var(--gris-texto);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+button { cursor: pointer; border: none; background: none; font-family: inherit; }
+input { font-family: inherit; }
+.oculto { display: none !important; }
+
+/* ─── Fondo con degradado ─────────────────────────────────────────────── */
+.login-wrap {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 24px 16px 40px;
+  background: linear-gradient(160deg, #eaf3fc 0%, var(--fondo) 45%, #dbeafe 100%);
+}
+
+/* ─── Tarjeta ─────────────────────────────────────────────────────────── */
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--blanco);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra-md);
+  padding: 40px 32px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ─── Marca ───────────────────────────────────────────────────────────── */
+.login-marca {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--gris-texto);
+  text-align: center;
+}
+
+.login-subtitulo {
+  text-align: center;
+  font-size: .88rem;
+  color: var(--gris-suave);
+  font-weight: 500;
+  margin-bottom: 24px;
+}
+
+/* ─── Aviso de backend no configurado ────────────────────────────────── */
+.login-aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  color: #92400e;
+  border-radius: var(--radio-sm);
+  padding: 12px 14px;
+  font-size: .85rem;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+/* ─── Formulario ──────────────────────────────────────────────────────── */
+#form-login {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.campo-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.campo-grupo label {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--gris-suave);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.campo-grupo input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid var(--gris-borde);
+  border-radius: var(--radio-sm);
+  font-size: .92rem;
+  color: var(--gris-texto);
+  background: var(--blanco);
+  transition: border-color var(--transicion), box-shadow var(--transicion);
+  outline: none;
+}
+.campo-grupo input::placeholder { color: #94a3b8; }
+.campo-grupo input:focus {
+  border-color: var(--azul-principal);
+  box-shadow: 0 0 0 3px rgba(26,110,181,.12);
+}
+.campo-grupo input:disabled {
+  background: var(--fondo);
+  color: var(--gris-suave);
+  cursor: not-allowed;
+}
+.campo-grupo input:invalid:not(:placeholder-shown) {
+  border-color: var(--rojo);
+}
+
+/* ─── Campo de contraseña con botón mostrar/ocultar ──────────────────── */
+.campo-password-wrap {
+  position: relative;
+  display: flex;
+}
+.campo-password-wrap input {
+  flex: 1;
+  padding-right: 44px;
+}
+.btn-mostrar-contrasena {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: var(--gris-suave);
+  transition: background var(--transicion), color var(--transicion);
+}
+.btn-mostrar-contrasena:hover { background: var(--fondo); color: var(--gris-texto); }
+
+/* ─── Enlace "olvidaste tu contraseña" ────────────────────────────────── */
+.link-olvido {
+  align-self: flex-start;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--azul-principal);
+  margin-top: -8px;
+  transition: color var(--transicion);
+}
+.link-olvido:hover { color: var(--azul-oscuro); text-decoration: underline; }
+
+/* ─── Panel de recuperación de contraseña ────────────────────────────── */
+.panel-recuperar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--fondo);
+  border: 1px solid var(--gris-borde);
+  border-radius: var(--radio-sm);
+  padding: 16px;
+  margin-top: -4px;
+}
+
+.panel-recuperar-desc {
+  font-size: .84rem;
+  color: var(--gris-suave);
+  line-height: 1.5;
+}
+
+.panel-recuperar-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-secundario {
+  padding: 9px 16px;
+  border-radius: var(--radio-sm);
+  font-size: .84rem;
+  font-weight: 600;
+  border: 1.5px solid var(--gris-borde);
+  color: var(--gris-suave);
+  background: var(--blanco);
+  transition: all var(--transicion);
+}
+.btn-secundario:hover { border-color: var(--azul-principal); color: var(--azul-principal); }
+.btn-recuperar-enviar {
+  background: var(--azul-principal);
+  border-color: var(--azul-principal);
+  color: var(--blanco);
+}
+.btn-recuperar-enviar:hover { background: var(--azul-oscuro); border-color: var(--azul-oscuro); color: var(--blanco); }
+.btn-recuperar-enviar:disabled { opacity: .6; cursor: not-allowed; }
+
+/* ─── Mensajes de error / éxito ───────────────────────────────────────── */
+.mensaje-login {
+  font-size: .85rem;
+  font-weight: 500;
+  border-radius: var(--radio-sm);
+  padding: 11px 14px;
+  line-height: 1.5;
+}
+.mensaje-error {
+  color: #991b1b;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+}
+.mensaje-exito {
+  color: #065f46;
+  background: #d1fae5;
+  border: 1px solid #a7f3d0;
+}
+
+/* ─── Botón entrar ────────────────────────────────────────────────────── */
+.btn-entrar {
+  width: 100%;
+  background: var(--azul-principal);
+  color: var(--blanco);
+  border-radius: var(--radio-sm);
+  padding: 13px 24px;
+  font-size: .95rem;
+  font-weight: 700;
+  transition: background var(--transicion), opacity var(--transicion);
+}
+.btn-entrar:hover:not(:disabled) { background: var(--azul-oscuro); }
+.btn-entrar:disabled { opacity: .65; cursor: not-allowed; }
+
+/* ─── Footer marca Symbiotiq ──────────────────────────────────────────── */
+.login-footer-marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  color: var(--gris-suave);
+  font-size: .76rem;
+  font-weight: 600;
+  opacity: .75;
+  transition: opacity var(--transicion);
+}
+.login-footer-marca:hover { opacity: 1; }
+.login-footer-marca img { height: 15px; width: auto; display: block; }
+
+/* ─── Responsive ──────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .login-card { padding: 32px 20px 24px; border-radius: var(--radio-sm); }
+  .login-wrap { padding: 16px 12px 32px; }
+}

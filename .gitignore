@@ -1,2 +1,10 @@
 .vercel
 .env*
+node_modules
+supabase/.temp
+
+# Credenciales de desarrollo. No es que la publishable key sea secreta
+# —va escrita en el HTML de cualquier despliegue—: es que este repo es la
+# plantilla de la siguiente clínica, y no debe venir apuntando a la base
+# de una clínica anterior. Plantilla: js/config-local.ejemplo.mjs
+js/config-local.mjs

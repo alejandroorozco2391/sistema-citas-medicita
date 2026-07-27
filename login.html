@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Iniciar sesión — MediCita</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/login.css" />
+
+  <!--
+    Configuración de backend (Supabase). Se rellena al desplegar cada
+    clínica — cada clínica tiene su propio proyecto de Supabase.
+
+    La publishable key NO es un secreto: es pública por diseño y va
+    escrita aquí a propósito. Lo que protege los datos son las políticas
+    de RLS de la base, no ocultar esta clave.
+
+    Se dejan en marcador a propósito en el repositorio: este repo es la
+    plantilla de la siguiente clínica, y venir apuntando a la base de una
+    clínica anterior sería un cruce de expedientes. Para desarrollar,
+    copia js/config-local.ejemplo.mjs — ver docs/nueva-clinica.md.
+
+    Con los marcadores puestos, el despliegue corre en modo local
+    (localStorage), que es como funciona la demo pública.
+  -->
+  <meta name="supabase-url" content="TU_PROYECTO.supabase.co">
+  <meta name="supabase-anon-key" content="TU_PUBLISHABLE_KEY">
+</head>
+<body>
+
+  <div class="login-wrap">
+
+    <div class="login-card">
+
+      <!-- ─── Marca ────────────────────────────────────────────────────── -->
+      <div class="login-marca">
+        <span aria-hidden="true">🏥</span>
+        MediCita
+      </div>
+      <p class="login-subtitulo">Panel de la clínica</p>
+
+      <!-- ─── Aviso: backend no configurado ───────────────────────────── -->
+      <div id="aviso-sin-backend" class="login-aviso oculto" role="alert">
+        <span aria-hidden="true">⚠️</span>
+        <span>Este despliegue no tiene backend configurado. Contacta a soporte técnico.</span>
+      </div>
+
+      <!-- ─── Formulario de acceso ─────────────────────────────────────── -->
+      <form id="form-login" novalidate>
+
+        <div class="campo-grupo">
+          <label for="login-email">Correo electrónico</label>
+          <input
+            type="email"
+            id="login-email"
+            name="email"
+            autocomplete="username"
+            placeholder="tu@clinica.com"
+            required
+          />
+        </div>
+
+        <div class="campo-grupo">
+          <label for="login-contrasena">Contraseña</label>
+          <div class="campo-password-wrap">
+            <input
+              type="password"
+              id="login-contrasena"
+              name="contrasena"
+              autocomplete="current-password"
+              placeholder="••••••••"
+              required
+            />
+            <button type="button" id="btn-mostrar-contrasena" class="btn-mostrar-contrasena" aria-label="Mostrar contraseña" aria-pressed="false">
+              <span aria-hidden="true">👁</span>
+            </button>
+          </div>
+        </div>
+
+        <button type="button" id="btn-olvido-contrasena" class="link-olvido">
+          ¿Olvidaste tu contraseña?
+        </button>
+
+        <!-- ─── Panel de recuperación (oculto por defecto) ─────────────── -->
+        <div id="panel-recuperar" class="panel-recuperar oculto">
+          <p class="panel-recuperar-desc">
+            Escribe tu correo y te enviaremos un enlace para restablecer tu contraseña.
+          </p>
+          <div class="campo-grupo">
+            <label for="recuperar-email">Correo electrónico</label>
+            <input
+              type="email"
+              id="recuperar-email"
+              name="recuperar-email"
+              autocomplete="username"
+              placeholder="tu@clinica.com"
+            />
+          </div>
+          <div class="panel-recuperar-acciones">
+            <button type="button" id="btn-recuperar-cancelar" class="btn-secundario">Cancelar</button>
+            <button type="button" id="btn-recuperar-enviar" class="btn-secundario btn-recuperar-enviar">Enviar enlace</button>
+          </div>
+        </div>
+
+        <!-- ─── Mensajes de error/éxito ─────────────────────────────────── -->
+        <div id="mensaje-login" class="mensaje-login oculto" role="alert" aria-live="polite"></div>
+
+        <button type="submit" id="btn-entrar" class="btn-entrar">
+          <span id="btn-entrar-texto">Entrar</span>
+        </button>
+
+      </form>
+
+      <!-- ─── Contraseña nueva (se llega aquí desde el enlace del correo) ─ -->
+      <form id="form-nueva-contrasena" class="oculto" novalidate>
+
+        <p class="panel-recuperar-desc">
+          Escribe tu contraseña nueva. Con ella entrarás de aquí en adelante.
+        </p>
+
+        <div class="campo-grupo">
+          <label for="nueva-contrasena">Contraseña nueva</label>
+          <input
+            type="password"
+            id="nueva-contrasena"
+            name="nueva-contrasena"
+            autocomplete="new-password"
+            placeholder="Al menos 6 caracteres"
+            required
+          />
+        </div>
+
+        <div class="campo-grupo">
+          <label for="nueva-contrasena-repetir">Repítela</label>
+          <input
+            type="password"
+            id="nueva-contrasena-repetir"
+            name="nueva-contrasena-repetir"
+            autocomplete="new-password"
+            placeholder="••••••••"
+            required
+          />
+        </div>
+
+        <div id="mensaje-nueva" class="mensaje-login oculto" role="alert" aria-live="polite"></div>
+
+        <button type="submit" id="btn-guardar-contrasena" class="btn-entrar">
+          <span id="btn-guardar-texto">Guardar contraseña</span>
+        </button>
+
+      </form>
+
+    </div>
+
+    <a href="https://symbiotiq.com.mx" target="_blank" rel="noopener" class="login-footer-marca" title="Sistema creado por Symbiotiq">
+      Sistema creado por
+      <img src="assets/symbiotiq/logo-icon.png" alt="Symbiotiq">
+    </a>
+
+  </div>
+
+  <script type="module">
+    import {
+      sesionIniciar, sesionPerfil, sesionRecuperarContrasena, sesionCambiarContrasena
+    } from "./js/sesion.mjs";
+    import { hayBackendConfigurado } from "./js/supabase-client.mjs";
+
+    /* ─── ¿Venimos del enlace de recuperación? ───────────────────────────
+       Supabase manda los datos en el fragmento (#) y el cliente lo limpia
+       en cuanto arranca, así que hay que leerlo AHORA, antes de que se
+       inicialice. Por eso está al principio del módulo y no dentro de
+       inicio(). */
+    const fragmento = new URLSearchParams(location.hash.replace(/^#/, ""));
+    const esRecuperacion = fragmento.get("type") === "recovery";
+    const errorEnlace = fragmento.get("error_description") || fragmento.get("error");
+
+    const form = document.getElementById("form-login");
+    const inputEmail = document.getElementById("login-email");
+    const inputContrasena = document.getElementById("login-contrasena");
+    const btnMostrarContrasena = document.getElementById("btn-mostrar-contrasena");
+    const btnOlvidoContrasena = document.getElementById("btn-olvido-contrasena");
+    const panelRecuperar = document.getElementById("panel-recuperar");
+    const inputRecuperarEmail = document.getElementById("recuperar-email");
+    const btnRecuperarCancelar = document.getElementById("btn-recuperar-cancelar");
+    const btnRecuperarEnviar = document.getElementById("btn-recuperar-enviar");
+    const mensajeLogin = document.getElementById("mensaje-login");
+    const avisoSinBackend = document.getElementById("aviso-sin-backend");
+    const btnEntrar = document.getElementById("btn-entrar");
+    const btnEntrarTexto = document.getElementById("btn-entrar-texto");
+    const formNueva = document.getElementById("form-nueva-contrasena");
+    const inputNueva = document.getElementById("nueva-contrasena");
+    const inputNuevaRepetir = document.getElementById("nueva-contrasena-repetir");
+    const mensajeNueva = document.getElementById("mensaje-nueva");
+    const btnGuardarContrasena = document.getElementById("btn-guardar-contrasena");
+    const btnGuardarTexto = document.getElementById("btn-guardar-texto");
+
+    /* ─── Redirección segura ─────────────────────────────────────────────
+       El parámetro "destino" viene de la URL (por ejemplo, puesto ahí por
+       sesionProtegerPagina). Solo se acepta si es una ruta relativa: si
+       empieza con "http" o "//" se ignora, porque de lo contrario
+       cualquiera podría mandar ?destino=https://sitio-malicioso.com y
+       este login se convertiría en una redirección abierta. */
+    function destinoSeguro() {
+      const params = new URLSearchParams(location.search);
+      const crudo = params.get("destino");
+      if (!crudo) return "admin.html";
+      let decodificado;
+      try {
+        decodificado = decodeURIComponent(crudo);
+      } catch {
+        return "admin.html";
+      }
+      /* Lista blanca en vez de lista negra: solo se acepta una página
+         .html del mismo directorio. Filtrar "http://" y "//" a mano deja
+         pasar variantes como "\\sitio.com" o esquemas raros; esto no. */
+      if (!/^[\w.-]+\.html([?#].*)?$/.test(decodificado)) {
+        return "admin.html";
+      }
+      return decodificado;
+    }
+
+    function mostrarMensaje(texto, tipo = "error") {
+      mensajeLogin.textContent = texto;
+      mensajeLogin.classList.remove("oculto", "mensaje-error", "mensaje-exito");
+      mensajeLogin.classList.add(tipo === "exito" ? "mensaje-exito" : "mensaje-error");
+    }
+
+    function ocultarMensaje() {
+      mensajeLogin.classList.add("oculto");
+      mensajeLogin.textContent = "";
+    }
+
+    function ponerCargando(cargando) {
+      btnEntrar.disabled = cargando;
+      btnEntrarTexto.textContent = cargando ? "Entrando…" : "Entrar";
+    }
+
+    /* ─── Mostrar/ocultar contraseña ─────────────────────────────────── */
+    btnMostrarContrasena.addEventListener("click", () => {
+      const oculta = inputContrasena.type === "password";
+      inputContrasena.type = oculta ? "text" : "password";
+      btnMostrarContrasena.setAttribute("aria-pressed", String(oculta));
+      btnMostrarContrasena.querySelector("span").textContent = oculta ? "🙈" : "👁";
+    });
+
+    /* ─── Panel de recuperación de contraseña ───────────────────────── */
+    btnOlvidoContrasena.addEventListener("click", () => {
+      panelRecuperar.classList.toggle("oculto");
+      ocultarMensaje();
+      if (!panelRecuperar.classList.contains("oculto")) {
+        inputRecuperarEmail.value = inputEmail.value || "";
+        inputRecuperarEmail.focus();
+      }
+    });
+
+    btnRecuperarCancelar.addEventListener("click", () => {
+      panelRecuperar.classList.add("oculto");
+      ocultarMensaje();
+    });
+
+    btnRecuperarEnviar.addEventListener("click", async () => {
+      ocultarMensaje();
+      const email = inputRecuperarEmail.value.trim();
+      if (!email) {
+        mostrarMensaje("Escribe tu correo para poder enviarte el enlace.");
+        return;
+      }
+      btnRecuperarEnviar.disabled = true;
+      const textoOriginal = btnRecuperarEnviar.textContent;
+      btnRecuperarEnviar.textContent = "Enviando…";
+      try {
+        await sesionRecuperarContrasena(email);
+        mostrarMensaje("Te enviamos un enlace para restablecer tu contraseña. Revisa tu correo.", "exito");
+        panelRecuperar.classList.add("oculto");
+      } catch (error) {
+        mostrarMensaje(error.message);
+      } finally {
+        btnRecuperarEnviar.disabled = false;
+        btnRecuperarEnviar.textContent = textoOriginal;
+      }
+    });
+
+    /* ─── Envío del formulario de acceso ─────────────────────────────── */
+    form.addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      ocultarMensaje();
+
+      const email = inputEmail.value.trim();
+      const contrasena = inputContrasena.value;
+
+      if (!email || !contrasena) {
+        mostrarMensaje("Escribe tu correo y tu contraseña.");
+        return;
+      }
+
+      ponerCargando(true);
+      try {
+        await sesionIniciar(email, contrasena);
+        mostrarMensaje("Sesión iniciada. Redirigiendo…", "exito");
+        location.replace(destinoSeguro());
+      } catch (error) {
+        mostrarMensaje(error.message);
+        ponerCargando(false);
+      }
+    });
+
+    /* ─── Guardar la contraseña nueva ─────────────────────────────────── */
+    function mostrarMensajeNueva(texto, tipo = "error") {
+      mensajeNueva.textContent = texto;
+      mensajeNueva.classList.remove("oculto", "mensaje-error", "mensaje-exito");
+      mensajeNueva.classList.add(tipo === "exito" ? "mensaje-exito" : "mensaje-error");
+    }
+
+    formNueva.addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      mensajeNueva.classList.add("oculto");
+
+      const nueva = inputNueva.value;
+      if (nueva.length < 6) {
+        mostrarMensajeNueva("La contraseña debe tener al menos 6 caracteres.");
+        return;
+      }
+      if (nueva !== inputNuevaRepetir.value) {
+        mostrarMensajeNueva("Las dos contraseñas no coinciden.");
+        return;
+      }
+
+      btnGuardarContrasena.disabled = true;
+      btnGuardarTexto.textContent = "Guardando…";
+      try {
+        await sesionCambiarContrasena(nueva);
+        mostrarMensajeNueva("Contraseña actualizada. Entrando…", "exito");
+        /* El enlace de recuperación ya dejó una sesión abierta, así que
+           no hace falta volver a pedir credenciales. */
+        location.replace(destinoSeguro());
+      } catch (error) {
+        mostrarMensajeNueva(error.message);
+        btnGuardarContrasena.disabled = false;
+        btnGuardarTexto.textContent = "Guardar contraseña";
+      }
+    });
+
+    /* ─── Arranque de la página ───────────────────────────────────────── */
+    function mostrarPantallaNuevaContrasena() {
+      form.classList.add("oculto");
+      panelRecuperar.classList.add("oculto");
+      formNueva.classList.remove("oculto");
+      inputNueva.focus();
+    }
+
+    (async function inicio() {
+      if (!hayBackendConfigurado()) {
+        avisoSinBackend.classList.remove("oculto");
+        inputEmail.disabled = true;
+        inputContrasena.disabled = true;
+        btnEntrar.disabled = true;
+        btnOlvidoContrasena.disabled = true;
+        return;
+      }
+
+      /* Enlace vencido o ya usado: Supabase lo dice en el fragmento. Sin
+         esto, la persona vería el formulario normal y no entendería por
+         qué el correo "no hizo nada". */
+      if (errorEnlace) {
+        mostrarMensaje("El enlace ya venció o se usó antes. Pide uno nuevo abajo.");
+        return;
+      }
+
+      if (esRecuperacion) {
+        mostrarPantallaNuevaContrasena();
+        return;
+      }
+
+      // Si ya hay sesión activa, no tiene caso mostrar el formulario.
+      const perfil = await sesionPerfil();
+      if (perfil) {
+        location.replace(destinoSeguro());
+        return;
+      }
+    })();
+  </script>
+
+</body>
+</html>
