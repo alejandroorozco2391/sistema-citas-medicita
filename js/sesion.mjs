@@ -13,8 +13,20 @@
    navegador, es una fila de perfiles_staff protegida por RLS. Mentir
    sobre el rol en el cliente no sirve de nada — la base no le cree.
 
-   ⚠️ js/sesion.js sigue existiendo mientras el inbox no migre a esta
-   capa. Cuando eso pase (B2), aquel archivo se borra.
+   ── Modo demostración ───────────────────────────────────────────────────
+   Cuando el despliegue no tiene backend configurado —la demo pública de
+   ventas— no hay contra qué autenticarse, pero el sistema tiene que
+   seguir siendo clicable por cualquiera. En ese caso estas funciones
+   caen en un perfil de demostración que se guarda en localStorage, y
+   todo lo que dependa de él queda marcado con `esDemo: true`.
+
+   Eso es lo que antes hacía js/sesion.js por su cuenta, y por eso aquel
+   archivo ya no existe: había dos sistemas de sesión conviviendo, que es
+   exactamente el estado híbrido que B2 vino a eliminar.
+
+   El aviso de sesionAvisoDemo() debe seguir visible mientras `esDemo`
+   sea verdadero. No es decoración: sin backend, el rol es una
+   preferencia del navegador y no protege absolutamente nada.
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { obtenerCliente, hayBackendConfigurado } from "./supabase-client.mjs";
@@ -24,6 +36,60 @@ export const ROLES = {
   recepcionista: { id: "recepcionista", label: "Recepción", icono: "💁", desc: "Agenda y contacto con pacientes" },
   admin: { id: "admin", label: "Administrador", icono: "⚙️", desc: "Acceso total al sistema" },
 };
+
+const CLAVE_SESION_DEMO = "medicita_sesion";
+
+const AVISO_DEMO =
+  "Control de acceso de demostración: el rol se guarda en este navegador y " +
+  "no protege información. La validación real llega con el backend.";
+
+/** ¿Este despliegue corre sin backend? Entonces la sesión es de mentiras. */
+export function sesionEsDemo() {
+  return !hayBackendConfigurado();
+}
+
+export function sesionAvisoDemo() {
+  return AVISO_DEMO;
+}
+
+/* ─── Sesión de demostración ──────────────────────────────────────────── */
+function perfilDemoGuardado() {
+  try {
+    const s = JSON.parse(localStorage.getItem(CLAVE_SESION_DEMO) || "null");
+    if (!s || !ROLES[s.rol]) return null;
+    return {
+      id: `DEMO-${s.rol}`,
+      usuarioId: `DEMO-${s.rol}`,
+      clinicaId: null,
+      nombre: s.nombre || ROLES[s.rol].label,
+      rol: s.rol,
+      email: "",
+      esDemo: true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Elige rol en modo demostración. Falla a propósito si hay backend: ahí
+ * la única forma de entrar es sesionIniciar() con credenciales de verdad.
+ */
+export function sesionIniciarDemo(rol, nombre) {
+  if (!sesionEsDemo()) {
+    throw new Error("Este despliegue tiene backend: hay que iniciar sesión desde login.html");
+  }
+  if (!ROLES[rol]) throw new Error(`Rol desconocido: ${rol}`);
+
+  const sesion = {
+    rol,
+    nombre: String(nombre || "").trim() || ROLES[rol].label,
+    iniciadaEn: new Date().toISOString(),
+  };
+  localStorage.setItem(CLAVE_SESION_DEMO, JSON.stringify(sesion));
+  _perfil = null;
+  return perfilDemoGuardado();
+}
 
 /* ─── Perfil en memoria ───────────────────────────────────────────────── */
 /* No se cachea en localStorage: el rol tiene que venir de la base en cada
@@ -36,7 +102,14 @@ let _perfil = null;
  */
 export async function sesionPerfil() {
   if (_perfil) return _perfil;
-  if (!hayBackendConfigurado()) return null;
+
+  /* Sin backend, el perfil sale de la elección de rol de la demo. Puede
+     ser null si el visitante todavía no eligió: la página muestra el
+     selector, igual que antes. */
+  if (sesionEsDemo()) {
+    _perfil = perfilDemoGuardado();
+    return _perfil;
+  }
 
   const cliente = await obtenerCliente();
   const { data: sesion } = await cliente.auth.getSession();
@@ -143,8 +216,14 @@ export async function sesionIniciar(email, contrasena) {
 }
 
 export async function sesionCerrar() {
-  const cliente = await obtenerCliente();
   _perfil = null;
+
+  if (sesionEsDemo()) {
+    localStorage.removeItem(CLAVE_SESION_DEMO);
+    return;
+  }
+
+  const cliente = await obtenerCliente();
   if (cliente) await cliente.auth.signOut();
 }
 

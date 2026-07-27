@@ -26,10 +26,18 @@ const RAIZ = path.join(AQUI, "..");
 const ls = instalarLocalStorage();
 const local = await import("../js/api-local.mjs");
 
-/** Los métodos que la interfaz declara, leídos del propio api.mjs. */
+/**
+ * Los métodos que la interfaz declara, leídos del propio api.mjs.
+ *
+ * Cuenta las dos vías: `impl()` (la que depende de la sesión) e
+ * `implPublica()` (landing y encuesta, que ocurren sin sesión). Si solo
+ * mirara la primera, los métodos públicos quedarían fuera de la
+ * comprobación de paridad justo donde más duele: son los que usa un
+ * paciente que no tiene cuenta.
+ */
 function metodosDeLaInterfaz() {
   const src = fs.readFileSync(path.join(RAIZ, "js", "api.mjs"), "utf8");
-  return [...new Set([...src.matchAll(/impl\(\)\)\.(\w+)\(/g)].map(m => m[1]))];
+  return [...new Set([...src.matchAll(/impl(?:Publica)?\(\)\)\.(\w+)\(/g)].map(m => m[1]))];
 }
 
 /** Nombres exportados por un módulo, leídos del texto (api-remoto no se puede importar sin navegador). */
@@ -167,4 +175,59 @@ test("un localStorage corrupto no tumba la capa de datos", async () => {
   ls.clear();
   ls.setItem("medicita_pacientes", "{esto no es json");
   assert.deepStrictEqual(await local.pacientesListar(), []);
+});
+
+/* ═══ Superficie pública (landing y encuesta, sin sesión) ═══════════════ */
+
+test("los testimonios solo exponen lo publicable", async () => {
+  ls.clear();
+  const folio = await local.publicoSolicitarCita({
+    nombre: "María", apellidos: "González Ruiz",
+    telefono: "55 1212 3434", email: "maria@correo.mx",
+    fecha: "2026-08-10", notas: "Dato clínico que no debe salir de aquí",
+  });
+  await local.npsResponder(folio, 10, "Excelente atención");
+
+  const [t] = await local.publicoTestimonios();
+  assert.ok(t, "debe devolver el testimonio");
+
+  assert.strictEqual(t.nombrePublico, "María G.", "nombre de pila más inicial, nunca el apellido completo");
+  assert.strictEqual(t.comentario, "Excelente atención");
+  assert.strictEqual(t.puntuacion, 10);
+
+  /* Lo que importa de esta prueba: la landing es pública, así que lo que
+     salga de aquí lo puede leer cualquiera. Antes se le entregaba el
+     arreglo completo de citas para sacar un nombre de pila. */
+  const serializado = JSON.stringify(t);
+  for (const filtrado of ["55 1212 3434", "5512123434", "maria@correo.mx", "González", folio, "Dato clínico"]) {
+    assert.ok(
+      !serializado.includes(filtrado),
+      `un testimonio público no debe incluir "${filtrado}"`
+    );
+  }
+});
+
+test("los testimonios respetan el umbral de puntuación", async () => {
+  ls.clear();
+  const malo = await local.publicoSolicitarCita({
+    nombre: "Jorge", apellidos: "Pérez", telefono: "55 1111 0000", fecha: "2026-08-10",
+  });
+  await local.npsResponder(malo, 3, "No me gustó");
+
+  assert.deepStrictEqual(
+    await local.publicoTestimonios({ minPuntuacion: 8 }), [],
+    "una calificación baja no se publica como testimonio"
+  );
+  assert.strictEqual(
+    (await local.publicoTestimonios({ minPuntuacion: 1 })).length, 1,
+    "pero sigue estando en los datos: es el umbral lo que la deja fuera"
+  );
+});
+
+test("la clínica pública no expone el plan contratado", async () => {
+  ls.clear();
+  await local.clinicaGuardar({ nombreClinica: "Consultorio Prueba", ciudad: "León" });
+  const cfg = await local.publicoClinica();
+  assert.strictEqual(cfg.nombreClinica, "Consultorio Prueba");
+  assert.ok(!("plan" in cfg), "el plan contratado no es dato de la landing");
 });

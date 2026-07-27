@@ -40,8 +40,9 @@ sistema-citas-medicas/
 │   ├── app.js          # Lógica de index.html + guardarCitaEnStorage()
 │   ├── admin.js        # Lógica del panel de administración
 │   ├── chat.js         # Lógica del chat: loop agéntico, tools, EmailJS
-│   ├── sesion.js       # [NUEVO F0] Gate de rol (demo, NO es seguridad real)
-│   ├── conversaciones-store.js    # [NUEVO F0] Única capa que toca localStorage del inbox
+│   ├── puente-api.mjs  # [B2] Publica window.API para los scripts clásicos
+│   ├── puente-sesion.mjs # [B2] Publica window.Sesion para el inbox
+│   ├── conversaciones-store.js    # [F0/B2] Capa del inbox; delega en api.mjs
 │   ├── conversaciones-adapters.js # [NUEVO F0] Normalizadores por canal (puros, testeables)
 │   ├── conversaciones-envio.js    # [NUEVO F0] Dispatcher de salida por canal
 │   ├── conversaciones-demo.js     # [NUEVO F0] Payloads crudos de muestra de los 4 canales
@@ -74,8 +75,8 @@ No hay linter ni build step. La verificación corre con el runner nativo de node
 
 ```bash
 npm test           # 65 pruebas del frontend, cero dependencias
-npm run test:db    # 65 pruebas contra un Postgres real (pglite, WebAssembly)
-npm run test:all   # las 130
+npm run test:db    # 73 pruebas contra un Postgres real (pglite, WebAssembly)
+npm run test:all   # las 138
 npm run db:verificar  # contra el proyecto de Supabase real, ya desplegado
 ```
 
@@ -90,6 +91,10 @@ Las pruebas de base de datos no necesitan Docker ni la CLI de Supabase: `tests/d
 
 ## Claves de localStorage
 
+> **Desde B2, ningún módulo las lee ni las escribe directamente.** Todas viven detrás de `js/api.mjs`, y solo `js/api-local.mjs` las toca. La tabla queda como referencia del modelo de datos en modo local, no como una lista de cosas que haya que ir a leer.
+>
+> Las dos excepciones son estado de interfaz de este navegador, no datos de la clínica, y **siguen en `localStorage` en ambos modos**: `medicita_demo_seeded` (si ya se sembró la demo) y `medicita_tab_activa` (qué pestaña del panel estaba abierta). Sincronizarlas con el servidor no tendría sentido: la pestaña abierta en la computadora de recepción no es asunto del consultorio.
+
 | Clave | Módulo | Contenido |
 |---|---|---|
 | `medicita_citas` | Core | Array de citas (folio, paciente, médico, fecha, hora, tipo, estado, notas, creadaEn) |
@@ -100,7 +105,7 @@ Las pruebas de base de datos no necesitan Docker ni la CLI de Supabase: `tests/d
 | `medicita_pacientes` | M5 MediPacientes | Array de perfiles de paciente (ver estructura abajo) |
 | `medicita_conversaciones` | F0 MediInbox | Array de conversaciones (id, claveExterna, pacienteId, telefono, nombreContacto, canal, canalMeta, estado, asunto, ultimoMensaje, noLeidos, creadaEn, actualizadaEn, cerradaEn) |
 | `medicita_mensajes` | F0 MediInbox | Array de mensajes (id, conversacionId, remitente, autorNombre, tipo, contenido, audioUrl, duracionSeg, estadoEnvio, metadata, fecha) |
-| `medicita_sesion` | F0 MediInbox | Objeto único con el rol activo (rol, nombre, iniciadaEn) — **gate de demo, no es autenticación** |
+| `medicita_sesion` | F0 MediInbox | Objeto único con el rol activo (rol, nombre, iniciadaEn) — **solo en la demo sin backend**; con backend la sesión es de Supabase Auth y esta clave no se usa |
 | `medicita_config_clinica` | Global | Objeto único con configuración de la clínica: nombreClinica, nombreMedico, especialidadPrincipal, ciudad, telefono, email, logoUrl, cedulaProfesional, horarioAtencion, direccionConsultorio, fraseHero, fotoHero, fotoMedico, bioMedico, formacionMedico, totalPacientes, anosExperiencia, calificacionPromedio, serviciosClinica, whatsapp, facebook, instagram, **colorPrimario, colorAcento, tipografia** |
 
 ### Estructura de `medicita_pacientes`
@@ -131,7 +136,10 @@ Las pruebas de base de datos no necesitan Docker ni la CLI de Supabase: `tests/d
 - Las credenciales (API Key de Anthropic, claves de EmailJS) viven en memoria durante la sesión — nunca en `localStorage`; en la versión demo están precargadas como `value` en los inputs de `chat.html`
 - No usar frameworks ni librerías externas sin consenso previo (Chart.js es la excepción aprobada para M3)
 - Los documentos en MediDocs se guardan solo como metadatos + inputs; el HTML completo se regenera con Claude al abrirlos (evita llenar los 5MB de localStorage)
-- **Todo lo del inbox pasa por `conversaciones-store.js`** — ningún otro archivo del módulo lee ni escribe `medicita_conversaciones`, `medicita_mensajes` ni `medicita_pacientes`. Esto es a propósito: el resto del proyecto arrastra la búsqueda de paciente por teléfono copiada en `app.js`, `medidocs.js` y `chat.js`, y ese error no se repite aquí
+- **Ningún módulo toca `localStorage` de datos.** Todo pasa por `js/api.mjs`, que decide si los datos viven en este navegador o en Postgres. Los scripts clásicos lo alcanzan por `window.API`, que publica `js/puente-api.mjs`. Las únicas claves que quedan sueltas son las dos de estado de interfaz listadas arriba
+- **Toda rutina de arranque abre con `await window.APIListo`.** No es por el orden de carga —los módulos ES corren antes de `DOMContentLoaded`— sino porque saber si hay una clínica real detrás requiere preguntarle a Supabase, y de eso dependen decisiones como no sembrar datos de demostración
+- El cruce de pacientes por teléfono se hace **por los últimos 10 dígitos**, y vive en un solo lugar (`api-local.mjs` / columna generada en Postgres). Antes estaba copiado en `app.js`, `admin.js`, `medidocs.js` y `pacientes.js` con criterios distintos, y por eso el mismo número escrito con guiones creaba un expediente duplicado
+- **Todo lo del inbox pasa por `conversaciones-store.js`**, que a su vez delega en `api.mjs`. Ningún otro archivo del módulo toca conversaciones, mensajes ni pacientes
 - Los adaptadores de canal son funciones **puras** — sin DOM, sin localStorage, sin fetch. Es lo que permite probarlos en node y lo que hará que conectar un webhook real sea cableado y no reescritura
 
 ---
@@ -484,13 +492,14 @@ El interruptor es la sesión, y vive en `supabase-client.mjs`. La demo abierta e
 ```
 supabase/migrations/     0001 utilidades · 0002 clínicas y staff · 0003 pacientes
                          0004 citas · 0005 conversaciones y módulos · 0006 RPC públicas
+                         0007 testimonios públicos · 0008 campos faltantes de posts
 supabase/seed-clinica.sql  Alta de una clínica nueva (se pega en el panel)
 docs/nueva-clinica.md      Procedimiento completo de aprovisionamiento
 js/supabase-client.mjs     Cliente por CDN + detección de modo
 js/api.mjs                 Interfaz única (39 métodos) + despachador
 js/api-local.mjs           Implementación localStorage
 js/api-remoto.mjs          Implementación Supabase + traducción de formas
-js/sesion.mjs              Autenticación real (reemplaza el teatro de sesion.js)
+js/sesion.mjs              Autenticación real (+ fallback de demo desde B2)
 js/migrar.mjs              localStorage → Postgres, idempotente
 js/config-local.ejemplo.mjs  Plantilla de credenciales de desarrollo
 login.html + css/login.css
@@ -545,9 +554,54 @@ Es deliberado: cuando los 9 módulos pasen a esta capa (B2), no van a cambiar *c
 
 ### Lo que NO entró en B1
 
-Los 9 módulos siguen leyendo `localStorage` directamente: **el corte es B2**. Un estado híbrido sería peor que el actual — `pacientes` lo leen cinco archivos distintos, y tenerlo a medias en Postgres rompería los vínculos.
+Los 9 módulos seguían leyendo `localStorage` directamente: **el corte fue B2**. Un estado híbrido habría sido peor que el anterior — `pacientes` lo leen cinco archivos distintos, y tenerlo a medias en Postgres rompería los vínculos.
 
-Por lo mismo, `js/sesion.js` (el gate falso) sigue existiendo y lo sigue usando el inbox. Se borra en B2, cuando `conversaciones.html` pase a `js/sesion.mjs`.
+Por lo mismo, `js/sesion.js` (el gate falso) siguió existiendo durante B1. **En B2 se borró**: el inbox ya usa `js/sesion.mjs`.
+
+---
+
+## Fase B2 — El corte: los módulos pasan a `js/api.mjs`
+
+**Estado:** ✅ Completo (26 julio 2026)
+
+Los 9 módulos dejaron de tocar `localStorage`. Ahora todos leen y escriben por `js/api.mjs`, que decide —según el modo— si eso significa este navegador o Postgres. Se hizo de golpe: `pacientes` lo leen cinco archivos, y a medias los vínculos entre expediente, cita, documento y conversación se habrían roto en silencio.
+
+### El puente: scripts clásicos ↔ módulos ES
+
+Los 9 módulos son `<script src>` clásicos; `api.mjs` es un módulo ES, y un script clásico no puede `import`. Lo cruza **una sola pieza**, `js/puente-api.mjs`, que publica `window.API`, `window.APIListo` y `window.MODO_DATOS`. Lo mismo hace `js/puente-sesion.mjs` con `window.Sesion` para el inbox.
+
+Cada rutina de arranque abre con `await window.APIListo`. No es por el orden de carga —los módulos ES corren antes de `DOMContentLoaded`— sino porque **saber si hay una clínica real detrás requiere preguntarle a Supabase**, y de eso dependen decisiones que no admiten equivocarse: `sembrarDemoSiVacio()` inyectaba nueve citas de muestra en la primera visita, y contra una base de producción eso habría metido pacientes inventados al expediente de una clínica real.
+
+### Async de punta a punta, no una copia síncrona en memoria
+
+Se descartó hidratar una instantánea síncrona al arrancar, que habría sido un diff mucho menor. La razón: en modo remoto hay varias personas trabajando a la vez —recepción y consultorio—, y una instantánea síncrona queda obsoleta sin avisar. Eso es exactamente el problema que el backend viene a resolver, y sería absurdo reintroducirlo en la capa de arriba.
+
+El costo real resultó moderado: los 76 puntos de contacto tenían, sin excepción, un ancestro que era manejador de evento o rutina de arranque, así que el `await` se propagó dentro de cada archivo y no cruzó a otros.
+
+### El bug que B2 destapó: la superficie sin sesión
+
+`modoActual()` devuelve `"remoto"` solo si hay **sesión**. Pero tres flujos del sistema ocurren por diseño **sin** sesión: un paciente pide cita desde la landing, responde la encuesta, y la landing muestra los datos de la clínica.
+
+Con el interruptor original, en la landing de una clínica real la cita de un paciente se habría guardado en el `localStorage` de su propio navegador. La clínica nunca se habría enterado, y el paciente se habría presentado con un folio que no existía en ninguna parte. Lo mismo con las respuestas de la encuesta.
+
+B1 había construido las piezas correctas —la vista `clinica_publica` y las funciones `SECURITY DEFINER` `solicitar_cita` y `responder_encuesta`— y nada las alcanzaba nunca.
+
+La corrección es `api.publico`, que resuelve contra el backend **siempre que exista uno**, haya sesión o no. Para esa superficie el criterio correcto no es *¿hay sesión?* sino *¿hay backend?*.
+
+### Testimonios: un hueco de privacidad que ya existía
+
+La sección de opiniones de la landing cruzaba en el navegador las respuestas NPS con las citas para sacar el nombre del paciente. Es decir: **la página pública cargaba el arreglo completo de citas** —nombres, teléfonos, correos y notas de todos los pacientes— para mostrar un nombre de pila.
+
+Se resolvió con la vista `testimonios_publicos` (migración 0007), calcada del patrón ya probado de `clinica_publica`: expone nombre de pila más inicial, puntuación, comentario y fecha, y nada más. El recorte se aplica **también en modo local**, para que la página no quede escrita contra un contrato que solo se cumple en uno de los dos modos. Cinco pruebas de aislamiento lo sostienen.
+
+### Otros dos huecos encontrados al conectar
+
+1. **`posts` perdía tres de cuatro campos.** La tabla tenía columnas para caption y hashtags, pero no para la sugerencia de imagen, el prompt en inglés ni la llamada a la acción. Una clínica con backend habría guardado la mitad de cada post sin ningún error visible. Corregido en la migración 0008.
+2. **Los documentos no traían folio en remoto.** `api-local` devolvía `folio`; `api-remoto`, solo `cita_id`. El historial de MediDocs habría salido con la columna en blanco y el botón de regenerar no habría encontrado su cita. Se emparejó con un join.
+
+### `conversaciones-store.js`, la costura que sí sirvió
+
+Sus funciones devolvían `Promise` desde el primer día, aunque `localStorage` fuera síncrono. Eso permitió migrarlo reescribiendo cuerpos sin tocar **una sola llamada** en `conversaciones.js`, `chat.js` ni los adaptadores. Sus 65 pruebas pasaron sin cambiar una aserción — solo hubo que inyectarle la capa de datos, porque en node no hay `window`.
 
 ---
 
@@ -563,7 +617,7 @@ Se llama Fase 0 porque es la capa sobre la que se apoyan las integraciones con t
 
 | Archivo | Responsabilidad | Regla |
 |---|---|---|
-| `conversaciones-store.js` | Persistencia | **Único** módulo del inbox que toca localStorage. Todas sus funciones devuelven `Promise` aunque localStorage sea síncrono, para que migrar a `fetch('/api/conversaciones')` sea reescribir cuerpos, no llamadas. |
+| `conversaciones-store.js` | Persistencia | Delega en `js/api.mjs` desde B2. Que sus funciones devolvieran `Promise` desde el primer día —aunque localStorage fuera síncrono— es lo que permitió migrarlo reescribiendo cuerpos y sin tocar una sola llamada. |
 | `conversaciones-adapters.js` | Normalización por canal | Funciones **puras** `(payload) → {conversacion, mensajes[]}`. Sin DOM, sin localStorage, sin fetch. Por eso se prueban en node. |
 | `conversaciones-envio.js` | Salida por canal | Decide si un mensaje realmente sale o queda pendiente. La UI nunca miente sobre esto. |
 | `conversaciones.js` | Vista | No toca localStorage; todo pasa por el store. |
@@ -599,11 +653,12 @@ Por eso el compositor **no finge**: el mensaje se guarda en el hilo con `estadoE
 
 Las notas internas (`tipo: "nota_interna"`) quedan en el hilo, se ven distintas y **no** aparecen como último mensaje en la lista.
 
-### Control de acceso — ⚠️ es teatro, no seguridad
+### Control de acceso — depende del modo (desde B2)
 
-`js/sesion.js` guarda el rol en `medicita_sesion`. **Cualquiera lo cambia con devtools en dos segundos.** No protege nada.
+`js/sesion.js` ya no existe. El inbox usa `js/sesion.mjs`, y lo que pasa depende de si el despliegue tiene backend:
 
-Existe por dos razones: crea la costura donde el auth real se enchufa cuando haya backend, y permite demostrar vistas por rol. La UI muestra el aviso de `sesionAvisoDemo()` de forma visible; **no quitarlo** mientras no exista autenticación de verdad.
+- **Con backend:** autenticación real contra Supabase Auth. El rol sale de `perfiles_staff`, protegido por RLS. Sin sesión no se entra: se redirige a `login.html`. El aviso de demostración **no** aparece, porque ahí sí hay seguridad de verdad y decir lo contrario sería mentir en la otra dirección.
+- **Sin backend (la demo pública):** `sesionEsDemo()` es verdadero y sigue existiendo el selector de rol, que además sirve para enseñar las vistas por rol en una demostración de ventas. El rol se guarda en `medicita_sesion` y **cualquiera lo cambia con devtools en dos segundos**. Por eso el aviso de `sesionAvisoDemo()` sigue visible en ese modo; **no quitarlo**.
 
 ### Vista
 
@@ -648,6 +703,7 @@ Un webhook de WhatsApp o ElevenLabs **no puede escribir en el localStorage de un
 - **26 julio 2026** — **Fase B1 — Cimientos del backend**: Supabase (un proyecto por clínica) + esquema multi-inquilino con RLS en las 11 tablas. Nuevos: `supabase/migrations/` (6 archivos), `supabase/seed-clinica.sql`, `docs/nueva-clinica.md`, `js/supabase-client.mjs`, `js/api.mjs` (interfaz de 39 métodos), `js/api-local.mjs`, `js/api-remoto.mjs`, `js/sesion.mjs`, `js/migrar.mjs`, `login.html`, `css/login.css`, `migrar.html`, `package.json`, y 65 pruebas nuevas (`tests/db-harness.mjs`, `db-aislamiento`, `db-flujos`, `api-paridad`) que corren contra un Postgres real en WebAssembly, sin Docker. Total: 130 pruebas. Modo doble: sin sesión el sistema sigue en `localStorage` (la demo pública no se tocó); con sesión, contra Supabase. Los 9 módulos **todavía no** usan la capa nueva — ese corte es B2. Dos bugs cazados por las pruebas: colisión de folios y de códigos de paciente por usar 4 dígitos aleatorios contra un índice único (se resolvió con reintento, que de paso cubre la carrera de dos solicitudes simultáneas del mismo teléfono), y pruebas intermitentes por levantar varios Postgres WASM en paralelo.
 - **26 julio 2026** — **Fase 0 — MediInbox completo**: inbox unificado multicanal. Nuevos: `conversaciones.html`, `css/conversaciones.css`, `js/sesion.js`, `js/conversaciones-store.js`, `js/conversaciones-adapters.js`, `js/conversaciones-envio.js`, `js/conversaciones-demo.js`, `js/conversaciones.js`, y `tests/` (65 pruebas con el runner nativo de node, cero dependencias). Modificados: `js/chat.js` (captura idempotente de la conversación al inbox tras cada turno + captura del teléfono en `crear_cita`), `chat.html` (carga store y adaptadores), `admin.html` + `css/admin.css` (botón MediInbox en el header). Adaptadores escritos contra los payloads reales de WhatsApp Cloud API y ElevenLabs Agents. Claves nuevas: `medicita_conversaciones`, `medicita_mensajes`, `medicita_sesion`. Dos bugs cazados por las pruebas durante la construcción: el cruce de teléfonos fallaba con la lada 52 de WhatsApp (se corrigió con `claveTel`, últimos 10 dígitos) y reingerir duplicaba los hilos de MediBot y chat web por falta de ids deterministas.
 - **1 julio 2026** — Branding Symbiotiq: logos copiados desde el proyecto `symbiotiq-web` a `assets/symbiotiq/` (`logo.png`, `logo-white.png`, `logo-icon.png`, `logo-icon-white.png`). Insignia "creado por Symbiotiq" con logo agregada en: header de `admin.html`, `medipost.html`, `medidocs.html` y `chat.html` (variante blanca, fondos oscuros); footer de `demo.html`, `terminos.html`, `privacidad.html` e `index.html` (variante blanca); pie de `encuesta.html` (variante a color, fondo claro). Refuerza que los módulos de la suite fueron creados por Symbiotiq en todas las superficies del sistema, no solo en la demo comercial. Archivos modificados: `admin.html`, `chat.html`, `medipost.html`, `medidocs.html`, `demo.html`, `terminos.html`, `privacidad.html`, `index.html`, `encuesta.html`, `css/admin.css`, `css/medipost.css`, `css/medidocs.css`, `css/chat.css`, `css/styles.css`, `css/encuesta.css`.
+- **26 julio 2026** — **Fase B2 — El corte**: los 9 módulos dejaron de tocar `localStorage` y pasan por `js/api.mjs`. Nuevos: `js/puente-api.mjs` y `js/puente-sesion.mjs` (la única frontera entre los scripts clásicos y los módulos ES), `supabase/migrations/0007_testimonios_publicos.sql` y `0008_posts_campos_faltantes.sql`, `tests/datos-para-pruebas.js`. Borrado: `js/sesion.js` — el inbox usa `js/sesion.mjs`, que ahora trae un modo de demostración explícito (`esDemo`) para que la demo pública conserve el selector de rol sin fingir seguridad. Etiquetas `<meta>` de Supabase (en marcador) agregadas a las 7 páginas que faltaban. 138 pruebas en verde, 8 nuevas. **Tres bugs heredados que el corte destapó:** (1) la superficie sin sesión —pedir cita desde la landing y responder la encuesta— caía en modo local aunque hubiera backend, así que en una clínica real la cita del paciente se habría guardado en el `localStorage` de su propio navegador y la clínica nunca la habría visto; las funciones `SECURITY DEFINER` que B1 construyó para eso no las alcanzaba nadie. Se separó `api.publico`, que resuelve por *¿hay backend?* y no por *¿hay sesión?*. (2) La tabla `posts` no tenía columnas para la sugerencia de imagen, el prompt en inglés ni la llamada a la acción: tres de las cuatro cosas que genera MediPost se habrían perdido en silencio. (3) Los documentos no traían `folio` en remoto, así que el historial de MediDocs habría salido en blanco. **Y un hueco de privacidad que ya existía en local:** la landing pública cargaba el arreglo completo de citas —nombres, teléfonos, correos, notas— para sacar un nombre de pila en la sección de opiniones; ahora lo resuelve la vista `testimonios_publicos`, con el mismo recorte en los dos modos.
 - **26 julio 2026** — **B1 puesto en marcha contra un proyecto real.** Esquema aplicado, clínica dada de alta y `npm run db:verificar` en verde: 11 tablas, la vista pública, las 3 funciones anónimas, y RLS negándole a la llave pública un solo renglón de cada tabla. Nuevos: `scripts/servidor.mjs` (+ `npm run dev`), `scripts/bundle-migraciones.mjs`, `scripts/verificar-supabase.mjs`, `js/config-local.ejemplo.mjs`. Cuatro cosas que salieron mal y se corrigieron: (1) el flujo de recuperación de contraseña estaba a medias — el correo salía pero al volver no había pantalla donde escribir la nueva; se agregó, junto con `sesionCambiarContrasena()` y el aviso de enlace vencido; (2) los errores de Supabase se traducían adivinando sobre el texto en inglés, así que `email_not_confirmed` caía en el mensaje genérico — ahora se traducen por código, lo que importa porque ese caso no se arregla cambiando la contraseña; (3) `db:verificar` sondeaba las funciones con cuerpo vacío y PostgREST devuelve 404 tanto si faltan como si los argumentos no cuadran — daba tres falsas alarmas por clínica; (4) `seed-clinica.sql` obligaba a cambiar el nombre de la clínica en tres lugares, y olvidar uno dejaba al personal sin clínica — se reescribió como bloque `DO` con un solo lugar editable, probado contra pglite en cuatro escenarios. Las credenciales salieron del repositorio: los `<meta>` quedan en marcador y el desarrollo usa `js/config-local.mjs` (ignorado por git). No es por ocultar la publishable key, que es pública por diseño, sino porque el repo es la plantilla de la siguiente clínica y no debe venir apuntando a la base de la anterior.
 
 ---
@@ -689,12 +745,15 @@ Un webhook de WhatsApp o ElevenLabs **no puede escribir en el localStorage de un
 - [x] Migración `localStorage` → Postgres, idempotente
 - [x] Aprovisionamiento documentado + 65 pruebas contra Postgres real
 
-### ← SIGUIENTE PASO: B2, el corte
-- [ ] Los 9 módulos pasan a `js/api.mjs`. Un solo cambio, reversible. Se hace de golpe y no por partes: un estado híbrido rompería los vínculos entre pacientes, citas y conversaciones.
-- [ ] `conversaciones.html` pasa a `js/sesion.mjs` y se borra `js/sesion.js`
-- [ ] Rellenar las etiquetas `<meta>` de Supabase en los HTML que lo necesiten
+### Fase B2 — El corte ✅ Completo
+- [x] Los 9 módulos pasan a `js/api.mjs` a través de `window.API` (puente `js/puente-api.mjs`)
+- [x] `conversaciones.html` pasa a `js/sesion.mjs` y se borra `js/sesion.js`
+- [x] Etiquetas `<meta>` de Supabase en las 7 páginas que faltaban (en marcador, ver *Dónde viven las credenciales*)
+- [x] Superficie pública sin sesión (`api.publico`) — landing, encuesta y solicitud de cita
+- [x] Vista `testimonios_publicos` (migración 0007) y columnas faltantes de `posts` (0008)
+- [x] 138 pruebas en verde
 
-### Después de B2 — las dos mejoras pedidas
+### ← SIGUIENTE PASO — las dos mejoras pedidas
 - [ ] **Escalación a humano:** herramienta `escalar_a_humano` en MediBot, ruteo a recepción o doctor según el motivo y el horario, notificación al staff, y **ciclo de acuse con re-alerta** si nadie la toma en N minutos. Una escalación sin acuse es un hoyo negro: el paciente queda peor que si nunca hubiera pedido un humano. El estado `requiere_atencion_humana` y el inbox ya son el sustrato.
 - [ ] **Contacto proactivo:** cron + tabla de tareas programadas + consentimiento por canal + tope de frecuencia + salida fácil.
   **Restricción que condiciona el diseño, no un detalle:** WhatsApp no permite texto libre fuera de las 24 h posteriores al último mensaje del paciente — solo plantillas pre-aprobadas por Meta y con opt-in registrado. Mandar texto libre proactivo tumba el número. Texto generado por Claude funciona por correo y SMS; en WhatsApp, solo dentro de la ventana o con plantillas. Súmale la LFPDPPP: contacto proactivo con datos de salud exige consentimiento registrado.

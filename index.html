@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Agenda tu cita médica en línea de forma rápida y sencilla. Atención profesional y personalizada." />
+  <!-- Backend por clínica; en marcador = modo local. Ver docs/nueva-clinica.md -->
+  <meta name="supabase-url" content="TU_PROYECTO.supabase.co">
+  <meta name="supabase-anon-key" content="TU_PUBLISHABLE_KEY">
+
   <title>Citas médicas en línea</title>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
@@ -458,6 +462,8 @@
   <!-- Contenedor oculto para especialidades (app.js lo usa internamente) -->
   <div id="grid-especialidades" style="display:none" aria-hidden="true"></div>
 
+  <!-- Puente al módulo de datos. Va antes que los scripts clásicos. -->
+  <script type="module" src="js/puente-api.mjs"></script>
   <script src="js/data.js"></script>
   <script src="js/app.js"></script>
 </body>

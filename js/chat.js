@@ -281,7 +281,7 @@ const TOOLS = [
   },
 ];
 
-/* ─── Ejecución de herramientas (localStorage) ────────────────────────── */
+/* ─── Ejecución de herramientas (vía js/api.mjs) ──────────────────────── */
 async function ejecutarHerramienta(nombre, p) {
   try {
     switch (nombre) {
@@ -302,10 +302,10 @@ async function ejecutarHerramienta(nombre, p) {
       }
 
       case "leer_todas_las_citas":
-        return localStorage.getItem("medicita_citas") ?? "[]";
+        return JSON.stringify(await API.citas.listar());
 
       case "buscar_citas": {
-        const todas = JSON.parse(localStorage.getItem("medicita_citas") ?? "[]");
+        const todas = await API.citas.listar();
         return JSON.stringify(todas.filter(c => {
           if (p.folio  && c.folio !== p.folio) return false;
           if (p.fecha  && c.fecha !== p.fecha) return false;
@@ -320,15 +320,16 @@ async function ejecutarHerramienta(nombre, p) {
       }
 
       case "crear_cita": {
-        const citas = JSON.parse(localStorage.getItem("medicita_citas") ?? "[]");
-        const folio = generarFolio();
-        citas.unshift({
-          folio, estado: "pendiente", creadaEn: new Date().toISOString(),
+        /* El folio y el vínculo con el expediente los pone la capa de
+           datos: en Postgres el folio lleva índice único y hay reintento
+           por si dos solicitudes chocan el mismo día. */
+        const cita = await API.citas.crear({
+          estado: "pendiente",
           nombre: p.nombre, apellidos: p.apellidos, telefono: p.telefono,
           email: p.email ?? "", especialidad: p.especialidad, doctor: p.doctor,
           fecha: p.fecha, hora: p.hora, tipo: p.tipo, notas: p.notas ?? "",
         });
-        localStorage.setItem("medicita_citas", JSON.stringify(citas));
+        const folio = cita.folio;
 
         // En cuanto sabemos quién es, la conversación deja de ser anónima:
         // el siguiente volcado al inbox la vincula con su expediente.
@@ -341,26 +342,23 @@ async function ejecutarHerramienta(nombre, p) {
       }
 
       case "actualizar_estado_cita": {
-        const citas = JSON.parse(localStorage.getItem("medicita_citas") ?? "[]");
-        const idx = citas.findIndex(c => c.folio === p.folio);
-        if (idx === -1) return JSON.stringify({ exito: false, error: "Cita no encontrada" });
-        citas[idx].estado = p.nuevo_estado;
-        localStorage.setItem("medicita_citas", JSON.stringify(citas));
+        const cita = await API.citas.porFolio(p.folio);
+        if (!cita) return JSON.stringify({ exito: false, error: "Cita no encontrada" });
+        await API.citas.actualizar(cita.id ?? p.folio, { estado: p.nuevo_estado });
         return JSON.stringify({ exito: true, folio: p.folio, nuevo_estado: p.nuevo_estado });
       }
 
       case "eliminar_cita": {
-        const citas = JSON.parse(localStorage.getItem("medicita_citas") ?? "[]");
-        const nuevas = citas.filter(c => c.folio !== p.folio);
-        if (nuevas.length === citas.length) return JSON.stringify({ exito: false, error: "Cita no encontrada" });
-        localStorage.setItem("medicita_citas", JSON.stringify(nuevas));
+        const cita = await API.citas.porFolio(p.folio);
+        if (!cita) return JSON.stringify({ exito: false, error: "Cita no encontrada" });
+        await API.citas.eliminar(cita.id ?? p.folio);
         return JSON.stringify({ exito: true, folio: p.folio });
       }
 
       case "ver_satisfaccion_pacientes": {
-        const nps          = JSON.parse(localStorage.getItem("medicita_nps") ?? "[]");
-        const seguimientos = JSON.parse(localStorage.getItem("medicita_followup_pendientes") ?? "[]");
-        const citasAll     = JSON.parse(localStorage.getItem("medicita_citas") ?? "[]");
+        const nps          = await API.nps.listar();
+        const seguimientos = await API.seguimientos.listar();
+        const citasAll     = await API.citas.listar();
         const pendientes   = seguimientos.filter((s) => !s.emailEnviado_3d || !s.emailEnviado_30d);
         const promedio     = nps.length > 0
           ? (nps.reduce((sum, r) => sum + r.puntuacion, 0) / nps.length).toFixed(1)
@@ -384,8 +382,8 @@ async function ejecutarHerramienta(nombre, p) {
       }
 
       case "buscar_paciente": {
-        const pacientes = JSON.parse(localStorage.getItem("medicita_pacientes") ?? "[]");
-        const citasAll  = JSON.parse(localStorage.getItem("medicita_citas") ?? "[]");
+        const pacientes = await API.pacientes.listar();
+        const citasAll  = await API.citas.listar();
         const resultados = pacientes.filter(pac => {
           if (p.telefono && normalizarTexto(pac.telefono).includes(normalizarTexto(p.telefono))) return true;
           if (p.nombre) {
@@ -424,8 +422,8 @@ async function ejecutarHerramienta(nombre, p) {
       }
 
       case "ver_documentos_paciente": {
-        const docs      = JSON.parse(localStorage.getItem("medicita_docs") ?? "[]");
-        const pacientes = JSON.parse(localStorage.getItem("medicita_pacientes") ?? "[]");
+        const docs      = await API.documentos.listar();
+        const pacientes = await API.pacientes.listar();
         let filtrados   = [];
         if (p.id_paciente) {
           const pac      = pacientes.find(p2 => p2.id === p.id_paciente);
@@ -446,7 +444,7 @@ async function ejecutarHerramienta(nombre, p) {
       }
 
       case "ver_notas_paciente": {
-        const pacientes = JSON.parse(localStorage.getItem("medicita_pacientes") ?? "[]");
+        const pacientes = await API.pacientes.listar();
         let pac = null;
         if (p.id_paciente) {
           pac = pacientes.find(p2 => p2.id === p.id_paciente);
@@ -466,8 +464,8 @@ async function ejecutarHerramienta(nombre, p) {
       }
 
       case "ver_nps_paciente": {
-        const nps       = JSON.parse(localStorage.getItem("medicita_nps") ?? "[]");
-        const pacientes = JSON.parse(localStorage.getItem("medicita_pacientes") ?? "[]");
+        const nps       = await API.nps.listar();
+        const pacientes = await API.pacientes.listar();
         let folios = [];
         if (p.folio_cita) {
           folios = [p.folio_cita];
@@ -691,11 +689,6 @@ function hora() {
   return new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
 }
 
-function generarFolio() {
-  const d = new Date();
-  return `CIT-${String(d.getFullYear()).slice(-2)}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}-${Math.floor(Math.random()*9000)+1000}`;
-}
-
 function labelHerramienta(nombre) {
   return {
     listar_especialidades:    "Consultando especialidades…",
@@ -853,7 +846,8 @@ function buildEmailHTML(p) {
 }
 
 /* ─── Inicialización ──────────────────────────────────────────────────── */
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await window.APIListo;
 
   /* ── Demo: inicio automático con credenciales precargadas ── */
   apiKey        = document.getElementById("api-key-input").value.trim();

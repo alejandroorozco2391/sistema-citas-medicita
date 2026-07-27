@@ -176,6 +176,107 @@ test("una clínica desactivada desaparece de la vista pública", async () => {
   assert.strictEqual(n, 1);
 });
 
+/* ═══ Testimonios públicos (migración 0007) ═════════════════════════════
+   La sección de opiniones de la landing la ve cualquiera sin sesión. Antes
+   se armaba en el navegador cruzando encuestas con citas, lo que obligaba
+   a entregarle a una página pública el arreglo completo de citas. Estas
+   pruebas son las que impiden que eso vuelva por la puerta de atrás. */
+
+test("los testimonios públicos no exponen datos de contacto ni el folio", async () => {
+  const columnas = await comoAnonimo(db, async () => {
+    const { rows } = await db.query(`
+      select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = 'testimonios_publicos'
+    `);
+    return rows.map(r => r.column_name);
+  });
+
+  for (const prohibida of ["telefono", "email", "folio", "cita_id", "notas", "apellidos"]) {
+    assert.ok(
+      !columnas.includes(prohibida),
+      `testimonios_publicos no debe exponer "${prohibida}": la lee cualquier visitante`
+    );
+  }
+});
+
+test("el nombre publicado es de pila más inicial, nunca el apellido completo", async () => {
+  const { rows: [cita] } = await db.query(
+    `insert into citas (clinica_id, folio, nombre, apellidos, telefono, fecha, especialidad)
+     values ($1, 'CIT-TEST-NOMBRE', 'María Fernanda', 'González Ruiz', '55 7777 1111',
+             current_date + 1, 'Medicina General')
+     returning id`,
+    [A.clinicaId]
+  );
+  await db.query(
+    "insert into nps_respuestas (clinica_id, cita_id, puntuacion, comentario) values ($1, $2, 10, $3)",
+    [A.clinicaId, cita.id, "Trato excelente"]
+  );
+
+  const fila = await comoAnonimo(db, async () => {
+    const { rows } = await db.query(
+      "select nombre_publico from testimonios_publicos where comentario = 'Trato excelente'"
+    );
+    return rows[0];
+  });
+
+  assert.ok(fila, "la landing debe poder leer los testimonios sin sesión");
+  assert.strictEqual(
+    fila.nombre_publico, "María G.",
+    "solo el nombre de pila y la inicial del apellido"
+  );
+});
+
+test("la vista trae clinica_id para no mezclar consultorios", async () => {
+  /* En el modelo real hay un proyecto de Supabase por clínica, así que la
+     vista no filtra por sí sola. Lo que se comprueba aquí es que expone
+     `clinica_id`: sin esa columna, una consolidación futura mezclaría los
+     testimonios de dos consultorios en la misma landing. */
+  const filas = await comoAnonimo(db, async () => {
+    const { rows } = await db.query("select clinica_id, comentario from testimonios_publicos");
+    return rows;
+  });
+
+  assert.ok(filas.some(f => f.clinica_id === A.clinicaId), "debe haber testimonios de la clínica A");
+  assert.ok(filas.some(f => f.clinica_id === B.clinicaId), "y de la B");
+  assert.ok(
+    filas.every(f => f.clinica_id),
+    "la vista debe traer clinica_id para poder filtrar por consultorio"
+  );
+});
+
+test("una puntuación baja no se publica como testimonio", async () => {
+  const { rows: [cita] } = await db.query(
+    `insert into citas (clinica_id, folio, nombre, telefono, fecha, especialidad)
+     values ($1, 'CIT-TEST-BAJA', 'Molesto', '55 0000 9999', current_date + 1, 'Medicina General')
+     returning id`,
+    [A.clinicaId]
+  );
+  await db.query(
+    "insert into nps_respuestas (clinica_id, cita_id, puntuacion, comentario) values ($1, $2, 2, $3)",
+    [A.clinicaId, cita.id, "Pésima experiencia"]
+  );
+
+  const hay = await comoAnonimo(db, async () => {
+    const { rows } = await db.query(
+      "select count(*)::int as n from testimonios_publicos where comentario = 'Pésima experiencia'"
+    );
+    return rows[0].n;
+  });
+  assert.strictEqual(hay, 0, "la queja sigue en la base para la clínica, pero no en su publicidad");
+});
+
+test("los testimonios de una clínica desactivada desaparecen", async () => {
+  await db.query("update clinicas set activa = false where id = $1", [B.clinicaId]);
+  const n = await comoAnonimo(db, async () => {
+    const { rows } = await db.query(
+      "select count(*)::int as n from testimonios_publicos where clinica_id = $1", [B.clinicaId]
+    );
+    return rows[0].n;
+  });
+  await db.query("update clinicas set activa = true where id = $1", [B.clinicaId]);
+  assert.strictEqual(n, 0, "dar de baja una clínica debe apagar también su prueba social");
+});
+
 /* ═══ Roles dentro de la misma clínica ══════════════════════════════════ */
 
 test("solo un admin edita la configuración de la clínica", async () => {

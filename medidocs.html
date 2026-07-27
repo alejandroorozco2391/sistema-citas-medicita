@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Backend por clínica; en marcador = modo local. Ver docs/nueva-clinica.md -->
+  <meta name="supabase-url" content="TU_PROYECTO.supabase.co">
+  <meta name="supabase-anon-key" content="TU_PUBLISHABLE_KEY">
+
   <title>MediDocs — Documentos clínicos | MediCita</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -202,6 +206,8 @@
   <div id="md-toast" class="md-toast" role="status" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <!-- Puente al módulo de datos. Va antes que los scripts clásicos. -->
+  <script type="module" src="js/puente-api.mjs"></script>
   <script src="js/data.js"></script>
   <script src="js/medidocs.js"></script>
 </body>

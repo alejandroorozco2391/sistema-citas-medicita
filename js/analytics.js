@@ -16,7 +16,9 @@ const estadoAN = {
 };
 
 /* ─── Init ────────────────────────────────────────────────────────────── */
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", async function () {
+  await window.APIListo;
+
   bindRango();
   bindAnalizar();
 
@@ -52,8 +54,8 @@ function bindAnalizar() {
   document.getElementById("btn-analizar-ia").addEventListener("click", analizarConIA);
 }
 
-function actualizarAnalytics() {
-  const todasCitas = leerCitas();
+async function actualizarAnalytics() {
+  const todasCitas = await leerCitas();
   const citas = filtrarPorRango(todasCitas, estadoAN.rango);
   const metricas = calcularMetricas(citas);
 
@@ -61,12 +63,12 @@ function actualizarAnalytics() {
   renderChartDias(calcularPorDia(citas));
   renderChartEspecialidades(calcularPorEspecialidad(citas));
   renderHeatmap(calcularHeatmap(citas));
-  renderMetricasPacientes();
+  await renderMetricasPacientes();
 }
 
 /* ─── Lectura y filtrado ──────────────────────────────────────────────── */
-function leerCitas() {
-  return JSON.parse(localStorage.getItem("medicita_citas") || "[]");
+async function leerCitas() {
+  return API.citas.listar();
 }
 
 function filtrarPorRango(citas, rango) {
@@ -265,7 +267,7 @@ function renderHeatmap(matriz) {
 async function analizarConIA() {
   if (estadoAN.analizando) return;
 
-  const citas = filtrarPorRango(leerCitas(), estadoAN.rango);
+  const citas = filtrarPorRango(await leerCitas(), estadoAN.rango);
   const metricas = calcularMetricas(citas);
   const resultado = document.getElementById("an-ia-resultado");
   const btnAnalizar = document.getElementById("btn-analizar-ia");
@@ -363,12 +365,12 @@ function escaparHtmlAN(str) {
    M5 — Métricas de Pacientes
    ═══════════════════════════════════════════════════════════════════ */
 
-function leerPacientesAN() {
-  return JSON.parse(localStorage.getItem("medicita_pacientes") || "[]");
+async function leerPacientesAN() {
+  return API.pacientes.listar();
 }
 
-function renderMetricasPacientes() {
-  const pacs = leerPacientesAN();
+async function renderMetricasPacientes() {
+  const pacs = await leerPacientesAN();
   const total = pacs.length;
 
   // Sexo

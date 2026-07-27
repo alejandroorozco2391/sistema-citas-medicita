@@ -113,10 +113,10 @@ function toast(mensaje, esError) {
 }
 
 /* ─── Apariencia desde la config de la clínica ────────────────────────── */
-function aplicarApariencia() {
+async function aplicarApariencia() {
   let cfg = {};
   try {
-    cfg = JSON.parse(localStorage.getItem("medicita_config_clinica") || "{}");
+    cfg = (await API.clinica.obtener()) || {};
   } catch {
     cfg = {};
   }
@@ -132,7 +132,7 @@ function aplicarApariencia() {
    ═══════════════════════════════════════════════════════════════════════ */
 function renderGate() {
   const cont = $("gate-roles");
-  cont.innerHTML = sesionRoles()
+  cont.innerHTML = Sesion.roles()
     .map(
       r => `
       <button type="button" class="gate-rol-btn" data-rol="${r.id}">
@@ -152,8 +152,13 @@ function renderGate() {
     });
   });
 
-  $("gate-aviso-texto").textContent = sesionAvisoDemo();
-  $("cv-aviso-demo-texto").textContent = sesionAvisoDemo();
+  /* El aviso solo aplica cuando la sesión es de mentiras. Con backend, el
+     rol viene de perfiles_staff y está protegido por RLS: dejar el aviso
+     puesto ahí sería mentir en la otra dirección. */
+  const aviso = Sesion.esDemo() ? Sesion.avisoDemo() : "";
+  $("gate-aviso-texto").textContent = aviso;
+  $("cv-aviso-demo-texto").textContent = aviso;
+  $("cv-aviso-demo").hidden = !aviso;
 }
 
 function mostrarGate() {
@@ -166,18 +171,18 @@ function ocultarGate() {
   document.body.style.overflow = "";
 }
 
-function entrarConRol() {
+async function entrarConRol() {
   if (!estado.rolPendiente) return;
-  const s = sesionIniciar(estado.rolPendiente, $("gate-nombre").value);
-  estado.rol = s.rol;
-  estado.nombreStaff = s.nombre;
+  const perfil = Sesion.iniciarDemo(estado.rolPendiente, $("gate-nombre").value);
+  estado.rol = perfil.rol;
+  estado.nombreStaff = perfil.nombre;
   ocultarGate();
   actualizarBotonRol();
-  arrancarInbox();
+  await arrancarInbox();
 }
 
 function actualizarBotonRol() {
-  const r = ROLES[estado.rol];
+  const r = Sesion.ROLES[estado.rol];
   $("btn-rol-texto").textContent = r ? `${r.icono} ${estado.nombreStaff || r.label}` : "Rol";
 }
 
@@ -444,7 +449,7 @@ async function enviarDesdeCompositor() {
     return;
   }
 
-  const cfg = aplicarApariencia();
+  const cfg = await aplicarApariencia();
   const resultado = await enviarMensaje(conv, texto, {
     forzarEmail,
     emailPaciente: estado.pacienteActivo?.email || "",
@@ -520,8 +525,16 @@ function conectarEventos() {
     if (e.key === "Enter") entrarConRol();
   });
 
-  $("btn-rol").addEventListener("click", () => {
-    sesionCerrar();
+  $("btn-rol").addEventListener("click", async () => {
+    await Sesion.cerrar();
+
+    /* Con backend, cerrar sesión es cerrar sesión de verdad: no hay
+       selector de rol al que volver, hay que autenticarse otra vez. */
+    if (!Sesion.esDemo()) {
+      location.href = "login.html";
+      return;
+    }
+
     estado.rolPendiente = null;
     $("gate-entrar").disabled = true;
     document.querySelectorAll(".gate-rol-btn").forEach(b => b.classList.remove("activo"));
@@ -635,16 +648,31 @@ async function arrancarInbox() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  aplicarApariencia();
+  await window.APIListo;
+  await window.SesionLista;
+
+  await aplicarApariencia();
   renderGate();
   conectarEventos();
 
-  if (sesionRequiereRol(ROLES_PERMITIDOS)) {
-    estado.rol = sesionRolActual();
-    estado.nombreStaff = sesionNombreActual();
+  const perfil = await Sesion.perfil();
+
+  if (perfil && ROLES_PERMITIDOS.includes(perfil.rol)) {
+    estado.rol = perfil.rol;
+    estado.nombreStaff = perfil.nombre;
     actualizarBotonRol();
     await arrancarInbox();
-  } else {
+    return;
+  }
+
+  /* Sin perfil válido hay dos situaciones distintas y no conviene
+     confundirlas. En la demo no hay a quién autenticar: se muestra el
+     selector de rol, que además sirve para enseñar las vistas por rol.
+     Con backend, la única entrada es login.html. */
+  if (Sesion.esDemo()) {
     mostrarGate();
+  } else {
+    const destino = encodeURIComponent("conversaciones.html");
+    location.replace(`login.html?destino=${destino}`);
   }
 });

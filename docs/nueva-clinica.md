@@ -54,13 +54,14 @@ Abre **SQL Editor** en el panel y pega el contenido de:
 supabase/migraciones-completas.sql
 ```
 
-Es las 6 migraciones concatenadas en orden, en un solo archivo, para no tener que pegar seis veces. Es un artefacto **generado**: si cambias el esquema, edita los archivos numerados de `supabase/migrations/` y regenéralo con `npm run db:bundle`.
+Son las migraciones concatenadas en orden, en un solo archivo, para no tener que pegar seis veces. Es un artefacto **generado**: si cambias el esquema, edita los archivos numerados de `supabase/migrations/` y regenéralo con `npm run db:bundle`.
 
 Si prefieres ir de una en una, el orden es obligatorio — cada archivo da por hecho lo del anterior:
 
 ```
 0001_utilidades.sql · 0002_clinicas_y_staff.sql · 0003_pacientes.sql
 0004_citas.sql · 0005_conversaciones_y_modulos.sql · 0006_rpc_publicas.sql
+0007_testimonios_publicos.sql · 0008_posts_campos_faltantes.sql
 ```
 
 ---
@@ -165,7 +166,7 @@ Los datos locales **no se borran automáticamente**. La opción de limpiarlos ap
 
 ```bash
 npm run db:verificar    # contra el proyecto real, ya desplegado
-npm run test:all        # 130 pruebas contra un Postgres simulado
+npm run test:all        # 138 pruebas contra un Postgres simulado
 ```
 
 Las dos comprueban cosas distintas y hacen falta las dos:

@@ -6,11 +6,16 @@ const estado = {
 };
 
 /* ─── Inicialización ──────────────────────────────────────────────────── */
-document.addEventListener("DOMContentLoaded", () => {
-  const config = JSON.parse(localStorage.getItem("medicita_config_clinica") || "{}");
+document.addEventListener("DOMContentLoaded", async () => {
+  await window.APIListo;
+
+  /* La landing se pinta sin sesión. Va por API.publico, que apunta al
+     backend cuando existe uno aunque nadie haya iniciado sesión: son
+     datos que la clínica publica de todos modos. */
+  const config = (await API.publico.clinica()) || {};
   aplicarAparienciaLanding(config);
   poblarLanding(config);
-  cargarOpinionesNPS();
+  await cargarOpinionesNPS();
   inicializarAnimaciones();
   renderEspecialidades();
   inicializarFormulario();
@@ -237,14 +242,29 @@ function renderRedesFooter(cfg) {
 }
 
 /* ─── Opiniones NPS ───────────────────────────────────────────────────── */
-function cargarOpinionesNPS() {
+/**
+ * Testimonios de la landing.
+ *
+ * Antes esto cruzaba aquí las respuestas de la encuesta con las citas
+ * para sacar el nombre del paciente, lo que obligaba a cargar en una
+ * página pública el arreglo completo de citas: nombres, teléfonos,
+ * correos y notas de todo el mundo, para mostrar un nombre de pila.
+ *
+ * Ahora lo resuelve la capa de datos y devuelve solo lo publicable. En
+ * remoto eso es la vista `testimonios_publicos` (migración 0007); en
+ * local, el mismo recorte, para que la página no quede escrita contra un
+ * contrato que solo se cumple en uno de los dos modos.
+ */
+async function cargarOpinionesNPS() {
   const grid = document.getElementById("grid-opiniones");
   if (!grid) return;
 
-  const nps   = JSON.parse(localStorage.getItem("medicita_nps")   || "[]");
-  const citas = JSON.parse(localStorage.getItem("medicita_citas")  || "[]");
-
-  const buenas = nps.filter(r => r.puntuacion >= 8).slice(-3);
+  let buenas = [];
+  try {
+    buenas = await API.publico.testimonios({ minPuntuacion: 8, limite: 3 });
+  } catch {
+    buenas = [];
+  }
 
   if (!buenas.length) {
     const placeholders = [
@@ -256,11 +276,13 @@ function cargarOpinionesNPS() {
     return;
   }
 
-  grid.innerHTML = buenas.map(r => {
-    const cita   = citas.find(c => c.folio === r.folio);
-    const nombre = cita ? `${cita.nombre} ${(cita.apellidos || "")[0] || ""}.` : "Paciente";
-    return renderOpinionCard(r.comentario || "Excelente atención médica.", r.puntuacion, nombre);
-  }).join("");
+  grid.innerHTML = buenas.map(r =>
+    renderOpinionCard(
+      r.comentario || "Excelente atención médica.",
+      r.puntuacion,
+      r.nombrePublico || "Paciente"
+    )
+  ).join("");
 }
 
 function renderOpinionCard(comentario, puntuacion, nombre) {
@@ -514,8 +536,15 @@ function mostrarConfirmacion(datos) {
   modal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
 
-  document.getElementById("btn-confirmar").onclick = () => {
-    finalizarCita(datos);
+  document.getElementById("btn-confirmar").onclick = async (e) => {
+    /* Contra el backend esto tarda. Sin bloquear el botón, dos clics
+       nerviosos son dos citas para el mismo paciente a la misma hora. */
+    e.currentTarget.disabled = true;
+    try {
+      await finalizarCita(datos);
+    } finally {
+      e.currentTarget.disabled = false;
+    }
   };
 
   document.getElementById("btn-cancelar-modal").onclick = cerrarModal;
@@ -533,82 +562,32 @@ function cerrarModal() {
   document.body.style.overflow = "";
 }
 
-function finalizarCita(datos) {
+async function finalizarCita(datos) {
   cerrarModal();
-  const folio = generarFolio();
-  guardarCitaEnStorage(datos, folio);
+
+  let folio;
+  try {
+    folio = await API.publico.solicitarCita(datos);
+  } catch (e) {
+    /* Contra el backend esto falla de verdad: sin red, o porque el freno
+       de abuso topó (5 solicitudes por teléfono cada 24 h). Enseñarle un
+       folio a alguien cuya cita no se guardó es la peor salida posible:
+       se presentaría al consultorio con un número que no existe. */
+    mostrarAlerta(
+      /demasiadas solicitudes/i.test(e.message)
+        ? "Ya se registraron varias solicitudes con este teléfono hoy. Llámanos y te agendamos de inmediato."
+        : "No pudimos registrar tu solicitud. Revisa tu conexión e inténtalo de nuevo.",
+      "error"
+    );
+    return;
+  }
+
   mostrarExito(folio, datos);
   document.getElementById("form-cita").reset();
   limpiarHorarios();
   document.querySelectorAll(".card-especialidad").forEach((c) => c.classList.remove("seleccionada"));
   estado.especialidadSeleccionada = null;
   estado.doctorSeleccionado = null;
-}
-
-/* ─── Persistencia localStorage ───────────────────────────────────────── */
-function guardarCitaEnStorage(datos, folio) {
-  const citas = JSON.parse(localStorage.getItem("medicita_citas") || "[]");
-  citas.unshift({
-    folio,
-    nombre: datos.nombre,
-    apellidos: datos.apellidos,
-    telefono: datos.telefono,
-    email: datos.email,
-    especialidad: datos.especialidad,
-    doctor: datos.doctor,
-    fecha: datos.fecha,
-    hora: datos.hora,
-    tipo: datos.tipo,
-    notas: datos.notas,
-    tieneSeguro:  datos.tieneSeguro  || false,
-    nombreSeguro: datos.nombreSeguro || "",
-    numeroPoliza: datos.numeroPoliza || "",
-    estado: "pendiente",
-    creadaEn: new Date().toISOString(),
-  });
-  localStorage.setItem("medicita_citas", JSON.stringify(citas));
-
-  // M5: vincular cita con perfil de paciente
-  vincularPacienteDesdeIndex(folio, datos);
-}
-
-function vincularPacienteDesdeIndex(folio, datos) {
-  const KEY = "medicita_pacientes";
-  const pacientes = JSON.parse(localStorage.getItem(KEY) || "[]");
-  const tel = (datos.telefono || "").replace(/\s/g, "");
-  const idx = pacientes.findIndex(p => p.telefono.replace(/\s/g, "") === tel);
-  const ahora = new Date().toISOString();
-
-  if (idx >= 0) {
-    const actualizaciones = { actualizadoEn: ahora };
-    if (!pacientes[idx].foliosCitas.includes(folio)) {
-      actualizaciones.foliosCitas = [...pacientes[idx].foliosCitas, folio];
-    }
-    if (datos.tieneSeguro) {
-      actualizaciones.tieneSeguro  = true;
-      actualizaciones.nombreSeguro = datos.nombreSeguro || "";
-      actualizaciones.numeroPoliza = datos.numeroPoliza || "";
-    }
-    pacientes[idx] = { ...pacientes[idx], ...actualizaciones };
-  } else {
-    const d = new Date();
-    const id = `PAC-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}-${Math.floor(Math.random()*9000)+1000}`;
-    pacientes.unshift({
-      id,
-      nombre: datos.nombre || "", apellidos: datos.apellidos || "",
-      telefono: datos.telefono || "", email: datos.email || "",
-      fechaNacimiento: "", sexo: "", estatura: "", peso: "",
-      tipoSangre: "", alergias: "", enfermedadesCronicas: "", medicamentosActuales: "",
-      ciudad: "", comoNosEncontro: "", ocupacion: "",
-      calificacion: 1, notas: "",
-      tieneSeguro:  datos.tieneSeguro  || false,
-      nombreSeguro: datos.nombreSeguro || "",
-      numeroPoliza: datos.numeroPoliza || "",
-      foliosCitas: [folio], foliosDocs: [], respuestasNPS: [],
-      creadoEn: ahora, actualizadoEn: ahora,
-    });
-  }
-  localStorage.setItem(KEY, JSON.stringify(pacientes));
 }
 
 function mostrarExito(folio, datos) {
@@ -621,15 +600,6 @@ function mostrarExito(folio, datos) {
   setTimeout(() => {
     seccionExito.style.display = "none";
   }, 12000);
-}
-
-function generarFolio() {
-  const fecha = new Date();
-  const año = fecha.getFullYear().toString().slice(-2);
-  const mes = String(fecha.getMonth() + 1).padStart(2, "0");
-  const dia = String(fecha.getDate()).padStart(2, "0");
-  const random = Math.floor(Math.random() * 9000) + 1000;
-  return `CIT-${año}${mes}${dia}-${random}`;
 }
 
 /* ─── Alertas ─────────────────────────────────────────────────────────── */

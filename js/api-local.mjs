@@ -156,6 +156,18 @@ export async function clinicaGuardar(cfg) {
   return datos;
 }
 
+/**
+ * Datos de la clínica para la landing, que se pinta sin sesión.
+ *
+ * En local es lo mismo que clinicaObtener() —hay un solo consultorio y
+ * su configuración es el objeto entero—, pero se expone aparte porque en
+ * remoto no es lo mismo: allá esto lee la vista `clinica_publica`, que
+ * deja fuera el plan contratado y el estado de la cuenta.
+ */
+export async function publicoClinica() {
+  return _leerObjeto(CLAVE_CLINICA);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
    Pacientes
 
@@ -726,6 +738,36 @@ export async function npsListar() {
 
 export async function npsYaRespondida(folio) {
   return _leer(CLAVE_NPS).some((r) => r.folio === folio);
+}
+
+/**
+ * Opiniones que la landing puede mostrar sin sesión.
+ *
+ * Devuelve la misma forma que la vista `testimonios_publicos` de la base
+ * (nombre de pila más inicial, puntuación, comentario, fecha) y nada
+ * más. Que aquí los datos completos estén al alcance no es motivo para
+ * entregarlos: la landing es pública en ambos modos, y si en local
+ * devolviéramos el expediente entero, la página quedaría escrita contra
+ * un contrato que en remoto no se cumple.
+ */
+export async function publicoTestimonios({ minPuntuacion = 8, limite = 3 } = {}) {
+  const citas = _leer(CLAVE_CITAS);
+
+  return _leer(CLAVE_NPS)
+    .filter((r) => r.puntuacion >= minPuntuacion)
+    .slice(0, limite)
+    .map((r) => {
+      const cita = citas.find((c) => c.folio === r.folio);
+      const nombre = String(cita?.nombre || "").trim().split(/\s+/)[0] || "";
+      const inicial = String(cita?.apellidos || "").trim().charAt(0);
+      return {
+        id: r.id || r.folio,
+        nombrePublico: [nombre, inicial ? `${inicial}.` : ""].filter(Boolean).join(" "),
+        puntuacion: r.puntuacion,
+        comentario: r.comentario || "",
+        creadoEn: r.fechaRespuesta || "",
+      };
+    });
 }
 
 /** Igual que enviarEncuesta() en encuesta.js, pero rechaza duplicados. */

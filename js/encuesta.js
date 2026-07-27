@@ -1,5 +1,7 @@
 /* ─── Init ────────────────────────────────────────────────────────────── */
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await window.APIListo;
+
   const folio = leerFolioDeURL();
 
   renderBotonesNPS();
@@ -10,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  if (yaRespondio(folio)) {
+  if (await yaRespondio(folio)) {
     mostrarEstado("ya-respondido");
     return;
   }
@@ -28,9 +30,8 @@ function folioValido(folio) {
   return /^CIT-\d{6}-\d{4}$/.test(folio);
 }
 
-function yaRespondio(folio) {
-  const nps = JSON.parse(localStorage.getItem("medicita_nps") || "[]");
-  return nps.some((r) => r.folio === folio);
+async function yaRespondio(folio) {
+  return API.nps.yaRespondida(folio);
 }
 
 /* ─── Botones NPS ─────────────────────────────────────────────────────── */
@@ -70,7 +71,7 @@ function bindFormulario() {
   document.getElementById("btn-enviar-encuesta").addEventListener("click", enviarEncuesta);
 }
 
-function enviarEncuesta() {
+async function enviarEncuesta() {
   if (puntuacion === 0) {
     mostrarErrorEnc("Por favor selecciona una calificación del 1 al 10.");
     return;
@@ -78,23 +79,28 @@ function enviarEncuesta() {
 
   const folio = leerFolioDeURL();
   const comentario = document.getElementById("enc-comentario").value.trim();
+  const boton = document.getElementById("btn-enviar-encuesta");
 
-  const respuesta = {
-    id: generarIdNPS(),
-    folio,
-    puntuacion,
-    comentario,
-    fechaRespuesta: new Date().toISOString(),
-  };
+  boton.disabled = true;
+  const textoOriginal = boton.textContent;
+  boton.textContent = "Enviando…";
 
-  guardarRespuesta(respuesta);
-  mostrarGracias(puntuacion);
-}
-
-function guardarRespuesta(respuesta) {
-  const nps = JSON.parse(localStorage.getItem("medicita_nps") || "[]");
-  nps.unshift(respuesta);
-  localStorage.setItem("medicita_nps", JSON.stringify(nps));
+  try {
+    await API.nps.responder(folio, puntuacion, comentario);
+    mostrarGracias(puntuacion);
+  } catch (e) {
+    /* Con backend, esto puede fallar de verdad: sin red, o porque la
+       encuesta ya se había respondido desde otro dispositivo. Decirle
+       "gracias" a alguien cuya opinión no se guardó es peor que
+       admitirlo — no la volvería a escribir. */
+    mostrarErrorEnc(
+      /ya tiene una respuesta|ya fue respondida|duplicate|unique/i.test(e.message)
+        ? "Esta encuesta ya fue respondida antes. ¡Gracias de todas formas!"
+        : "No pudimos guardar tu respuesta. Revisa tu conexión e inténtalo de nuevo."
+    );
+    boton.disabled = false;
+    boton.textContent = textoOriginal;
+  }
 }
 
 function mostrarGracias(p) {
@@ -123,9 +129,4 @@ function mostrarEstado(estado) {
 
 function mostrarErrorEnc(msg) {
   document.getElementById("enc-error").textContent = msg;
-}
-
-/* ─── Utilidades ──────────────────────────────────────────────────────── */
-function generarIdNPS() {
-  return `NPS-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }

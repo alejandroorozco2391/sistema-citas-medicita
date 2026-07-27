@@ -121,6 +121,42 @@ console.log("\n[3] ¿La landing puede leer los datos de la clínica?");
   else bien("el plan contratado no se expone");
 }
 
+/* La landing muestra opiniones sin sesión. Si esta vista no existe, la
+   sección sale vacía en producción y nadie se entera hasta que un
+   prospecto ve la página sin prueba social. */
+{
+  const { estado, json } = await pedir("/rest/v1/testimonios_publicos?select=nombre_publico&limit=1");
+
+  if (estado === 404) {
+    mal("la vista testimonios_publicos no existe (¿faltó aplicar 0007?)");
+  } else if (!Array.isArray(json)) {
+    mal(`testimonios_publicos: respuesta inesperada (HTTP ${estado})`);
+  } else {
+    bien("testimonios_publicos legible sin sesión");
+
+    /* Solo tiene sentido preguntar por fugas si la vista existe: sobre una
+       vista ausente, todas las columnas dan 404 y el resultado parecería
+       limpio. Anidarlo evita ese falso "todo bien". */
+    const fugas = [];
+    for (const col of ["telefono", "email", "folio", "cita_id"]) {
+      const { json: j } = await pedir(`/rest/v1/testimonios_publicos?select=${col}&limit=1`);
+      if (Array.isArray(j)) fugas.push(col);
+    }
+    if (fugas.length) mal(`FUGA: testimonios_publicos expone ${fugas.join(", ")}`);
+    else bien("los testimonios no exponen datos de contacto");
+  }
+}
+
+/* MediPost guarda cuatro bloques; la tabla original solo tenía dos. */
+{
+  const { estado, json } = await pedir("/rest/v1/posts?select=prompt_ia&limit=1");
+  if (estado === 404 || json?.code === "42703" || json?.code === "PGRST204") {
+    mal("a la tabla posts le faltan columnas (¿faltó aplicar 0008?)");
+  } else {
+    bien("posts tiene las columnas de MediPost completas");
+  }
+}
+
 /* ─── Funciones de los flujos sin sesión ──────────────────────────────── */
 console.log("\n[4] ¿Existen las funciones públicas?");
 

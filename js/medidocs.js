@@ -1,7 +1,6 @@
 /* ─── Constantes ──────────────────────────────────────────────────────── */
 const API_URL_MD = "/api/chat";
 const MODELO_MD  = "claude-sonnet-4-6";
-const LIMITE_HISTORIAL_MD = 100;
 
 const TIPOS_DOC_MD = [
   {
@@ -99,8 +98,10 @@ let ejsTemplateIdMD = "";
 let ejsPublicKeyMD  = "";
 
 /* ─── Init ────────────────────────────────────────────────────────────── */
-document.addEventListener("DOMContentLoaded", function () {
-  poblarDatalistFolios();
+document.addEventListener("DOMContentLoaded", async function () {
+  await window.APIListo;
+
+  await poblarDatalistFolios();
   bindSelectorTipos();
   bindFolioInput();
   bindBtnGenerar();
@@ -108,27 +109,27 @@ document.addEventListener("DOMContentLoaded", function () {
   bindBtnEmail();
   bindEmailConfigModal();
   document.getElementById("md-historial-lista").addEventListener("click", manejarClicHistorial);
-  renderHistorial();
+  await renderHistorial();
 
   const folio = new URLSearchParams(window.location.search).get("folio");
   if (folio) {
     document.getElementById("input-folio").value = folio;
-    seleccionarCita(folio.toUpperCase());
+    await seleccionarCita(folio.toUpperCase());
   }
 });
 
 /* ─── Datos ───────────────────────────────────────────────────────────── */
-function leerCitas() {
-  return JSON.parse(localStorage.getItem("medicita_citas") || "[]");
+async function leerCitas() {
+  return API.citas.listar();
 }
 
-function leerConfigClinica() {
-  return JSON.parse(localStorage.getItem("medicita_config_clinica") || "{}");
+async function leerConfigClinica() {
+  return (await API.clinica.obtener()) || {};
 }
 
-function poblarDatalistFolios() {
+async function poblarDatalistFolios() {
   const dl = document.getElementById("lista-folios");
-  dl.innerHTML = leerCitas().map(function (c) {
+  dl.innerHTML = (await leerCitas()).map(function (c) {
     return `<option value="${escaparHtmlMD(c.folio)}">${escaparHtmlMD(c.folio)} — ${escaparHtmlMD(c.nombre)} ${escaparHtmlMD(c.apellidos)}</option>`;
   }).join("");
 }
@@ -183,19 +184,19 @@ function leerInputsCampos() {
 
 /* ─── Búsqueda de cita por folio ──────────────────────────────────────── */
 function bindFolioInput() {
-  document.getElementById("input-folio").addEventListener("change", function () {
+  document.getElementById("input-folio").addEventListener("change", async function () {
     const folio = this.value.trim().toUpperCase();
-    if (folio) seleccionarCita(folio);
+    if (folio) await seleccionarCita(folio);
   });
-  document.getElementById("btn-buscar-folio").addEventListener("click", function () {
+  document.getElementById("btn-buscar-folio").addEventListener("click", async function () {
     const folio = document.getElementById("input-folio").value.trim().toUpperCase();
-    if (folio) seleccionarCita(folio);
+    if (folio) await seleccionarCita(folio);
     else mostrarErrorMD("Ingresa el folio de la cita.");
   });
 }
 
-function seleccionarCita(folio) {
-  const cita = leerCitas().find(function (c) { return c.folio === folio; });
+async function seleccionarCita(folio) {
+  const cita = await API.citas.porFolio(folio);
   const infoEl = document.getElementById("cita-info");
 
   if (!cita) {
@@ -248,10 +249,10 @@ async function generarDocumento() {
     const htmlDoc = await llamarClaudeMD(inputs);
     estadoMD.docGenerado = htmlDoc;
     const tipo = TIPOS_DOC_MD.find(function (t) { return t.id === estadoMD.tipoDoc; });
-    renderPreview(htmlDoc, tipo, inputs);
+    await renderPreview(htmlDoc, tipo, inputs);
     habilitarAccionesDoc(true);
-    guardarEnHistorial(estadoMD.tipoDoc, estadoMD.citaSeleccionada.folio, inputs);
-    renderHistorial();
+    await guardarEnHistorial(estadoMD.tipoDoc, estadoMD.citaSeleccionada.folio, inputs);
+    await renderHistorial();
     mostrarToastMD("Documento generado correctamente.", "ok");
   } catch (err) {
     document.getElementById("preview-vacio").classList.remove("oculto");
@@ -281,9 +282,9 @@ No incluyas <!DOCTYPE>, <html>, <head>, <body>, <style> ni <script>. Solo usa et
 Usa exactamente los datos proporcionados sin inventar información clínica. Redacta en español de México.`;
 }
 
-function buildUserPromptMD(inputs) {
+async function buildUserPromptMD(inputs) {
   const cita = estadoMD.citaSeleccionada;
-  const cfg  = leerConfigClinica();
+  const cfg  = await leerConfigClinica();
   const tipo = TIPOS_DOC_MD.find(function (t) { return t.id === estadoMD.tipoDoc; });
 
   const fechaFmt = cita.fecha
@@ -331,7 +332,7 @@ async function llamarClaudeMD(inputs) {
       model: MODELO_MD,
       max_tokens: 1500,
       system: buildSystemPromptMD(),
-      messages: [{ role: "user", content: buildUserPromptMD(inputs) }],
+      messages: [{ role: "user", content: await buildUserPromptMD(inputs) }],
     }),
   });
 
@@ -351,10 +352,10 @@ function mostrarPreviewCargando() {
   document.getElementById("preview-doc").classList.add("oculto");
 }
 
-function renderPreview(htmlDoc, tipo, inputs) {
-  const cfg  = leerConfigClinica();
+async function renderPreview(htmlDoc, tipo, inputs) {
+  const cfg  = await leerConfigClinica();
   const cita = estadoMD.citaSeleccionada;
-  const pac  = obtenerPacienteByCita(cita.folio);
+  const pac  = await obtenerPacienteByCita(cita.folio);
   const esc  = escaparHtmlMD;
 
   const fechaFmt = cita.fecha
@@ -522,7 +523,7 @@ function bindBtnEmail() {
         to_email:   cita.email,
         to_name:    cita.nombre + " " + cita.apellidos,
         asunto:     "Documento clínico: " + tipo.label + " — " + cita.folio,
-        html_email: buildEmailDocHTML(tipo),
+        html_email: await buildEmailDocHTML(tipo),
       });
       mostrarToastMD("✉️ Documento enviado a " + cita.email, "ok");
     } catch (err) {
@@ -534,8 +535,8 @@ function bindBtnEmail() {
   });
 }
 
-function buildEmailDocHTML(tipo) {
-  const cfg  = leerConfigClinica();
+async function buildEmailDocHTML(tipo) {
+  const cfg  = await leerConfigClinica();
   const cita = estadoMD.citaSeleccionada;
   const esc  = function (s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); };
   return `<!DOCTYPE html><html><body style="font-family:Georgia,serif;max-width:700px;margin:0 auto;padding:24px;color:#1e293b">
@@ -589,40 +590,20 @@ function habilitarAccionesDoc(habilitar) {
   document.getElementById("btn-enviar-email").disabled = !habilitar;
 }
 
-/* ─── localStorage: historial ─────────────────────────────────────────── */
-function leerHistorial() {
-  return JSON.parse(localStorage.getItem("medicita_docs") || "[]");
+/* ─── Historial de documentos ─────────────────────────────────────────── */
+async function leerHistorial() {
+  return API.documentos.listar();
 }
 
-function guardarEnHistorial(tipoId, folio, inputs) {
-  const docId = Date.now().toString();
-  let h = leerHistorial();
-  h.unshift({ id: docId, tipodoc: tipoId, folio, inputs, creadoEn: new Date().toISOString() });
-  if (h.length > LIMITE_HISTORIAL_MD) h = h.slice(0, LIMITE_HISTORIAL_MD);
-  localStorage.setItem("medicita_docs", JSON.stringify(h));
-
-  // M5: vincular documento con perfil de paciente
-  vincularDocConPacienteMD(folio, docId);
+/* El tope FIFO y el vínculo del documento con el expediente del paciente
+   los aplica la capa de datos. Antes se hacían aquí, con una copia del
+   cruce por folio que también vivía en app.js, admin.js y chat.js. */
+async function guardarEnHistorial(tipoId, folio, inputs) {
+  return API.documentos.crear({ tipodoc: tipoId, folio, inputs });
 }
 
-function vincularDocConPacienteMD(citaFolio, docId) {
-  if (!citaFolio) return;
-  const KEY = "medicita_pacientes";
-  const pacientes = JSON.parse(localStorage.getItem(KEY) || "[]");
-  const idx = pacientes.findIndex(p => p.foliosCitas && p.foliosCitas.includes(citaFolio));
-  if (idx === -1) return;
-  if (!pacientes[idx].foliosDocs.includes(docId)) {
-    pacientes[idx] = {
-      ...pacientes[idx],
-      foliosDocs: [...pacientes[idx].foliosDocs, docId],
-      actualizadoEn: new Date().toISOString(),
-    };
-    localStorage.setItem(KEY, JSON.stringify(pacientes));
-  }
-}
-
-function renderHistorial() {
-  const historial = leerHistorial();
+async function renderHistorial() {
+  const historial = await leerHistorial();
   const lista = document.getElementById("md-historial-lista");
   const cont  = document.getElementById("historial-contador");
 
@@ -652,11 +633,11 @@ function renderHistorial() {
   }).join("");
 }
 
-function manejarClicHistorial(e) {
+async function manejarClicHistorial(e) {
   const btn = e.target.closest(".btn-hist-regen");
   if (!btn) return;
-  const doc = leerHistorial().find(function (d) { return d.id === btn.dataset.id; });
-  if (doc) cargarDesdeHistorial(doc);
+  const doc = (await leerHistorial()).find(function (d) { return d.id === btn.dataset.id; });
+  if (doc) await cargarDesdeHistorial(doc);
 }
 
 async function cargarDesdeHistorial(doc) {
@@ -669,7 +650,7 @@ async function cargarDesdeHistorial(doc) {
   }
 
   document.getElementById("input-folio").value = doc.folio;
-  seleccionarCita(doc.folio);
+  await seleccionarCita(doc.folio);
 
   Object.entries(doc.inputs).forEach(function ([key, val]) {
     const el = document.getElementById("campo-" + key);
@@ -681,8 +662,8 @@ async function cargarDesdeHistorial(doc) {
 }
 
 /* ─── Helpers de paciente y edad ─────────────────────────────────────── */
-function obtenerPacienteByCita(folio) {
-  const pacientes = JSON.parse(localStorage.getItem("medicita_pacientes") || "[]");
+async function obtenerPacienteByCita(folio) {
+  const pacientes = await API.pacientes.listar();
   return pacientes.find(function (p) { return p.foliosCitas && p.foliosCitas.includes(folio); }) || null;
 }
 

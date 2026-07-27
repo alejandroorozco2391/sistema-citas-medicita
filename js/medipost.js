@@ -1,7 +1,6 @@
 /* ─── Constantes ──────────────────────────────────────────────────────── */
 const API_URL_MP = "/api/chat";
 const MODELO_MP = "claude-sonnet-4-6";
-const LIMITE_HISTORIAL_STORAGE = 50;
 const LIMITE_HISTORIAL_VISIBLE = 10;
 const LIMITE_CAPTION_VISUAL = 125;
 
@@ -49,12 +48,14 @@ function buscarTipo(id) { return TIPOS_MP.find((t) => t.id === id); }
 function buscarTono(id) { return TONOS_MP.find((t) => t.id === id); }
 
 /* ─── Init ────────────────────────────────────────────────────────────── */
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await window.APIListo;
+
   poblarEspecialidades();
   bindSelectores();
   bindFormulario();
-  renderHistorial();
-  renderCalendario(calEstado.anio, calEstado.mes);
+  await renderHistorial();
+  await renderCalendario(calEstado.anio, calEstado.mes);
   bindCalendarioGlobal();
 });
 
@@ -104,18 +105,18 @@ function bindFormulario() {
   });
 
   const listaHistorial = document.getElementById("historial-lista");
-  listaHistorial.addEventListener("click", (e) => {
+  listaHistorial.addEventListener("click", async (e) => {
     const eliminar = e.target.closest(".btn-historial-eliminar");
     const cargar = e.target.closest(".btn-hist-cargar");
     const programar = e.target.closest(".btn-programar-hist, .btn-reprogramar-hist");
     if (eliminar) {
       e.stopPropagation();
-      eliminarDeHistorial(eliminar.dataset.id);
+      await eliminarDeHistorial(eliminar.dataset.id);
       return;
     }
     if (cargar) {
       e.stopPropagation();
-      cargarDesdeHistorial(cargar.dataset.id);
+      await cargarDesdeHistorial(cargar.dataset.id);
       return;
     }
     if (programar) {
@@ -125,12 +126,12 @@ function bindFormulario() {
       return;
     }
     const fila = e.target.closest(".historial-fila");
-    if (fila && !e.target.closest("input[type='date']")) cargarDesdeHistorial(fila.dataset.id);
+    if (fila && !e.target.closest("input[type='date']")) await cargarDesdeHistorial(fila.dataset.id);
   });
-  listaHistorial.addEventListener("change", (e) => {
+  listaHistorial.addEventListener("change", async (e) => {
     const dp = e.target.closest(".hist-datepicker");
     if (!dp || !dp.value) return;
-    actualizarFechaPost(dp.dataset.id, dp.value);
+    await actualizarFechaPost(dp.dataset.id, dp.value);
     mostrarToastMP(`Post programado para ${formatFechaLegible(dp.value)}.`, "ok");
   });
 }
@@ -175,7 +176,7 @@ async function generarPost(regenerando) {
     const partes = parsearResultadoMP(texto);
     estadoMP.ultimoResultado = partes;
     renderResultado(partes);
-    guardarEnHistorial(partes);
+    await guardarEnHistorial(partes);
   } catch (err) {
     mostrarError(`No se pudo generar el contenido: ${err.message}`);
     mostrarVacio();
@@ -185,12 +186,12 @@ async function generarPost(regenerando) {
   }
 }
 
-function leerConfigClinicaMP() {
-  return JSON.parse(localStorage.getItem("medicita_config_clinica") || "{}");
+async function leerConfigClinicaMP() {
+  return (await API.clinica.obtener()) || {};
 }
 
-function buildSystemPromptMP() {
-  const cfg = leerConfigClinicaMP();
+async function buildSystemPromptMP() {
+  const cfg = await leerConfigClinicaMP();
   const nombre = cfg.nombreClinica || "MediCita";
   const ciudad = cfg.ciudad || "México";
   const especialidad = cfg.especialidadPrincipal ? ` especializada en ${cfg.especialidadPrincipal}` : "";
@@ -246,7 +247,7 @@ async function llamarClaudeMP(promptUsuario) {
     body: JSON.stringify({
       model: MODELO_MP,
       max_tokens: 800,
-      system: buildSystemPromptMP(),
+      system: await buildSystemPromptMP(),
       messages: [{ role: "user", content: promptUsuario }],
     }),
   });
@@ -365,14 +366,15 @@ async function copiarBloque(boton) {
 }
 
 /* ─── Historial ───────────────────────────────────────────────────────── */
-function cargarHistorialMP() {
-  return JSON.parse(localStorage.getItem("medicita_posts") || "[]");
+async function cargarHistorialMP() {
+  return API.posts.listar();
 }
 
-function guardarEnHistorial(partes) {
-  const historial = cargarHistorialMP();
-  const item = {
-    id: generarIdPost(),
+async function guardarEnHistorial(partes) {
+  /* El tope FIFO y la generación del id los aplica la capa de datos: en
+     local para no llenar los 5 MB de localStorage, en Postgres porque el
+     id lo pone la base. */
+  await API.posts.crear({
     tipo: estadoMP.inputs.tipo,
     especialidad: estadoMP.inputs.especialidad,
     red: estadoMP.inputs.red,
@@ -382,26 +384,21 @@ function guardarEnHistorial(partes) {
     sugerenciaImagen: partes.sugerenciaImagen,
     promptIA: partes.promptIA ?? "",
     llamadaAccion: partes.llamadaAccion,
-    creadoEn: new Date().toISOString(),
     borrador: false,
     fechaProgramada: null,
-  };
-  historial.unshift(item);
-  while (historial.length > LIMITE_HISTORIAL_STORAGE) historial.pop();
-  localStorage.setItem("medicita_posts", JSON.stringify(historial));
-  renderHistorial();
+  });
+  await renderHistorial();
 }
 
-function eliminarDeHistorial(id) {
-  const historial = cargarHistorialMP().filter((p) => p.id !== id);
-  localStorage.setItem("medicita_posts", JSON.stringify(historial));
-  renderHistorial();
-  renderCalendario(calEstado.anio, calEstado.mes);
+async function eliminarDeHistorial(id) {
+  await API.posts.eliminar(id);
+  await renderHistorial();
+  await renderCalendario(calEstado.anio, calEstado.mes);
   mostrarToastMP("Post eliminado del historial.", "ok");
 }
 
-function cargarDesdeHistorial(id) {
-  const item = cargarHistorialMP().find((p) => p.id === id);
+async function cargarDesdeHistorial(id) {
+  const item = (await cargarHistorialMP()).find((p) => p.id === id);
   if (!item) return;
 
   estadoMP.inputs = {
@@ -436,8 +433,8 @@ function marcarActivo(grupoId, valor) {
   });
 }
 
-function renderHistorial() {
-  const todos = cargarHistorialMP();
+async function renderHistorial() {
+  const todos = await cargarHistorialMP();
   const historial = [...todos].sort((a, b) => new Date(b.creadoEn) - new Date(a.creadoEn));
   const lista = document.getElementById("historial-lista");
   const vacio = document.getElementById("historial-vacio");
@@ -500,10 +497,6 @@ function renderHistorial() {
   }).join("");
 }
 
-function generarIdPost() {
-  return `POST-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-}
-
 /* ─── Helpers de fecha y calendario ─────────────────────────────────── */
 function toISODate(d) {
   const y = d.getFullYear();
@@ -528,14 +521,14 @@ function getTipoAbrev(tipo) {
 }
 
 /* ─── Calendario ──────────────────────────────────────────────────────── */
-function navegarMes(delta) {
+async function navegarMes(delta) {
   calEstado.mes += delta;
   if (calEstado.mes > 11) { calEstado.mes = 0; calEstado.anio++; }
   if (calEstado.mes < 0)  { calEstado.mes = 11; calEstado.anio--; }
-  renderCalendario(calEstado.anio, calEstado.mes);
+  await renderCalendario(calEstado.anio, calEstado.mes);
 }
 
-function renderCalendario(anio, mes) {
+async function renderCalendario(anio, mes) {
   calEstado.anio = anio;
   calEstado.mes = mes;
 
@@ -543,7 +536,7 @@ function renderCalendario(anio, mes) {
   document.getElementById("cal-titulo").textContent = `${MESES[mes]} ${anio}`;
 
   const hoy = toISODate(new Date());
-  const historial = cargarHistorialMP();
+  const historial = await cargarHistorialMP();
 
   const primerDia = new Date(anio, mes, 1);
   const ultimoDia = new Date(anio, mes + 1, 0).getDate();
@@ -602,18 +595,15 @@ function renderCalendario(anio, mes) {
     `<span class="cal-footer-texto">${postsMes.length} posts este mes · ${publicados} publicados · ${programados} programados</span>`;
 }
 
-function actualizarFechaPost(postId, nuevaFecha) {
-  const historial = cargarHistorialMP().map((p) =>
-    p.id === postId ? { ...p, fechaProgramada: nuevaFecha } : p
-  );
-  localStorage.setItem("medicita_posts", JSON.stringify(historial));
-  renderCalendario(calEstado.anio, calEstado.mes);
-  renderHistorial();
+async function actualizarFechaPost(postId, nuevaFecha) {
+  await API.posts.actualizar(postId, { fechaProgramada: nuevaFecha });
+  await renderCalendario(calEstado.anio, calEstado.mes);
+  await renderHistorial();
 }
 
 function bindCalendarioGlobal() {
-  document.getElementById("btn-mes-anterior").addEventListener("click", () => navegarMes(-1));
-  document.getElementById("btn-mes-siguiente").addEventListener("click", () => navegarMes(1));
+  document.getElementById("btn-mes-anterior").addEventListener("click", () => { navegarMes(-1); });
+  document.getElementById("btn-mes-siguiente").addEventListener("click", () => { navegarMes(1); });
   document.getElementById("btn-nuevo-post-cal").addEventListener("click", () => {
     cerrarPopover();
     document.getElementById("seccion-generador").scrollIntoView({ behavior: "smooth" });
@@ -621,11 +611,11 @@ function bindCalendarioGlobal() {
 
   const gridWrap = document.getElementById("cal-grid-wrap");
 
-  gridWrap.addEventListener("click", (e) => {
+  gridWrap.addEventListener("click", async (e) => {
     const pastilla = e.target.closest(".cal-pastilla");
     if (pastilla) {
       e.stopPropagation();
-      mostrarPopoverPost(pastilla.dataset.id, pastilla);
+      await mostrarPopoverPost(pastilla.dataset.id, pastilla);
       return;
     }
     const celda = e.target.closest(".cal-celda");
@@ -660,7 +650,7 @@ function bindCalendarioGlobal() {
 
   gridWrap.addEventListener("dragover", (e) => { e.preventDefault(); });
 
-  gridWrap.addEventListener("drop", (e) => {
+  gridWrap.addEventListener("drop", async (e) => {
     const celda = e.target.closest(".cal-celda");
     if (!celda || !calEstado.dragPostId) return;
     e.preventDefault();
@@ -668,7 +658,7 @@ function bindCalendarioGlobal() {
     const nuevaFecha = celda.dataset.fecha;
     const postId = calEstado.dragPostId;
     calEstado.dragPostId = null;
-    actualizarFechaPost(postId, nuevaFecha);
+    await actualizarFechaPost(postId, nuevaFecha);
     mostrarToastMP(`Post movido al ${formatFechaLegible(nuevaFecha)}.`, "ok");
   });
 
@@ -682,10 +672,10 @@ function bindCalendarioGlobal() {
     if (!dp.classList.contains("oculto")) dp.focus();
   });
 
-  document.getElementById("cal-pop-datepicker").addEventListener("change", (e) => {
+  document.getElementById("cal-pop-datepicker").addEventListener("change", async (e) => {
     const nuevaFecha = e.target.value;
     if (!nuevaFecha || !calEstado.popoverPostId) return;
-    actualizarFechaPost(calEstado.popoverPostId, nuevaFecha);
+    await actualizarFechaPost(calEstado.popoverPostId, nuevaFecha);
     mostrarToastMP(`Post programado para ${formatFechaLegible(nuevaFecha)}.`, "ok");
     cerrarPopover();
   });
@@ -704,10 +694,10 @@ function bindCalendarioGlobal() {
   });
 
   // Popover modo día: asignar existente
-  document.getElementById("btn-pop-asignar").addEventListener("click", () => {
+  document.getElementById("btn-pop-asignar").addEventListener("click", async () => {
     const fechaDia = calEstado.popoverFechaDia;
     cerrarPopover();
-    mostrarSelectorPost(fechaDia);
+    await mostrarSelectorPost(fechaDia);
   });
 
   // Selector overlay
@@ -726,8 +716,8 @@ function bindCalendarioGlobal() {
 }
 
 /* ─── Popover ─────────────────────────────────────────────────────────── */
-function mostrarPopoverPost(postId, ancla) {
-  const post = cargarHistorialMP().find((p) => p.id === postId);
+async function mostrarPopoverPost(postId, ancla) {
+  const post = (await cargarHistorialMP()).find((p) => p.id === postId);
   if (!post) return;
 
   calEstado.popoverPostId = postId;
@@ -804,8 +794,8 @@ function scrollAlHistorialYResaltar(postId) {
 }
 
 /* ─── Selector de posts sin fecha ────────────────────────────────────── */
-function mostrarSelectorPost(fechaDia) {
-  const sinFecha = cargarHistorialMP().filter((p) => !p.fechaProgramada);
+async function mostrarSelectorPost(fechaDia) {
+  const sinFecha = (await cargarHistorialMP()).filter((p) => !p.fechaProgramada);
   const lista = document.getElementById("cal-selector-lista");
 
   if (sinFecha.length === 0) {
@@ -824,8 +814,8 @@ function mostrarSelectorPost(fechaDia) {
     }).join("");
 
     lista.querySelectorAll(".selector-item").forEach((item) => {
-      item.addEventListener("click", () => {
-        actualizarFechaPost(item.dataset.id, item.dataset.fecha);
+      item.addEventListener("click", async () => {
+        await actualizarFechaPost(item.dataset.id, item.dataset.fecha);
         cerrarSelectorPost();
         mostrarToastMP(`Post programado para ${formatFechaLegible(item.dataset.fecha)}.`, "ok");
       });

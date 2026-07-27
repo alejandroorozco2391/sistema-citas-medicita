@@ -20,9 +20,10 @@
    Todo devuelve Promise en ambos modos.
    ═══════════════════════════════════════════════════════════════════════ */
 
-import { modoActual } from "./supabase-client.mjs";
+import { modoActual, hayBackendConfigurado } from "./supabase-client.mjs";
 
 let _impl = null;
+let _implPub = null;
 let _modo = null;
 
 /**
@@ -38,6 +39,31 @@ async function impl() {
   return _impl;
 }
 
+/**
+ * Implementación para la superficie SIN sesión.
+ *
+ * Hay tres flujos que por diseño ocurren sin que nadie haya iniciado
+ * sesión: un paciente pide cita desde la landing, responde la encuesta,
+ * y la landing muestra los datos de la clínica. El interruptor normal no
+ * sirve aquí — `modoActual()` devuelve "local" cuando no hay sesión, así
+ * que en la landing de una clínica real la cita del paciente se habría
+ * guardado en el localStorage de su propio navegador y la clínica nunca
+ * se habría enterado.
+ *
+ * Para esta superficie el criterio correcto no es "¿hay sesión?" sino
+ * "¿hay backend?". Del lado de la base ya están las piezas que lo
+ * permiten sin abrir nada: la vista `clinica_publica`, la vista
+ * `testimonios_publicos` y las funciones SECURITY DEFINER
+ * `solicitar_cita` y `responder_encuesta`, que validan por dentro.
+ */
+async function implPublica() {
+  if (_implPub) return _implPub;
+  _implPub = hayBackendConfigurado()
+    ? await import("./api-remoto.mjs")
+    : await import("./api-local.mjs");
+  return _implPub;
+}
+
 export async function modo() {
   await impl();
   return _modo;
@@ -46,6 +72,7 @@ export async function modo() {
 /** Solo para pruebas: fuerza una implementación concreta. */
 export function _forzarImpl(implementacion, nombreModo) {
   _impl = implementacion;
+  _implPub = implementacion;
   _modo = nombreModo || "forzado";
 }
 
@@ -116,10 +143,12 @@ export const posts = {
 
 export const nps = {
   async listar()           { return (await impl()).npsListar(); },
+  /* Responder va por la superficie pública: quien contesta la encuesta es
+     el paciente desde su celular, y no tiene sesión. */
   async responder(folio, puntuacion, comentario) {
-    return (await impl()).npsResponder(folio, puntuacion, comentario);
+    return (await implPublica()).npsResponder(folio, puntuacion, comentario);
   },
-  async yaRespondida(folio) { return (await impl()).npsYaRespondida(folio); },
+  async yaRespondida(folio) { return (await implPublica()).npsYaRespondida(folio); },
 };
 
 export const seguimientos = {
@@ -130,7 +159,15 @@ export const seguimientos = {
   async marcarEnviado(id, cual) { return (await impl()).seguimientosMarcarEnviado(id, cual); },
 };
 
-/** Solicitud de cita desde la landing: funciona sin sesión en ambos modos. */
+/**
+ * Superficie de la landing y la encuesta: todo esto ocurre sin sesión.
+ *
+ * Va contra el backend siempre que exista uno, aunque nadie haya
+ * iniciado sesión — ver `implPublica()` arriba. Ninguno de estos métodos
+ * devuelve datos que la clínica no publique de todos modos.
+ */
 export const publico = {
-  async solicitarCita(datos) { return (await impl()).publicoSolicitarCita(datos); },
+  async solicitarCita(datos) { return (await implPublica()).publicoSolicitarCita(datos); },
+  async clinica()            { return (await implPublica()).publicoClinica(); },
+  async testimonios(opciones) { return (await implPublica()).publicoTestimonios(opciones); },
 };

@@ -200,6 +200,24 @@ export async function clinicaObtener() {
   return deDbClinica(fila);
 }
 
+/**
+ * Datos de la clínica para la landing, que se pinta sin sesión.
+ *
+ * Lee la vista `clinica_publica`, no la tabla: `clinicas` está protegida
+ * por RLS y anon no tiene política sobre ella. La vista expone lo que la
+ * clínica publicaría de todos modos y deja fuera el plan contratado.
+ *
+ * No filtra por clínica porque el modelo de despliegue es un proyecto de
+ * Supabase por clínica: aquí solo hay una activa.
+ */
+export async function publicoClinica() {
+  const cliente = await db();
+  const fila = reventar(
+    await cliente.from("clinica_publica").select("*").limit(1).maybeSingle()
+  );
+  return fila ? deDbClinica(fila) : {};
+}
+
 export async function clinicaGuardar(cfg) {
   const cliente = await db();
   const id = await clinicaId();
@@ -534,31 +552,63 @@ export async function mensajesActualizarEstadoEnvio(id, estadoEnvio, detalle) {
    Documentos y posts
    ═══════════════════════════════════════════════════════════════════════ */
 
+/* El documento se identifica hacia afuera por el folio de su cita, que es
+   lo que la asistente ve y teclea. En la base el vínculo es cita_id, así
+   que se trae el folio por join: sin él, el historial de MediDocs saldría
+   con la columna de folio en blanco y el clic para reabrir un documento
+   no encontraría su cita. */
+const deDbDocumento = r => ({
+  id: r.id,
+  codigo: r.codigo,
+  citaId: r.cita_id,
+  folio: r.citas?.folio || "",
+  pacienteId: r.paciente_id,
+  tipodoc: r.tipo_doc,
+  inputs: r.inputs || {},
+  creadoEn: r.creado_en,
+});
+
 export async function documentosListar(filtros = {}) {
   const cliente = await db();
-  let q = cliente.from("documentos").select("*").order("creado_en", { ascending: false });
+  let q = cliente.from("documentos")
+    .select("*, citas(folio)")
+    .order("creado_en", { ascending: false });
   if (filtros.pacienteId) q = q.eq("paciente_id", filtros.pacienteId);
   if (filtros.citaId) q = q.eq("cita_id", filtros.citaId);
 
-  return (reventar(await q) || []).map(r => ({
-    id: r.id, codigo: r.codigo, citaId: r.cita_id, pacienteId: r.paciente_id,
-    tipodoc: r.tipo_doc, inputs: r.inputs || {}, creadoEn: r.creado_en,
-  }));
+  let docs = (reventar(await q) || []).map(deDbDocumento);
+  if (filtros.folio) docs = docs.filter(d => d.folio === filtros.folio);
+  return docs;
 }
 
 export async function documentosCrear(doc) {
   const cliente = await db();
+
+  /* Quien llama trabaja con folios, no con uuids. Se resuelve aquí para
+     que medidocs.js no tenga que saber cómo se llama la cita por dentro. */
+  let citaId = doc.citaId || null;
+  let pacienteId = doc.pacienteId || null;
+  if (!citaId && doc.folio) {
+    const cita = reventar(
+      await cliente.from("citas").select("id, paciente_id").eq("folio", doc.folio).maybeSingle()
+    );
+    if (cita) {
+      citaId = cita.id;
+      pacienteId = pacienteId || cita.paciente_id;
+    }
+  }
+
   const fila = reventar(
     await cliente.from("documentos").insert({
       clinica_id: await clinicaId(),
-      cita_id: doc.citaId || null,
-      paciente_id: doc.pacienteId || null,
+      cita_id: citaId,
+      paciente_id: pacienteId,
       codigo: doc.codigo || null,
       tipo_doc: doc.tipodoc || doc.tipoDoc || "",
       inputs: doc.inputs || {},
-    }).select().single()
+    }).select("*, citas(folio)").single()
   );
-  return { id: fila.id, codigo: fila.codigo, tipodoc: fila.tipo_doc, inputs: fila.inputs, creadoEn: fila.creado_en };
+  return deDbDocumento(fila);
 }
 
 export async function documentosEliminar(id) {
@@ -569,6 +619,9 @@ export async function documentosEliminar(id) {
 const deDbPost = r => ({
   id: r.id, tipo: r.tipo, especialidad: r.especialidad, red: r.red, tono: r.tono,
   caption: r.caption, hashtags: r.hashtags,
+  sugerenciaImagen: r.sugerencia_imagen ?? "",
+  promptIA: r.prompt_ia ?? "",
+  llamadaAccion: r.llamada_accion ?? "",
   fechaProgramada: soloFecha(r.fecha_programada),
   publicado: r.publicado, borrador: r.borrador, creadoEn: r.creado_en,
 });
@@ -589,6 +642,9 @@ export async function postsCrear(post) {
       tipo: post.tipo ?? "", especialidad: post.especialidad ?? "",
       red: post.red ?? "", tono: post.tono ?? "",
       caption: post.caption ?? "", hashtags: post.hashtags ?? "",
+      sugerencia_imagen: post.sugerenciaImagen ?? "",
+      prompt_ia: post.promptIA ?? "",
+      llamada_accion: post.llamadaAccion ?? "",
       fecha_programada: post.fechaProgramada || null,
       publicado: Boolean(post.publicado),
       borrador: post.borrador !== false,
@@ -652,6 +708,30 @@ export async function npsYaRespondida(folio) {
   const { data, error } = await cliente.rpc("encuesta_ya_respondida", { p_folio: folio });
   if (error) throw new Error(error.message);
   return Boolean(data);
+}
+
+/**
+ * Opiniones para la landing. Lee la vista `testimonios_publicos`, no la
+ * tabla: `nps_respuestas` está protegida por RLS y el rol anónimo no
+ * tiene política sobre ella, así que un visitante sin sesión no vería
+ * nada. La vista expone solo lo publicable (ver migración 0007).
+ */
+export async function publicoTestimonios({ minPuntuacion = 8, limite = 3 } = {}) {
+  const cliente = await db();
+  const filas = reventar(
+    await cliente.from("testimonios_publicos")
+      .select("id, nombre_publico, puntuacion, comentario, creado_en")
+      .gte("puntuacion", minPuntuacion)
+      .order("creado_en", { ascending: false })
+      .limit(limite)
+  );
+  return (filas || []).map(r => ({
+    id: r.id,
+    nombrePublico: r.nombre_publico || "",
+    puntuacion: r.puntuacion,
+    comentario: r.comentario || "",
+    creadoEn: r.creado_en || "",
+  }));
 }
 
 export async function seguimientosListar() {

@@ -2,11 +2,19 @@
    Se instala un stub de localStorage ANTES de requerir el store. */
 
 const test = require("node:test");
+const { before } = require("node:test");
 const assert = require("node:assert");
 const { instalarLocalStorage } = require("./stub-localstorage.js");
+const { montarApiLocal } = require("./datos-para-pruebas.js");
 
 const ls = instalarLocalStorage();
 const store = require("../js/conversaciones-store.js");
+
+/* El store ya no toca localStorage: delega en la capa de datos. En el
+   navegador se la da js/puente-api.mjs; aquí se la inyectamos. */
+before(async () => {
+  store._usarDatos(await montarApiLocal());
+});
 
 function limpiar() {
   ls.clear();

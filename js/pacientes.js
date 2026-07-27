@@ -1,6 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════
    M5 MediPacientes — Directorio de pacientes
-   Gestiona medicita_pacientes en localStorage
+
+   No toca localStorage: todo pasa por js/api.mjs (window.API), que decide
+   si los expedientes viven en este navegador o en Postgres.
    ═══════════════════════════════════════════════════════════════════ */
 
 const CLAVE_PAC = "medicita_pacientes";
@@ -12,11 +14,13 @@ const estadoPac = {
 };
 
 /* ─── Init ──────────────────────────────────────────────────────────── */
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   if (!document.getElementById("tab-pacientes")) return;
+  await window.APIListo;
+
   bindEventosPac();
-  renderDirectorio();
-  actualizarContadorPac();
+  await renderDirectorio();
+  await actualizarContadorPac();
 
   window.addEventListener("storage", (e) => {
     if (e.key === CLAVE_PAC || e.key === "medicita_citas") {
@@ -26,106 +30,77 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-/* ─── CRUD localStorage ─────────────────────────────────────────────── */
-function leerPacientes() {
-  return JSON.parse(localStorage.getItem(CLAVE_PAC) || "[]");
-}
-
-function guardarPacientes(pacientes) {
-  localStorage.setItem(CLAVE_PAC, JSON.stringify(pacientes));
-}
-
-function generarIdPac() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm   = String(d.getMonth() + 1).padStart(2, "0");
-  const dd   = String(d.getDate()).padStart(2, "0");
-  const rand = Math.floor(Math.random() * 9000) + 1000;
-  return `PAC-${yyyy}${mm}${dd}-${rand}`;
+/* ─── Acceso a datos ────────────────────────────────────────────────── */
+async function leerPacientes() {
+  return API.pacientes.listar();
 }
 
 /* ─── Interconexión — funciones globales usadas desde otros archivos ── */
 
-// Llamada desde app.js al confirmar cita nueva, y desde admin.js
-function pacientesVincularCita(folio, datosCita) {
-  const pacientes = leerPacientes();
-  const tel = (datosCita.telefono || "").replace(/\s/g, "");
-  const idx = pacientes.findIndex(p => p.telefono.replace(/\s/g, "") === tel);
-  if (idx >= 0) {
-    if (!pacientes[idx].foliosCitas.includes(folio)) {
-      pacientes[idx] = {
-        ...pacientes[idx],
-        foliosCitas: [...pacientes[idx].foliosCitas, folio],
-        actualizadoEn: new Date().toISOString(),
-      };
-    }
-  } else {
-    pacientes.unshift({
-      id:                  generarIdPac(),
-      nombre:              datosCita.nombre || "",
-      apellidos:           datosCita.apellidos || "",
-      telefono:            datosCita.telefono || "",
-      email:               datosCita.email || "",
-      fechaNacimiento:     "",
-      sexo:                "",
-      estatura:            "",
-      peso:                "",
-      tipoSangre:          "",
-      alergias:            "",
-      enfermedadesCronicas: "",
-      medicamentosActuales: "",
-      ciudad:              "",
-      comoNosEncontro:     "",
-      ocupacion:           "",
-      calificacion:        1,
-      notas:               "",
-      tieneSeguro:         false,
-      nombreSeguro:        "",
-      numeroPoliza:        "",
-      foliosCitas:         [folio],
-      foliosDocs:          [],
-      respuestasNPS:       [],
-      creadoEn:            new Date().toISOString(),
-      actualizadoEn:       new Date().toISOString(),
+/**
+ * Vincula una cita con el expediente de su paciente, creando el
+ * expediente si es la primera vez que aparece ese teléfono.
+ *
+ * El cruce por teléfono ya no se hace aquí. Estaba copiado en cuatro
+ * archivos con cuatro criterios distintos —este quitaba solo espacios, y
+ * por eso no cruzaba "55-1234-5678" con "55 1234 5678"—. Ahora lo
+ * resuelve la capa de datos, que compara por los últimos 10 dígitos, y en
+ * Postgres es una columna generada con índice único.
+ */
+async function pacientesVincularCita(folio, datosCita) {
+  const existente = await API.pacientes.porTelefono(datosCita.telefono);
+
+  if (existente) {
+    if ((existente.foliosCitas || []).includes(folio)) return existente;
+    return API.pacientes.guardar({
+      ...existente,
+      foliosCitas: [...(existente.foliosCitas || []), folio],
     });
   }
-  guardarPacientes(pacientes);
+
+  return API.pacientes.guardar({
+    nombre:    datosCita.nombre || "",
+    apellidos: datosCita.apellidos || "",
+    telefono:  datosCita.telefono || "",
+    email:     datosCita.email || "",
+    foliosCitas: [folio],
+  });
 }
 
 // Llamada desde medidocs.js al guardar un documento
-function pacientesVincularDoc(citaFolio, docId) {
+async function pacientesVincularDoc(citaFolio, docId) {
   if (!citaFolio) return;
-  const pacientes = leerPacientes();
-  const idx = pacientes.findIndex(p => p.foliosCitas.includes(citaFolio));
-  if (idx === -1) return;
-  if (!pacientes[idx].foliosDocs.includes(docId)) {
-    pacientes[idx] = {
-      ...pacientes[idx],
-      foliosDocs: [...pacientes[idx].foliosDocs, docId],
-      actualizadoEn: new Date().toISOString(),
-    };
-    guardarPacientes(pacientes);
-  }
+  const pacientes = await leerPacientes();
+  const pac = pacientes.find(p => (p.foliosCitas || []).includes(citaFolio));
+  if (!pac) return;
+  if ((pac.foliosDocs || []).includes(docId)) return;
+
+  return API.pacientes.guardar({
+    ...pac,
+    foliosDocs: [...(pac.foliosDocs || []), docId],
+  });
 }
 
 // Llamada desde admin.js en cambiarEstado y cargarDatosMuestra
-function pacientesAsegurarVinculo(cita) {
+async function pacientesAsegurarVinculo(cita) {
   if (!cita) return;
-  pacientesVincularCita(cita.folio, {
+  await pacientesVincularCita(cita.folio, {
     nombre:    cita.nombre,
     apellidos: cita.apellidos,
     telefono:  cita.telefono,
     email:     cita.email || "",
   });
   if (document.getElementById("tab-pacientes")) {
-    renderDirectorio();
-    actualizarContadorPac();
+    await renderDirectorio();
+    await actualizarContadorPac();
   }
 }
 
-/* ─── Cálculos cruzados con medicita_citas ─────────────────────────── */
-function especialidadFrecuentePac(pac) {
-  const citas = JSON.parse(localStorage.getItem("medicita_citas") || "[]");
+/* ─── Cálculos cruzados con las citas ───────────────────────────────
+   Reciben el arreglo de citas por parámetro en vez de leerlo. Antes cada
+   una lo releía, y como se llaman dentro del .map() del directorio, eso
+   significaba una lectura completa por cada paciente en cada render. */
+function especialidadFrecuentePac(pac, citas) {
   const mias = citas.filter(c => pac.foliosCitas.includes(c.folio));
   if (!mias.length) return "—";
   const freq = {};
@@ -133,8 +108,7 @@ function especialidadFrecuentePac(pac) {
   return Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
 }
 
-function ultimaCitaFechaPac(pac) {
-  const citas = JSON.parse(localStorage.getItem("medicita_citas") || "[]");
+function ultimaCitaFechaPac(pac, citas) {
   const fechas = citas
     .filter(c => pac.foliosCitas.includes(c.folio))
     .map(c => c.fecha)
@@ -145,8 +119,8 @@ function ultimaCitaFechaPac(pac) {
 }
 
 /* ─── Filtrado ──────────────────────────────────────────────────────── */
-function pacientesFiltrados() {
-  const todos = leerPacientes();
+async function pacientesFiltrados() {
+  const todos = await leerPacientes();
   const { busqueda, calificacion, sexo, comoNosEncontro } = estadoPac.filtros;
   return todos.filter(p => {
     if (busqueda) {
@@ -161,19 +135,24 @@ function pacientesFiltrados() {
 }
 
 /* ─── Render principal ──────────────────────────────────────────────── */
-function renderDirectorio() {
-  const lista = pacientesFiltrados();
+async function renderDirectorio() {
+  const lista = await pacientesFiltrados();
   const cont = document.getElementById("pac-contador-resultados");
   if (cont) cont.textContent = `${lista.length} ${lista.length === 1 ? "paciente" : "pacientes"}`;
 
+  /* Una sola lectura de citas para todo el render, que se pasa hacia
+     abajo. Es lo que permite que las tarjetas sigan pintándose de forma
+     síncrona sin releer por cada paciente. */
+  const citas = await API.citas.listar();
+
   if (estadoPac.vistaGrid) {
-    renderCardsGrid(lista);
+    renderCardsGrid(lista, citas);
   } else {
-    renderTablaLista(lista);
+    renderTablaLista(lista, citas);
   }
 }
 
-function renderCardsGrid(pacientes) {
+function renderCardsGrid(pacientes, citas) {
   const area = document.getElementById("pac-area");
   if (!area) return;
 
@@ -188,15 +167,15 @@ function renderCardsGrid(pacientes) {
     return;
   }
 
-  area.innerHTML = `<div class="pac-grid">${pacientes.map(renderCardPaciente).join("")}</div>`;
+  area.innerHTML = `<div class="pac-grid">${pacientes.map(p => renderCardPaciente(p, citas)).join("")}</div>`;
 }
 
-function renderCardPaciente(p) {
+function renderCardPaciente(p, citas) {
   const iniciales = `${p.nombre.charAt(0)}${p.apellidos.charAt(0)}`.toUpperCase();
   const estrellas = renderEstrellasPac(p.calificacion);
   const totalCitas = p.foliosCitas.length;
-  const esp = especialidadFrecuentePac(p);
-  const ultima = ultimaCitaFechaPac(p);
+  const esp = especialidadFrecuentePac(p, citas);
+  const ultima = ultimaCitaFechaPac(p, citas);
   const ultimaFmt = ultima
     ? new Date(ultima + "T12:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })
     : "Sin citas aún";
@@ -226,7 +205,7 @@ function renderCardPaciente(p) {
   </div>`;
 }
 
-function renderTablaLista(pacientes) {
+function renderTablaLista(pacientes, citas) {
   const area = document.getElementById("pac-area");
   if (!area) return;
 
@@ -236,8 +215,8 @@ function renderTablaLista(pacientes) {
   }
 
   const filas = pacientes.map(p => {
-    const esp     = especialidadFrecuentePac(p);
-    const ultima  = ultimaCitaFechaPac(p);
+    const esp     = especialidadFrecuentePac(p, citas);
+    const ultima  = ultimaCitaFechaPac(p, citas);
     const ultimaFmt = ultima
       ? new Date(ultima + "T12:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })
       : "—";
@@ -287,8 +266,8 @@ function renderEstrellasPac(n) {
   return n >= 3 ? "⭐⭐⭐" : n >= 2 ? "⭐⭐" : "⭐";
 }
 
-function actualizarContadorPac() {
-  const total = leerPacientes().length;
+async function actualizarContadorPac() {
+  const total = (await leerPacientes()).length;
   const el = document.getElementById("pac-total-counter");
   if (el) el.textContent = `${total} ${total === 1 ? "paciente registrado" : "pacientes registrados"}`;
 }
@@ -375,14 +354,14 @@ function bindEventosPac() {
 
   // Panel perfil: tabs nav
   document.querySelectorAll(".perfil-tab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       estadoPerfil.tabActiva = btn.dataset.ptab;
       document.querySelectorAll(".perfil-tab-btn").forEach((b) => {
         b.classList.toggle("activo", b === btn);
         b.setAttribute("aria-selected", b === btn ? "true" : "false");
       });
-      const pac = leerPacientes().find((p) => p.id === estadoPerfil.pacienteId);
-      if (pac) renderPerfilContenido(pac);
+      const pac = await API.pacientes.obtener(estadoPerfil.pacienteId);
+      if (pac) await renderPerfilContenido(pac);
     });
   });
 }
@@ -395,8 +374,8 @@ function abrirModalNuevoPac() {
   abrirModalPacInterno();
 }
 
-function abrirModalEditarPac(id) {
-  const p = leerPacientes().find(p => p.id === id);
+async function abrirModalEditarPac(id) {
+  const p = await API.pacientes.obtener(id);
   if (!p) return;
   estadoPac.editandoId = id;
   document.getElementById("modal-pac-titulo").textContent = "Editar paciente";
@@ -485,7 +464,7 @@ function actualizarEstrellasBtnsPac(val) {
   });
 }
 
-function guardarPaciente() {
+async function guardarPaciente() {
   const nombre    = document.getElementById("pac-nombre").value.trim();
   const apellidos = document.getElementById("pac-apellidos").value.trim();
   const telefono  = document.getElementById("pac-telefono").value.trim();
@@ -495,7 +474,6 @@ function guardarPaciente() {
     return;
   }
 
-  const pacientes = leerPacientes();
   const ahora = new Date().toISOString();
 
   const selAseg   = document.getElementById("pac-aseguradora");
@@ -527,29 +505,31 @@ function guardarPaciente() {
     actualizadoEn:        ahora,
   };
 
-  let nuevaLista;
-  if (estadoPac.editandoId) {
-    nuevaLista = pacientes.map(p =>
-      p.id === estadoPac.editandoId ? { ...p, ...datosNuevos } : p
-    );
-    mostrarToast("Paciente actualizado.", "ok");
-  } else {
-    const nuevo = {
-      id: generarIdPac(),
-      ...datosNuevos,
-      foliosCitas:   [],
-      foliosDocs:    [],
-      respuestasNPS: [],
-      creadoEn:      ahora,
-    };
-    nuevaLista = [nuevo, ...pacientes];
-    mostrarToast("Paciente registrado.", "ok");
+  try {
+    if (estadoPac.editandoId) {
+      /* Se relee el expediente antes de guardar para no pisar campos que
+         el formulario no toca (folios de citas, documentos, notas). */
+      const previo = await API.pacientes.obtener(estadoPac.editandoId);
+      await API.pacientes.guardar({ ...previo, ...datosNuevos, id: estadoPac.editandoId });
+      mostrarToast("Paciente actualizado.", "ok");
+    } else {
+      await API.pacientes.guardar({
+        ...datosNuevos,
+        foliosCitas:   [],
+        foliosDocs:    [],
+        respuestasNPS: [],
+        creadoEn:      ahora,
+      });
+      mostrarToast("Paciente registrado.", "ok");
+    }
+  } catch (e) {
+    mostrarToast(`No se pudo guardar el expediente: ${e.message}`, "error");
+    return;
   }
 
-  guardarPacientes(nuevaLista);
   cerrarModalPac();
-  renderDirectorio();
-  actualizarContadorPac();
+  await renderDirectorio();
+  await actualizarContadorPac();
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -561,12 +541,12 @@ const estadoPerfil = {
   tabActiva: "datos",
 };
 
-function abrirPerfilPac(id) {
-  const pac = leerPacientes().find((p) => p.id === id);
+async function abrirPerfilPac(id) {
+  const pac = await API.pacientes.obtener(id);
   if (!pac) return;
   estadoPerfil.pacienteId = id;
   estadoPerfil.tabActiva = "datos";
-  renderPerfilPac(pac);
+  await renderPerfilPac(pac);
   const panel = document.getElementById("panel-perfil-pac");
   const overlay = document.getElementById("pac-perfil-overlay");
   if (!panel) return;
@@ -588,7 +568,7 @@ function cerrarPerfilPac() {
   estadoPerfil.pacienteId = null;
 }
 
-function renderPerfilPac(pac) {
+async function renderPerfilPac(pac) {
   const iniciales = `${pac.nombre.charAt(0)}${pac.apellidos.charAt(0)}`.toUpperCase();
   const avatarEl = document.getElementById("perfil-avatar-lg");
   const nombreEl = document.getElementById("perfil-nombre-lg");
@@ -603,16 +583,16 @@ function renderPerfilPac(pac) {
     btn.setAttribute("aria-selected", activo ? "true" : "false");
   });
 
-  renderPerfilContenido(pac);
+  await renderPerfilContenido(pac);
 }
 
-function renderPerfilContenido(pac) {
+async function renderPerfilContenido(pac) {
   const cont = document.getElementById("perfil-contenido");
   if (!cont) return;
   switch (estadoPerfil.tabActiva) {
     case "datos":  cont.innerHTML = buildHtmlPerfilDatos(pac); break;
-    case "citas":  cont.innerHTML = buildHtmlPerfilCitas(pac); break;
-    case "docs":   cont.innerHTML = buildHtmlPerfilDocs(pac); break;
+    case "citas":  cont.innerHTML = await buildHtmlPerfilCitas(pac); break;
+    case "docs":   cont.innerHTML = await buildHtmlPerfilDocs(pac); break;
     case "notas":  cont.innerHTML = buildHtmlPerfilNotas(pac); break;
   }
 }
@@ -668,8 +648,8 @@ function buildHtmlPerfilDatos(pac) {
 }
 
 /* ─── Tab: Citas ─────────────────────────────────────────────────── */
-function buildHtmlPerfilCitas(pac) {
-  const citas = JSON.parse(localStorage.getItem("medicita_citas") || "[]");
+async function buildHtmlPerfilCitas(pac) {
+  const citas = await API.citas.listar();
   const mias = citas
     .filter((c) => pac.foliosCitas.includes(c.folio))
     .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
@@ -713,8 +693,8 @@ function agendarCitaPaciente(telefono, nombre, apellidos) {
 }
 
 /* ─── Tab: Documentos ────────────────────────────────────────────── */
-function buildHtmlPerfilDocs(pac) {
-  const docs = JSON.parse(localStorage.getItem("medicita_docs") || "[]");
+async function buildHtmlPerfilDocs(pac) {
+  const docs = await API.documentos.listar();
   const mios = docs
     .filter((d) => pac.foliosDocs.includes(d.id))
     .sort((a, b) => new Date(b.creadoEn) - new Date(a.creadoEn));
@@ -780,32 +760,28 @@ function buildHtmlPerfilNotas(pac) {
     <div class="perfil-notas-historial">${listaHtml}</div>`;
 }
 
-function agregarNotaPac(id) {
+async function agregarNotaPac(id) {
   const textarea = document.getElementById("nueva-nota-textarea");
   const texto = textarea?.value.trim();
   if (!texto) { mostrarToast("Escribe una nota antes de guardar.", "error"); return; }
 
-  const pacientes = leerPacientes();
-  const idx = pacientes.findIndex((p) => p.id === id);
-  if (idx === -1) return;
+  try {
+    /* El tope de 20 notas y el sello de tiempo los pone la capa de datos;
+       en Postgres las notas viven en su propia tabla, auditables. */
+    await API.pacientes.agregarNota(id, texto);
+  } catch (e) {
+    mostrarToast(`No se pudo guardar la nota: ${e.message}`, "error");
+    return;
+  }
 
-  const historial = [...(pacientes[idx].historialNotas || [])];
-  historial.unshift({ texto, creadoEn: new Date().toISOString() });
-  if (historial.length > 20) historial.splice(20);
-
-  pacientes[idx] = {
-    ...pacientes[idx],
-    historialNotas: historial,
-    actualizadoEn: new Date().toISOString(),
-  };
-  guardarPacientes(pacientes);
   mostrarToast("Nota guardada.", "ok");
-  renderPerfilContenido(pacientes[idx]);
+  const actualizado = await API.pacientes.obtener(id);
+  if (actualizado) await renderPerfilContenido(actualizado);
 }
 
 /* ─── Exportar CSV ───────────────────────────────────────────────── */
-function exportarPacientesCSV() {
-  const pacientes = leerPacientes();
+async function exportarPacientesCSV() {
+  const pacientes = await leerPacientes();
   if (!pacientes.length) { mostrarToast("No hay pacientes para exportar.", "error"); return; }
 
   const cols = [

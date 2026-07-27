@@ -10,44 +10,45 @@ let ejsTemplateIdAdmin = "";
 let ejsPublicKeyAdmin  = "";
 
 /* ─── Init ────────────────────────────────────────────────────────────── */
-document.addEventListener("DOMContentLoaded", () => {
-  aplicarAparienciaConfig(leerConfigClinica());
-  cargarCitas();
+document.addEventListener("DOMContentLoaded", async () => {
+  await window.APIListo;
+
+  aplicarAparienciaConfig(await leerConfigClinica());
+  await cargarCitas();
   poblarFiltroDoctores();
-  renderStats();
-  renderTabla();
+  await renderStats();
+  await renderTabla();
   bindEventos();
   bindConfigModal();
   bindModalNuevaCita();
-  renderSeguimientos();
-  actualizarBadgeSeguimientos();
-  renderOpinionesRecientes();
+  await renderSeguimientos();
+  await actualizarBadgeSeguimientos();
+  await renderOpinionesRecientes();
 
-  // Demo: en la primera visita (localStorage vacío) carga datos de muestra automáticamente
-  sembrarDemoSiVacio();
+  // Demo: en la primera visita (sin datos) carga datos de muestra automáticamente
+  await sembrarDemoSiVacio();
 
   // Refresca si el paciente guarda una cita en otra pestaña
-  window.addEventListener("storage", (e) => {
+  window.addEventListener("storage", async (e) => {
     if (e.key === "medicita_citas") {
-      cargarCitas();
-      renderStats();
-      renderTabla();
+      await cargarCitas();
+      await renderStats();
+      await renderTabla();
       mostrarToast("Nueva cita recibida desde el sitio.", "ok");
     }
     if (e.key === "medicita_nps") {
-      renderStats();
-      renderOpinionesRecientes();
+      await renderStats();
+      await renderOpinionesRecientes();
     }
   });
 });
 
-/* ─── Persistencia ────────────────────────────────────────────────────── */
-function cargarCitas() {
-  estadoAdmin.citas = JSON.parse(localStorage.getItem("medicita_citas") || "[]");
-}
-
-function guardarCitas() {
-  localStorage.setItem("medicita_citas", JSON.stringify(estadoAdmin.citas));
+/* ─── Persistencia ────────────────────────────────────────────────────────
+   `estadoAdmin.citas` es la copia en memoria que alimenta el render; la
+   fuente de verdad es la capa de datos. Cada acción escribe primero ahí y
+   luego recarga, para que el panel nunca muestre algo que no se guardó. */
+async function cargarCitas() {
+  estadoAdmin.citas = await API.citas.listar();
 }
 
 /* ─── Filtros ─────────────────────────────────────────────────────────── */
@@ -122,8 +123,8 @@ function citasFiltradas() {
 }
 
 /* ─── Render tabla ────────────────────────────────────────────────────── */
-function getPacVIPMap() {
-  const pacs = JSON.parse(localStorage.getItem("medicita_pacientes") || "[]");
+async function getPacVIPMap() {
+  const pacs = await API.pacientes.listar();
   const map = {};
   pacs.forEach(function (p) {
     const tel = (p.telefono || "").replace(/\s/g, "");
@@ -132,7 +133,7 @@ function getPacVIPMap() {
   return map;
 }
 
-function renderTabla() {
+async function renderTabla() {
   const tbody  = document.getElementById("tabla-body");
   const empty  = document.getElementById("empty-state");
   const cont   = document.getElementById("contador-resultados");
@@ -149,7 +150,7 @@ function renderTabla() {
     return;
   }
 
-  const vipMap = getPacVIPMap();
+  const vipMap = await getPacVIPMap();
   empty.style.display = "none";
   tbody.innerHTML = citas.map((c) => {
     const fechaFmt   = formatFecha(c.fecha);
@@ -200,48 +201,67 @@ function renderTabla() {
 }
 
 /* ─── Acciones ────────────────────────────────────────────────────────── */
-function cambiarEstado(folio, nuevoEstado) {
-  const idx = estadoAdmin.citas.findIndex((c) => c.folio === folio);
-  if (idx === -1) return;
-  const estadoAnterior = estadoAdmin.citas[idx].estado;
-  estadoAdmin.citas[idx].estado = nuevoEstado;
-  guardarCitas();
-  renderStats();
-  renderTabla();
+async function cambiarEstado(folio, nuevoEstado) {
+  const previa = estadoAdmin.citas.find((c) => c.folio === folio);
+  if (!previa) return;
+  const estadoAnterior = previa.estado;
+
+  try {
+    await API.citas.actualizar(previa.id ?? folio, { estado: nuevoEstado });
+  } catch (e) {
+    mostrarToast(`No se pudo cambiar el estado: ${e.message}`, "error");
+    await cargarCitas();
+    await renderTabla();
+    return;
+  }
+
+  await cargarCitas();
+  await renderStats();
+  await renderTabla();
   mostrarToast(`Cita ${folio} → ${labelEstado(nuevoEstado)}`, "ok");
 
+  const cita = estadoAdmin.citas.find((c) => c.folio === folio) || previa;
+
   if (nuevoEstado === "atendida" && estadoAnterior !== "atendida") {
-    const cita = estadoAdmin.citas[idx];
-    registrarSeguimientoPendiente(cita);
-    enviarEmailSeguimientoInmediato(cita);
-    renderSeguimientos();
-    actualizarBadgeSeguimientos();
+    await registrarSeguimientoPendiente(cita);
+    await enviarEmailSeguimientoInmediato(cita);
+    await renderSeguimientos();
+    await actualizarBadgeSeguimientos();
   }
 
   // M5: asegurar que la cita esté vinculada a un perfil de paciente
   if (typeof pacientesAsegurarVinculo === "function") {
-    pacientesAsegurarVinculo(estadoAdmin.citas[idx]);
+    await pacientesAsegurarVinculo(cita);
   }
 }
 
-function eliminarCita(folio) {
+async function eliminarCita(folio) {
   if (!confirm(`¿Eliminar la cita ${folio}?\nEsta acción no se puede deshacer.`)) return;
-  estadoAdmin.citas = estadoAdmin.citas.filter((c) => c.folio !== folio);
-  guardarCitas();
-  renderStats();
-  renderTabla();
+  const cita = estadoAdmin.citas.find((c) => c.folio === folio);
+  if (!cita) return;
+
+  try {
+    await API.citas.eliminar(cita.id ?? folio);
+  } catch (e) {
+    mostrarToast(`No se pudo eliminar: ${e.message}`, "error");
+    return;
+  }
+
+  await cargarCitas();
+  await renderStats();
+  await renderTabla();
   mostrarToast(`Cita ${folio} eliminada.`, "ok");
 }
 
 /* ─── Stats ───────────────────────────────────────────────────────────── */
-function renderStats() {
+async function renderStats() {
   const hoy = new Date().toISOString().split("T")[0];
   document.getElementById("stat-total").textContent       = estadoAdmin.citas.length;
   document.getElementById("stat-hoy").textContent         = estadoAdmin.citas.filter((c) => c.fecha === hoy).length;
   document.getElementById("stat-pendientes").textContent  = estadoAdmin.citas.filter((c) => c.estado === "pendiente").length;
   document.getElementById("stat-confirmadas").textContent = estadoAdmin.citas.filter((c) => c.estado === "confirmada").length;
 
-  const nps = JSON.parse(localStorage.getItem("medicita_nps") || "[]");
+  const nps = await API.nps.listar();
   const numEl = document.getElementById("stat-nps");
   if (nps.length === 0) {
     numEl.textContent = "—";
@@ -281,7 +301,12 @@ function exportarCSV() {
 // Auto-carga de datos de muestra en la primera visita a la demo.
 // Solo actúa si nunca se ha sembrado y no hay citas guardadas, para no
 // re-poblar los datos si el usuario los borró intencionalmente después.
-function sembrarDemoSiVacio() {
+async function sembrarDemoSiVacio() {
+  /* Nunca contra una clínica de verdad. Meterle nueve citas inventadas a
+     un consultorio en producción sería mucho peor que un panel vacío, y
+     además quedarían en el expediente de pacientes que no existen. */
+  if (window.MODO_DATOS === "remoto") return;
+
   const yaSembrado = localStorage.getItem("medicita_demo_seeded") === "true";
   if (yaSembrado) return;
   if (estadoAdmin.citas.length > 0) {
@@ -289,10 +314,14 @@ function sembrarDemoSiVacio() {
     localStorage.setItem("medicita_demo_seeded", "true");
     return;
   }
-  cargarDatosMuestra(true);
+  await cargarDatosMuestra(true);
 }
 
-function cargarDatosMuestra(auto = false) {
+async function cargarDatosMuestra(auto = false) {
+  if (window.MODO_DATOS === "remoto") {
+    mostrarToast("Los datos de muestra solo se cargan en la demo, no en una clínica real.", "error");
+    return;
+  }
   if (!auto && estadoAdmin.citas.length > 0) {
     if (!confirm("Ya hay citas guardadas. ¿Agregar los datos de muestra encima?")) return;
   }
@@ -312,11 +341,11 @@ function cargarDatosMuestra(auto = false) {
     { folio:"CIT-260531-6677", nombre:"Sandra",   apellidos:"Sánchez Medina", telefono:"55 2233 4455", email:"",                         especialidad:"Ginecología",      doctor:"Dra. Patricia Leal",     fecha:dias(5),  hora:"16:00", tipo:"Urgencia",         notas:"Acompañada por familiar.",                                estado:"pendiente",  creadaEn:new Date(Date.now()-345600000).toISOString() },
     { folio:"CIT-260531-3390", nombre:"Ernesto",  apellidos:"Fuentes Mora",   telefono:"55 5566 8899", email:"efuentes@correo.com",      especialidad:"Medicina General", doctor:"Dr. Carlos Ruiz",        fecha:dias(-1), hora:"12:00", tipo:"Revisión preventiva", notas:"Chequeo anual. Trae resultados de laboratorio previos.", estado:"cancelada",  creadaEn:new Date(Date.now()-259200000).toISOString() },
   ];
-  estadoAdmin.citas = [...MUESTRA, ...estadoAdmin.citas];
-  guardarCitas();
+  for (const c of MUESTRA) await API.citas.crear(c);
+  await cargarCitas();
   localStorage.setItem("medicita_demo_seeded", "true");
-  renderStats();
-  renderTabla();
+  await renderStats();
+  await renderTabla();
   mostrarToast(
     auto
       ? "👋 Datos de demostración cargados. ¡Explora la suite completa!"
@@ -326,7 +355,7 @@ function cargarDatosMuestra(auto = false) {
 
   // M5: vincular citas de muestra con perfiles de paciente
   if (typeof pacientesAsegurarVinculo === "function") {
-    MUESTRA.forEach(c => pacientesAsegurarVinculo(c));
+    for (const c of MUESTRA) await pacientesAsegurarVinculo(c);
   }
 
   // Seguimientos de muestra
@@ -337,13 +366,17 @@ function cargarDatosMuestra(auto = false) {
     { folio:"CIT-260601-0003", nombrePaciente:"Lucía Torres Reyes",  emailPaciente:"lucia.torres@outlook.com",fechaAtendida:fechaDesde(1),  emailEnviado_inmediato:true, emailEnviado_3d:false, emailEnviado_30d:false },
     { folio:"CIT-260601-0004", nombrePaciente:"Carlos Ramírez Luna", emailPaciente:"",                        fechaAtendida:fechaDesde(32), emailEnviado_inmediato:true, emailEnviado_3d:true,  emailEnviado_30d:true  },
   ];
-  const seguimientosExistentes = leerSeguimientos();
+  const seguimientosExistentes = await leerSeguimientos();
   const foliosSeg = new Set(seguimientosExistentes.map(s => s.folio));
   const nuevosSegs = seguimientosMuestra.filter(s => !foliosSeg.has(s.folio));
   if (nuevosSegs.length > 0) {
-    guardarSeguimientos([...nuevosSegs, ...seguimientosExistentes]);
-    renderSeguimientos();
-    actualizarBadgeSeguimientos();
+    for (const s of nuevosSegs) {
+      const reg = await API.seguimientos.registrar(s.folio, s.fechaAtendida);
+      if (s.emailEnviado_3d)  await API.seguimientos.marcarEnviado(reg?.id ?? s.folio, "3d");
+      if (s.emailEnviado_30d) await API.seguimientos.marcarEnviado(reg?.id ?? s.folio, "30d");
+    }
+    await renderSeguimientos();
+    await actualizarBadgeSeguimientos();
   }
 
   // NPS de muestra
@@ -356,13 +389,17 @@ function cargarDatosMuestra(auto = false) {
     { folio:"CIT-260601-0004", puntuacion:8,  comentario:"Buena atención, el doctor muy profesional.",                                fechaRespuesta:npsDesde(28) },
     { folio:"CIT-260601-0005", puntuacion:10, comentario:"Muy buena experiencia, el personal muy amable desde la recepción.",         fechaRespuesta:npsDesde(10) },
   ];
-  const npsExistentes = JSON.parse(localStorage.getItem("medicita_nps") || "[]");
+  const npsExistentes = await API.nps.listar();
   const foliosNps = new Set(npsExistentes.map(r => r.folio));
   const nuevosNps = npsMuestra.filter(r => !foliosNps.has(r.folio));
   if (nuevosNps.length > 0) {
-    localStorage.setItem("medicita_nps", JSON.stringify([...nuevosNps, ...npsExistentes]));
-    renderStats();
-    renderOpinionesRecientes();
+    for (const r of nuevosNps) {
+      try {
+        await API.nps.responder(r.folio, r.puntuacion, r.comentario);
+      } catch { /* folio de muestra ya respondido: no es un problema */ }
+    }
+    await renderStats();
+    await renderOpinionesRecientes();
   }
 }
 
@@ -426,11 +463,11 @@ const CAMPOS_CONFIG = [
   ["cfg-color-acento",    "colorAcento"],
 ];
 
-function leerConfigClinica() {
-  return JSON.parse(localStorage.getItem("medicita_config_clinica") || "{}");
+async function leerConfigClinica() {
+  return (await API.clinica.obtener()) || {};
 }
 
-function guardarConfigClinica() {
+async function guardarConfigClinica() {
   const cfg = {};
   CAMPOS_CONFIG.forEach(([inputId, key]) => {
     const el = document.getElementById(inputId);
@@ -438,12 +475,12 @@ function guardarConfigClinica() {
   });
   const tipografiaEl = document.querySelector('input[name="cfg-tipografia"]:checked');
   if (tipografiaEl) cfg.tipografia = tipografiaEl.value;
-  localStorage.setItem("medicita_config_clinica", JSON.stringify(cfg));
+  await API.clinica.guardar(cfg);
   aplicarAparienciaConfig(cfg);
 }
 
-function poblarFormConfig() {
-  const cfg = leerConfigClinica();
+async function poblarFormConfig() {
+  const cfg = await leerConfigClinica();
   CAMPOS_CONFIG.forEach(([inputId, key]) => {
     const el = document.getElementById(inputId);
     if (el) el.value = cfg[key] || "";
@@ -478,8 +515,8 @@ function bindConfigModal() {
   document.getElementById("btn-config-clinica").addEventListener("click", abrirModalConfig);
   document.getElementById("btn-cerrar-config").addEventListener("click", cerrarModalConfig);
   document.getElementById("btn-cancelar-config").addEventListener("click", cerrarModalConfig);
-  document.getElementById("btn-guardar-config").addEventListener("click", () => {
-    guardarConfigClinica();
+  document.getElementById("btn-guardar-config").addEventListener("click", async () => {
+    await guardarConfigClinica();
     ejsServiceIdAdmin  = document.getElementById("cfg-ejs-service").value.trim();
     ejsTemplateIdAdmin = document.getElementById("cfg-ejs-template").value.trim();
     ejsPublicKeyAdmin  = document.getElementById("cfg-ejs-key").value.trim();
@@ -539,8 +576,8 @@ function bindConfigModal() {
   });
 }
 
-function abrirModalConfig() {
-  poblarFormConfig();
+async function abrirModalConfig() {
+  await poblarFormConfig();
   activarCfgTab("clinica");
   const modal = document.getElementById("modal-config");
   modal.classList.remove("oculto");
@@ -548,11 +585,11 @@ function abrirModalConfig() {
   document.getElementById("cfg-nombre-clinica").focus();
 }
 
-function cerrarModalConfig() {
+async function cerrarModalConfig() {
   document.getElementById("modal-config").classList.add("oculto");
   document.body.style.overflow = "";
   // Restaurar colores al estado guardado (en caso de previsualización sin guardar)
-  aplicarAparienciaConfig(leerConfigClinica());
+  aplicarAparienciaConfig(await leerConfigClinica());
 }
 
 /* ─── Apariencia: colores y tipografía ────────────────────────────────── */
@@ -682,12 +719,8 @@ function actualizarPreview() {
 }
 
 /* ─── Seguimientos post-consulta ──────────────────────────────────────── */
-function leerSeguimientos() {
-  return JSON.parse(localStorage.getItem("medicita_followup_pendientes") || "[]");
-}
-
-function guardarSeguimientos(seguimientos) {
-  localStorage.setItem("medicita_followup_pendientes", JSON.stringify(seguimientos));
+async function leerSeguimientos() {
+  return API.seguimientos.listar();
 }
 
 function diasDesde(fechaIso) {
@@ -698,37 +731,27 @@ function encuestaBaseUrl() {
   return window.location.href.replace(/[^/]*$/, "") + "encuesta.html";
 }
 
-function registrarSeguimientoPendiente(cita) {
-  const seguimientos = leerSeguimientos();
+async function registrarSeguimientoPendiente(cita) {
+  const seguimientos = await leerSeguimientos();
   if (seguimientos.some((s) => s.folio === cita.folio)) return;
-  seguimientos.unshift({
-    folio: cita.folio,
-    nombrePaciente: `${cita.nombre} ${cita.apellidos}`,
-    emailPaciente: cita.email || "",
-    fechaAtendida: new Date().toISOString(),
-    emailEnviado_inmediato: false,
-    emailEnviado_3d: false,
-    emailEnviado_30d: false,
-  });
-  guardarSeguimientos(seguimientos);
+  await API.seguimientos.registrar(cita.folio, new Date().toISOString());
 }
 
 async function enviarEmailSeguimientoInmediato(cita) {
   if (!ejsPublicKeyAdmin || !ejsServiceIdAdmin || !ejsTemplateIdAdmin) return;
   if (!cita.email) return;
 
-  const seguimientos = leerSeguimientos();
-  const idx = seguimientos.findIndex((s) => s.folio === cita.folio);
+  const seguimientos = await leerSeguimientos();
+  const seg = seguimientos.find((s) => s.folio === cita.folio);
   try {
     await emailjs.send(ejsServiceIdAdmin, ejsTemplateIdAdmin, {
       to_email:   cita.email,
       to_name:    `${cita.nombre} ${cita.apellidos}`,
       asunto:     `Gracias por tu visita, ${cita.nombre} — ¿cómo te sentiste?`,
-      html_email: buildEmailSeguimientoHTML(cita),
+      html_email: await buildEmailSeguimientoHTML(cita),
     });
-    if (idx !== -1) {
-      seguimientos[idx].emailEnviado_inmediato = true;
-      guardarSeguimientos(seguimientos);
+    if (seg) {
+      await API.seguimientos.marcarEnviado(seg.id ?? seg.folio, "inmediato");
     }
     mostrarToast(`✉️ Email de seguimiento enviado a ${cita.email}`, "ok");
   } catch (_) {
@@ -737,11 +760,9 @@ async function enviarEmailSeguimientoInmediato(cita) {
 }
 
 async function enviarEmailDiferido(folio, tipo) {
-  const seguimientos = leerSeguimientos();
-  const idx = seguimientos.findIndex((s) => s.folio === folio);
-  if (idx === -1) return;
-
-  const seg = seguimientos[idx];
+  const seguimientos = await leerSeguimientos();
+  const seg = seguimientos.find((s) => s.folio === folio);
+  if (!seg) return;
   if (!seg.emailPaciente) {
     mostrarToast("Este paciente no tiene email registrado.", "error");
     return;
@@ -760,20 +781,19 @@ async function enviarEmailDiferido(folio, tipo) {
       to_email:   seg.emailPaciente,
       to_name:    seg.nombrePaciente,
       asunto,
-      html_email: buildEmailDiferidoHTML(seg, tipo),
+      html_email: await buildEmailDiferidoHTML(seg, tipo),
     });
-    seguimientos[idx][tipo === "3d" ? "emailEnviado_3d" : "emailEnviado_30d"] = true;
-    guardarSeguimientos(seguimientos);
-    renderSeguimientos();
-    actualizarBadgeSeguimientos();
+    await API.seguimientos.marcarEnviado(seg.id ?? seg.folio, tipo);
+    await renderSeguimientos();
+    await actualizarBadgeSeguimientos();
     mostrarToast(`✉️ Email enviado a ${seg.emailPaciente}`, "ok");
   } catch (err) {
     mostrarToast(`Error al enviar: ${err?.text ?? "Error desconocido"}`, "error");
   }
 }
 
-function renderSeguimientos() {
-  const todos = leerSeguimientos();
+async function renderSeguimientos() {
+  const todos = await leerSeguimientos();
   const activos = todos.filter((s) => !s.emailEnviado_3d || !s.emailEnviado_30d);
 
   const seccion = document.getElementById("seccion-seguimientos");
@@ -820,7 +840,7 @@ function buildCeldaSeguimiento(s, tipo, dias, tieneEmail) {
   return `<span class="seg-chip seg-programado">📅 En ${faltan} día${faltan !== 1 ? "s" : ""}</span>`;
 }
 
-function actualizarBadgeSeguimientos() {
+async function actualizarBadgeSeguimientos() {
   const pendientes = leerSeguimientos().filter((s) => !s.emailEnviado_3d || !s.emailEnviado_30d);
   const btn = document.getElementById("badge-seguimientos-btn");
   if (pendientes.length > 0) {
@@ -832,8 +852,8 @@ function actualizarBadgeSeguimientos() {
 }
 
 /* ─── Emails de seguimiento ───────────────────────────────────────────── */
-function buildEmailSeguimientoHTML(cita) {
-  const cfg       = leerConfigClinica();
+async function buildEmailSeguimientoHTML(cita) {
+  const cfg       = await leerConfigClinica();
   const clinica   = cfg.nombreClinica || "MediCita";
   const telefono  = cfg.telefono  || "55 1234 5678";
   const emailCli  = cfg.email     || "contacto@medicita.mx";
@@ -894,8 +914,8 @@ function buildEmailSeguimientoHTML(cita) {
 </html>`;
 }
 
-function buildEmailDiferidoHTML(seg, tipo) {
-  const cfg       = leerConfigClinica();
+async function buildEmailDiferidoHTML(seg, tipo) {
+  const cfg       = await leerConfigClinica();
   const clinica   = cfg.nombreClinica || "MediCita";
   const telefono  = cfg.telefono  || "55 1234 5678";
   const emailCli  = cfg.email     || "contacto@medicita.mx";
@@ -950,8 +970,8 @@ function buildEmailDiferidoHTML(seg, tipo) {
 }
 
 /* ─── Opiniones NPS ───────────────────────────────────────────────────── */
-function renderOpinionesRecientes() {
-  const nps      = JSON.parse(localStorage.getItem("medicita_nps") || "[]");
+async function renderOpinionesRecientes() {
+  const nps      = await API.nps.listar();
   const seccion  = document.getElementById("seccion-nps");
   const tbody    = document.getElementById("nps-body");
   const btnVer   = document.getElementById("btn-ver-todas-nps");
@@ -965,7 +985,7 @@ function renderOpinionesRecientes() {
 
   const expandido = seccion.dataset.expandido === "true";
   const lista     = expandido ? nps : nps.slice(0, 5);
-  const citas     = JSON.parse(localStorage.getItem("medicita_citas") || "[]");
+  const citas     = await API.citas.listar();
 
   tbody.innerHTML = lista.map((r) => {
     const cita     = citas.find((c) => c.folio === r.folio);
@@ -1150,14 +1170,15 @@ function onDoctorCambioNC() {
   selHor.disabled = false;
 }
 
-function onTelefonoBlurNC() {
+async function onTelefonoBlurNC() {
   const tel    = document.getElementById("nc-telefono").value.trim();
   const banner = document.getElementById("nc-banner-pac");
   if (!tel) { banner.className = "nc-banner oculto"; return; }
 
-  const telNorm   = normalizarTexto(tel);
-  const pacientes = JSON.parse(localStorage.getItem("medicita_pacientes") || "[]");
-  const pac = pacientes.find((p) => normalizarTexto(p.telefono || "") === telNorm);
+  /* El cruce lo hace la capa de datos, que compara por los últimos 10
+     dígitos. Antes se comparaba el texto normalizado, así que el mismo
+     número escrito con guiones se veía como un paciente nuevo. */
+  const pac = await API.pacientes.porTelefono(tel);
 
   if (pac) {
     banner.className   = "nc-banner nc-banner-encontrado";
@@ -1171,6 +1192,7 @@ function onTelefonoBlurNC() {
   }
 }
 
+// eslint-disable-next-line no-unused-vars -- conservada por si se necesita un folio local
 function generarFolioAdmin() {
   const now = new Date();
   const aa  = String(now.getFullYear()).slice(2);
@@ -1180,7 +1202,7 @@ function generarFolioAdmin() {
   return `CIT-${aa}${mm}${dd}-${rnd}`;
 }
 
-function guardarNuevaCita() {
+async function guardarNuevaCita() {
   const nombre       = document.getElementById("nc-nombre").value.trim();
   const apellidos    = document.getElementById("nc-apellidos").value.trim();
   const telefono     = document.getElementById("nc-telefono").value.trim();
@@ -1217,58 +1239,43 @@ function guardarNuevaCita() {
   }
   errorEl.className = "nc-error-msg oculto";
 
-  const folio = generarFolioAdmin();
-  const ahora = new Date().toISOString();
+  /* Se pregunta ANTES de crear la cita: después, el expediente ya existe
+     siempre —la capa de datos lo crea al vuelo— y el mensaje diría
+     "paciente existente" para alguien que acaba de llegar. */
+  const pacientePrevio = await API.pacientes.porTelefono(telefono);
+  const pacienteNuevo = !pacientePrevio;
 
-  const nuevaCita = {
-    folio, nombre, apellidos, telefono, email,
-    especialidad, doctor, fecha, hora: horario,
-    tipo, notas,
-    tieneSeguro, nombreSeguro, numeroPoliza,
-    estado:   confirmar ? "confirmada" : "pendiente",
-    creadaEn: ahora,
-    origenManual: true,
-  };
-
-  estadoAdmin.citas.unshift(nuevaCita);
-  guardarCitas();
-
-  // Lógica de paciente
-  const pacientes = JSON.parse(localStorage.getItem("medicita_pacientes") || "[]");
-  const telNorm   = normalizarTexto(telefono);
-  const idxPac    = pacientes.findIndex((p) => normalizarTexto(p.telefono || "") === telNorm);
-  let pacienteNuevo = false;
-
-  if (idxPac !== -1) {
-    if (!pacientes[idxPac].foliosCitas) pacientes[idxPac].foliosCitas = [];
-    if (!pacientes[idxPac].foliosCitas.includes(folio)) {
-      pacientes[idxPac].foliosCitas.push(folio);
-    }
-    if (tieneSeguro) {
-      pacientes[idxPac].tieneSeguro  = true;
-      pacientes[idxPac].nombreSeguro = nombreSeguro;
-      pacientes[idxPac].numeroPoliza = numeroPoliza;
-    }
-    pacientes[idxPac].actualizadoEn = ahora;
-  } else {
-    pacienteNuevo = true;
-    const hoy = new Date();
-    const id  = `PAC-${hoy.getFullYear()}${String(hoy.getMonth()+1).padStart(2,"0")}${String(hoy.getDate()).padStart(2,"0")}-${String(Math.floor(Math.random()*9000)+1000)}`;
-    pacientes.unshift({
-      id, nombre, apellidos, telefono, email,
-      fechaNacimiento: "", sexo: "", estatura: "", peso: "",
-      tipoSangre: "", alergias: "", enfermedadesCronicas: "", medicamentosActuales: "",
-      ciudad: "", comoNosEncontro: "", ocupacion: "",
-      calificacion: 1, notas: "",
+  let cita;
+  try {
+    cita = await API.citas.crear({
+      nombre, apellidos, telefono, email,
+      especialidad, doctor, fecha, hora: horario,
+      tipo, notas,
       tieneSeguro, nombreSeguro, numeroPoliza,
-      foliosCitas: [folio], foliosDocs: [], respuestasNPS: [],
-      creadoEn: ahora, actualizadoEn: ahora,
+      estado: confirmar ? "confirmada" : "pendiente",
+      origenManual: true,
     });
+  } catch (e) {
+    errorEl.textContent = `No se pudo guardar la cita: ${e.message}`;
+    errorEl.className   = "nc-error-msg";
+    return;
   }
-  localStorage.setItem("medicita_pacientes", JSON.stringify(pacientes));
 
-  renderStats();
-  renderTabla();
+  const folio = cita.folio;
+
+  /* El vínculo con el expediente lo hace la capa de datos al crear la
+     cita. Aquí solo queda lo que el formulario aporta de más: el seguro,
+     que no viaja en el objeto de la cita hacia el expediente. */
+  if (tieneSeguro) {
+    const pac = await API.pacientes.porTelefono(telefono);
+    if (pac) {
+      await API.pacientes.guardar({ ...pac, tieneSeguro: true, nombreSeguro, numeroPoliza });
+    }
+  }
+
+  await cargarCitas();
+  await renderStats();
+  await renderTabla();
   cerrarModalNuevaCita();
 
   const msg = pacienteNuevo

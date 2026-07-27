@@ -3,12 +3,19 @@
    si alguien rompe un adaptador o el cruce de teléfonos, esto lo caza. */
 
 const test = require("node:test");
+const { before } = require("node:test");
 const assert = require("node:assert");
 const { instalarLocalStorage } = require("./stub-localstorage.js");
+const { montarApiLocal } = require("./datos-para-pruebas.js");
 
 const ls = instalarLocalStorage();
 const store = require("../js/conversaciones-store.js");
 const { CONVERSACIONES_DEMO } = require("../js/conversaciones-demo.js");
+
+/* El store ya no toca localStorage: delega en la capa de datos. */
+before(async () => {
+  store._usarDatos(await montarApiLocal());
+});
 
 /* Los mismos pacientes que siembra cargarDatosMuestra() en admin.js. */
 const PACIENTES_MUESTRA = [
