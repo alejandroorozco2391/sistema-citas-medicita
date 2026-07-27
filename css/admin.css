@@ -145,6 +145,13 @@ input, select { font-family: inherit; }
 }
 .btn-medipost:hover { background: rgba(245,158,11,.24); border-color: rgba(245,158,11,.65); color: #fbbf24; }
 
+.btn-mediinbox {
+  color: #10b981;
+  background: rgba(16,185,129,.12);
+  border: 1px solid rgba(16,185,129,.35);
+}
+.btn-mediinbox:hover { background: rgba(16,185,129,.24); border-color: rgba(16,185,129,.65); color: #34d399; }
+
 /* Admin: ghost secundario */
 .btn-config-clinica {
   color: rgba(255,255,255,.72);

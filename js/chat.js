@@ -8,6 +8,44 @@ let ejsServiceId = "";
 let ejsTemplateId = "";
 let ejsPublicKey = "";
 
+/* ─── Registro en MediInbox ───────────────────────────────────────────── */
+/* La sesión de chat se vuelca al inbox tras cada turno para que quede
+   historial consultable. Antes de esto, todo lo que decía un paciente se
+   perdía al recargar la página.
+
+   Es idempotente: adaptarMediBot genera ids deterministas a partir de
+   sesionInboxId + posición, así que volcar la conversación completa en
+   cada turno agrega solo lo nuevo. */
+let sesionInboxId = null;
+let inicioSesionInbox = null;
+let contactoInbox = { telefono: "", nombre: "" };
+
+function nuevaSesionInbox() {
+  sesionInboxId = `mb_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+  inicioSesionInbox = new Date().toISOString();
+  contactoInbox = { telefono: "", nombre: "" };
+}
+
+async function registrarEnInbox() {
+  // El inbox es opcional: si sus scripts no están cargados, el chat sigue igual.
+  if (typeof adaptarMediBot !== "function" || typeof ingerir !== "function") return;
+  if (!conversacion.length) return;
+  if (!sesionInboxId) nuevaSesionInbox();
+
+  try {
+    await ingerir(
+      adaptarMediBot(conversacion, {
+        sesionId: sesionInboxId,
+        inicioEn: inicioSesionInbox,
+        telefono: contactoInbox.telefono,
+        nombreContacto: contactoInbox.nombre,
+      })
+    );
+  } catch (e) {
+    console.warn("MediInbox: no se pudo registrar la conversación —", e);
+  }
+}
+
 /* ─── System prompt ───────────────────────────────────────────────────── */
 function buildSystemPrompt() {
   const ahora = new Date().toLocaleString("es-MX", {
@@ -291,6 +329,14 @@ async function ejecutarHerramienta(nombre, p) {
           fecha: p.fecha, hora: p.hora, tipo: p.tipo, notas: p.notas ?? "",
         });
         localStorage.setItem("medicita_citas", JSON.stringify(citas));
+
+        // En cuanto sabemos quién es, la conversación deja de ser anónima:
+        // el siguiente volcado al inbox la vincula con su expediente.
+        contactoInbox = {
+          telefono: p.telefono || contactoInbox.telefono,
+          nombre: `${p.nombre || ""} ${p.apellidos || ""}`.trim() || contactoInbox.nombre,
+        };
+
         return JSON.stringify({ exito: true, folio });
       }
 
@@ -525,6 +571,7 @@ async function procesarMensaje(texto) {
     setEscribiendo(false);
     setInputHabilitado(true);
     document.getElementById("input-mensaje").focus();
+    registrarEnInbox();
   }
 }
 
@@ -873,6 +920,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-nueva-conv").addEventListener("click", () => {
     if (!confirm("¿Comenzar una nueva conversación? El historial del chat se borrará (las citas en el sistema se conservan).")) return;
     conversacion = [];
+    nuevaSesionInbox(); // el inbox trata esto como un hilo nuevo, no como el mismo
     document.getElementById("area-mensajes").innerHTML = "";
     agregarBienvenida();
   });
@@ -880,6 +928,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-salir").addEventListener("click", () => {
     if (!confirm("¿Salir y cambiar la API Key?")) return;
     apiKey = ""; conversacion = [];
+    nuevaSesionInbox();
     document.getElementById("area-mensajes").innerHTML = "";
     document.getElementById("pantalla-chat").classList.add("oculto");
     document.getElementById("pantalla-inicio").classList.remove("oculto");

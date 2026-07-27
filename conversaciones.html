@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediInbox — Conversaciones | MediCita</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/conversaciones.css" />
+</head>
+<body>
+
+  <!-- ═══ Gate de rol ═══════════════════════════════════════════════════ -->
+  <div id="gate-rol" class="gate-overlay" hidden>
+    <div class="gate-card" role="dialog" aria-modal="true" aria-labelledby="gate-titulo">
+      <div class="gate-marca">💬 MediInbox</div>
+      <h2 id="gate-titulo">¿Quién está usando el sistema?</h2>
+      <p class="gate-sub">Selecciona tu rol para entrar al historial de conversaciones.</p>
+
+      <div class="gate-roles" id="gate-roles"></div>
+
+      <label class="gate-campo">
+        <span>Tu nombre <em>(opcional — firma los mensajes que envíes)</em></span>
+        <input type="text" id="gate-nombre" placeholder="Ej. Ana Ruiz" autocomplete="name" />
+      </label>
+
+      <button type="button" id="gate-entrar" class="gate-btn" disabled>Entrar</button>
+
+      <p class="gate-aviso">
+        <strong>Aviso:</strong> <span id="gate-aviso-texto"></span>
+      </p>
+    </div>
+  </div>
+
+  <!-- ═══ Header ════════════════════════════════════════════════════════ -->
+  <header id="cv-header">
+    <div class="cv-container header-inner">
+      <div class="header-marca">
+        <span aria-hidden="true">💬</span>
+        MediInbox
+        <span class="cv-badge">Conversaciones</span>
+      </div>
+
+      <div class="header-acciones">
+        <button class="btn-header" id="btn-config-email" type="button" title="Configurar envío por correo">
+          ⚙️ EmailJS
+        </button>
+        <button class="btn-header btn-rol" id="btn-rol" type="button" title="Cambiar de rol">
+          <span id="btn-rol-texto">Rol</span>
+        </button>
+        <a href="admin.html" class="btn-header">← Panel admin</a>
+        <a href="https://symbiotiq.com.mx" target="_blank" rel="noopener" class="header-symbiotiq" title="Sistema creado por Symbiotiq">
+          <img src="assets/symbiotiq/logo-icon-white.png" alt="Symbiotiq" />
+          <span>Symbiotiq</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══ Aviso de demo ═════════════════════════════════════════════════ -->
+  <div class="cv-aviso-demo" id="cv-aviso-demo">
+    <span aria-hidden="true">🔓</span>
+    <span id="cv-aviso-demo-texto"></span>
+    <button type="button" class="cv-aviso-cerrar" id="cv-aviso-cerrar" aria-label="Ocultar aviso">×</button>
+  </div>
+
+  <!-- ═══ Layout principal ══════════════════════════════════════════════ -->
+  <main class="inbox-layout" id="inbox-layout">
+
+    <!-- ── Panel izquierdo: lista ──────────────────────────────────────── -->
+    <aside class="inbox-lista" id="inbox-lista" aria-label="Lista de conversaciones">
+
+      <div class="lista-cabecera">
+        <div class="lista-buscador">
+          <span class="buscador-icono" aria-hidden="true">🔍</span>
+          <input type="search" id="inp-buscar" placeholder="Buscar por nombre, teléfono o texto…"
+                 aria-label="Buscar conversaciones" autocomplete="off" />
+          <button type="button" id="btn-limpiar-busqueda" class="buscador-limpiar" hidden aria-label="Limpiar búsqueda">×</button>
+        </div>
+
+        <div class="lista-metricas" id="lista-metricas"></div>
+
+        <div class="filtros-grupo" role="group" aria-label="Filtrar por canal">
+          <button type="button" class="chip chip-canal activo" data-canal="todos">Todos</button>
+          <button type="button" class="chip chip-canal" data-canal="whatsapp"><span aria-hidden="true">🟢</span> WhatsApp</button>
+          <button type="button" class="chip chip-canal" data-canal="voz"><span aria-hidden="true">📞</span> Voz</button>
+          <button type="button" class="chip chip-canal" data-canal="medibot"><span aria-hidden="true">🤖</span> MediBot</button>
+          <button type="button" class="chip chip-canal" data-canal="chat_web"><span aria-hidden="true">💻</span> Web</button>
+        </div>
+
+        <div class="filtros-grupo" role="group" aria-label="Filtrar por estado">
+          <button type="button" class="chip chip-estado activo" data-estado="todos">Todas</button>
+          <button type="button" class="chip chip-estado" data-estado="abierta">Abiertas</button>
+          <button type="button" class="chip chip-estado chip-atencion" data-estado="requiere_atencion_humana">Requieren atención</button>
+          <button type="button" class="chip chip-estado" data-estado="resuelta">Resueltas</button>
+        </div>
+      </div>
+
+      <ul class="lista-conversaciones" id="lista-conversaciones"></ul>
+
+      <div class="lista-vacia" id="lista-vacia" hidden>
+        <span aria-hidden="true">📭</span>
+        <p id="lista-vacia-texto">No hay conversaciones que coincidan.</p>
+      </div>
+    </aside>
+
+    <!-- ── Panel derecho: hilo ─────────────────────────────────────────── -->
+    <section class="inbox-hilo" id="inbox-hilo" aria-label="Conversación">
+
+      <!-- Estado vacío -->
+      <div class="hilo-vacio" id="hilo-vacio">
+        <span aria-hidden="true">💬</span>
+        <h2>Selecciona una conversación</h2>
+        <p>Aquí verás el historial completo con el paciente, sin importar por qué canal llegó.</p>
+      </div>
+
+      <!-- Conversación abierta -->
+      <div class="hilo-contenido" id="hilo-contenido" hidden>
+
+        <header class="hilo-cabecera">
+          <button type="button" class="hilo-volver" id="hilo-volver" aria-label="Volver a la lista">←</button>
+          <div class="hilo-avatar" id="hilo-avatar" aria-hidden="true"></div>
+          <div class="hilo-identidad">
+            <h2 id="hilo-nombre"></h2>
+            <p class="hilo-meta" id="hilo-meta"></p>
+          </div>
+          <div class="hilo-acciones">
+            <a href="#" class="btn-hilo" id="btn-ver-perfil" hidden>👤 Ver perfil</a>
+            <select id="sel-estado" class="sel-estado" aria-label="Estado de la conversación">
+              <option value="abierta">Abierta</option>
+              <option value="requiere_atencion_humana">Requiere atención</option>
+              <option value="resuelta">Resuelta</option>
+            </select>
+          </div>
+        </header>
+
+        <div class="hilo-mensajes" id="hilo-mensajes"></div>
+
+        <!-- Compositor -->
+        <footer class="hilo-compositor">
+          <div class="compositor-capacidad" id="compositor-capacidad"></div>
+
+          <div class="compositor-fila">
+            <textarea id="inp-mensaje" rows="1" placeholder="Escribe un mensaje…"
+                      aria-label="Escribir mensaje"></textarea>
+            <button type="button" id="btn-enviar" class="btn-enviar" aria-label="Enviar">➤</button>
+          </div>
+
+          <div class="compositor-opciones">
+            <label class="switch-nota">
+              <input type="checkbox" id="chk-nota-interna" />
+              <span>Nota interna <em>(no le llega al paciente)</em></span>
+            </label>
+            <label class="switch-nota" id="wrap-forzar-email" hidden>
+              <input type="checkbox" id="chk-forzar-email" />
+              <span>Enviar por correo <em id="forzar-email-dir"></em></span>
+            </label>
+          </div>
+        </footer>
+      </div>
+    </section>
+  </main>
+
+  <!-- ═══ Modal: configuración de EmailJS ═══════════════════════════════ -->
+  <div class="modal-overlay" id="modal-email" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-email-titulo">
+      <header class="modal-cabecera">
+        <h2 id="modal-email-titulo">⚙️ Configurar envío por correo</h2>
+        <button type="button" class="modal-cerrar" id="modal-email-cerrar" aria-label="Cerrar">×</button>
+      </header>
+
+      <div class="modal-cuerpo">
+        <p class="modal-nota">
+          Estas credenciales viven <strong>solo en memoria</strong> durante esta sesión.
+          No se guardan en el navegador y se pierden al recargar la página.
+        </p>
+
+        <label class="modal-campo">
+          <span>Service ID</span>
+          <input type="text" id="ejs-service" placeholder="service_xxxxxxx" autocomplete="off" />
+        </label>
+        <label class="modal-campo">
+          <span>Template ID</span>
+          <input type="text" id="ejs-template" placeholder="template_xxxxxxx" autocomplete="off" />
+        </label>
+        <label class="modal-campo">
+          <span>Public Key</span>
+          <input type="password" id="ejs-public" placeholder="xxxxxxxxxxxxxxx" autocomplete="off" />
+        </label>
+      </div>
+
+      <footer class="modal-pie">
+        <button type="button" class="btn-secundario" id="modal-email-cancelar">Cancelar</button>
+        <button type="button" class="btn-primario" id="modal-email-guardar">Guardar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ═══ Toast ═════════════════════════════════════════════════════════ -->
+  <div class="toast" id="toast" hidden></div>
+
+  <!-- ═══ Scripts ═══════════════════════════════════════════════════════ -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script src="js/sesion.js"></script>
+  <script src="js/conversaciones-store.js"></script>
+  <script src="js/conversaciones-adapters.js"></script>
+  <script src="js/conversaciones-demo.js"></script>
+  <script src="js/conversaciones-envio.js"></script>
+  <script src="js/conversaciones.js"></script>
+</body>
+</html>
