@@ -130,6 +130,9 @@
             <p class="hilo-meta" id="hilo-meta"></p>
           </div>
           <div class="hilo-acciones">
+            <!-- Cambiar el estado a "requiere atención" no avisa a nadie.
+                 Escalar sí: abre el ciclo de acuse con re-alerta. -->
+            <button type="button" class="btn-hilo btn-hilo--escalar" id="btn-escalar">🚨 Escalar</button>
             <a href="#" class="btn-hilo" id="btn-ver-perfil" hidden>👤 Ver perfil</a>
             <select id="sel-estado" class="sel-estado" aria-label="Estado de la conversación">
               <option value="abierta">Abierta</option>
@@ -197,6 +200,56 @@
       <footer class="modal-pie">
         <button type="button" class="btn-secundario" id="modal-email-cancelar">Cancelar</button>
         <button type="button" class="btn-primario" id="modal-email-guardar">Guardar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ═══ Escalar a una persona ═════════════════════════════════════════ -->
+  <div class="modal-fondo" id="modal-escalar" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-escalar-titulo">
+      <header class="modal-cab">
+        <h3 id="modal-escalar-titulo">Escalar a una persona</h3>
+        <button type="button" class="modal-x" id="modal-escalar-x" aria-label="Cancelar">✕</button>
+      </header>
+
+      <div class="modal-cuerpo">
+        <p class="modal-nota">
+          Se abre una alerta con acuse: si nadie la toma, vuelve a avisar y
+          termina marcada como <strong>sin atender</strong>. No se cierra sola.
+        </p>
+
+        <label class="campo">
+          <span>¿De qué se trata?</span>
+          <select id="esc-motivo">
+            <option value="peticion_explicita">Pidió hablar con una persona</option>
+            <option value="duda_clinica">Duda que necesita al médico</option>
+            <option value="urgencia_medica">Posible urgencia</option>
+            <option value="queja">Queja o inconformidad</option>
+            <option value="agenda">Cambio de cita complicado</option>
+            <option value="administrativo">Costos, seguro o facturación</option>
+            <option value="bot_no_pudo">El asistente no pudo resolverlo</option>
+          </select>
+        </label>
+
+        <label class="campo">
+          <span>¿Qué tan pronto?</span>
+          <select id="esc-urgencia">
+            <option value="alta">Alta — en minutos</option>
+            <option value="normal" selected>Normal — hoy mismo</option>
+            <option value="baja">Baja — cuando se pueda</option>
+          </select>
+        </label>
+
+        <label class="campo">
+          <span>Qué necesita</span>
+          <textarea id="esc-resumen" rows="3"
+                    placeholder="Lo que hay que saber para llamarle sin volver a preguntárselo"></textarea>
+        </label>
+      </div>
+
+      <footer class="modal-pie">
+        <button type="button" class="btn-secundario" id="modal-escalar-cancelar">Cancelar</button>
+        <button type="button" class="btn-primario" id="modal-escalar-confirmar">Escalar</button>
       </footer>
     </div>
   </div>

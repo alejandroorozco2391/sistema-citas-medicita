@@ -1035,6 +1035,121 @@ export async function horariosProximaApertura() {
   return data || null;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   Escalaciones a humano
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const deDbEscalacion = r => ({
+  id: r.id,
+  conversacionId: r.conversacion_id,
+  pacienteId: r.paciente_id,
+  citaId: r.cita_id,
+  canalOrigen: r.canal_origen,
+  contactoNombre: r.contacto_nombre || "",
+  contactoTelefono: r.contacto_telefono || "",
+  contactoEmail: r.contacto_email || "",
+  motivo: r.motivo,
+  urgencia: r.urgencia,
+  resumen: r.resumen || "",
+  destinoRol: r.destino_rol,
+  estado: r.estado,
+  nivel: r.nivel ?? 0,
+  venceEn: r.vence_en,
+  reconocidaEn: r.reconocida_en,
+  /* El nombre de quien la tomó, no su uuid: es lo que el panel muestra, y
+     pedirlo aparte sería una consulta por renglón. */
+  reconocidaPor: r.reconocida?.nombre || null,
+  resueltaEn: r.resuelta_en,
+  resueltaPor: r.resuelta?.nombre || null,
+  notaCierre: r.nota_cierre || "",
+  creadoEn: r.creado_en,
+});
+
+const SELECT_ESCALACION =
+  "*, reconocida:perfiles_staff!escalaciones_reconocida_por_fkey(nombre)," +
+  " resuelta:perfiles_staff!escalaciones_resuelta_por_fkey(nombre)";
+
+export async function escalacionesListar(filtros = {}) {
+  const cliente = await db();
+  let q = cliente.from("escalaciones").select(SELECT_ESCALACION);
+
+  if (filtros.abiertas) q = q.in("estado", ["pendiente", "vencida"]);
+  if (filtros.estado) q = q.eq("estado", filtros.estado);
+
+  const filas = reventar(await q.order("creado_en", { ascending: false })) || [];
+  const lista = filas.map(deDbEscalacion);
+
+  /* Las vencidas primero: llevan más tiempo sin que nadie conteste. */
+  const peso = e => (e.estado === "vencida" ? 0 : e.estado === "pendiente" ? 1 : 2);
+  return lista.sort((a, b) => peso(a) - peso(b));
+}
+
+/**
+ * Escalar desde el panel o el inbox, con sesión.
+ *
+ * Va por la misma RPC que usa el paciente: el ruteo, el plazo y el marcado
+ * de la conversación tienen que salir del mismo lugar, o el día que
+ * cambien los plazos habría que acordarse de cambiarlos en dos.
+ */
+export async function escalacionesCrear(datos) {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("escalar_a_humano", {
+    p_motivo: datos.motivo,
+    p_resumen: datos.resumen || "",
+    p_urgencia: datos.urgencia || "normal",
+    p_nombre: datos.nombre || "",
+    p_telefono: datos.telefono || "",
+    p_email: datos.email || "",
+    p_canal: datos.canalOrigen || "medibot",
+    p_conversacion_id: datos.conversacionId || null,
+  });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function escalacionesReconocer(id) {
+  const cliente = await db();
+  const { error } = await cliente.rpc("escalacion_reconocer", { p_id: id });
+  if (error) throw new Error(error.message);
+  return true;
+}
+
+export async function escalacionesResolver(id, nota) {
+  const cliente = await db();
+  const { error } = await cliente.rpc("escalacion_resolver", { p_id: id, p_nota: nota });
+  if (error) throw new Error(error.message);
+  return true;
+}
+
+export async function escalacionesContarAbiertas() {
+  const cliente = await db();
+  const filas = reventar(
+    await cliente.from("escalaciones").select("estado").in("estado", ["pendiente", "vencida"])
+  ) || [];
+  return {
+    total: filas.length,
+    vencidas: filas.filter(f => f.estado === "vencida").length,
+  };
+}
+
+/**
+ * No-op a propósito.
+ *
+ * Con backend la escalera la sube pg_cron cada minuto, y tiene que ser
+ * así: es la única pieza que funciona con todos los navegadores cerrados.
+ * Si el panel también la empujara, dos relojes moverían las mismas filas
+ * y el nivel avanzaría al doble de rápido en las clínicas que dejan el
+ * panel abierto.
+ */
+export async function escalacionesPromover() {
+  return 0;
+}
+
+/** Pedir un humano sin cuenta. Misma RPC; el rol anónimo solo tiene esta puerta. */
+export async function publicoEscalarAHumano(datos) {
+  return escalacionesCrear(datos);
+}
+
 export async function horariosCitasAfectadas(fecha, horaInicio, horaFin) {
   const cliente = await db();
   const { data, error } = await cliente.rpc("citas_afectadas_por_cierre", {

@@ -29,6 +29,7 @@ const CLAVE_POSTS = "medicita_posts";
 const CLAVE_NPS = "medicita_nps";
 const CLAVE_FOLLOWUP = "medicita_followup_pendientes";
 const CLAVE_HORARIOS = "medicita_horarios";
+const CLAVE_ESCALACIONES = "medicita_escalaciones";
 
 /* ─── Topes FIFO (mismos límites que ya usan pacientes.js/medipost.js/
        medidocs.js/conversaciones-store.js hoy) ───────────────────────── */
@@ -1150,4 +1151,245 @@ export async function publicoHorarioDisponible(desde, hasta) {
     d.setDate(d.getDate() + 1);
   }
   return salida;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Escalaciones a humano
+
+   Espejo de 0010_escalaciones.sql, con una diferencia que la interfaz
+   tiene que decir en voz alta: aquí NO hay reloj. Sin backend la escalera
+   solo avanza cuando alguien llama a escalacionesPromover(), y eso lo hace
+   el panel mientras la pestaña esté abierta.
+
+   Es todo lo que una demo puede hacer, y fingir lo contrario sería
+   exactamente el error que la escalación viene a corregir.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const MOTIVOS_ESC = [
+  "urgencia_medica", "duda_clinica", "queja", "agenda",
+  "administrativo", "peticion_explicita", "bot_no_pudo",
+];
+const MAX_ESCALACIONES = 200;
+
+/** Minutos de plazo según urgencia. Mismos números que rutear_escalacion(). */
+const MARGEN_ESC = { alta: 5, normal: 15, baja: 60 };
+
+function _destinoEsc(motivo) {
+  if (motivo === "urgencia_medica" || motivo === "duda_clinica") return "doctor";
+  if (motivo === "queja") return "admin";
+  return "recepcionista";
+}
+
+/**
+ * A quién le toca y para cuándo.
+ *
+ * En local no hay tabla de personal, así que el destino es informativo:
+ * sirve para que el panel lo muestre y para que la demo enseñe el ruteo.
+ */
+async function _rutearEsc(motivo, urgencia, ahora = new Date()) {
+  const destinoRol = _destinoEsc(motivo);
+  const margen = (MARGEN_ESC[urgencia] ?? MARGEN_ESC.normal) * 60000;
+
+  /* Una posible urgencia médica no espera a que abran. */
+  if (motivo === "urgencia_medica") {
+    return { destinoRol, venceEn: new Date(ahora.getTime() + 15 * 60000).toISOString() };
+  }
+
+  if (await horariosAbiertoAhora()) {
+    return { destinoRol, venceEn: new Date(ahora.getTime() + margen).toISOString() };
+  }
+
+  /* Cerrado: el reloj empieza cuando abran. Vencerla de madrugada solo
+     produce alertas que nadie puede atender. */
+  const proxima = await horariosProximaApertura();
+  const base = proxima ? new Date(proxima) : new Date(ahora.getTime() + 12 * 3600000);
+  return { destinoRol, venceEn: new Date(base.getTime() + margen).toISOString() };
+}
+
+export async function escalacionesListar(filtros = {}) {
+  let lista = _leer(CLAVE_ESCALACIONES);
+
+  if (filtros.abiertas) {
+    lista = lista.filter((e) => e.estado === "pendiente" || e.estado === "vencida");
+  }
+  if (filtros.estado) lista = lista.filter((e) => e.estado === filtros.estado);
+
+  /* Las vencidas primero: llevan más tiempo sin que nadie conteste, y son
+     justo las que no deben perderse hasta abajo de la lista. */
+  const peso = (e) => (e.estado === "vencida" ? 0 : e.estado === "pendiente" ? 1 : 2);
+  return lista.sort(
+    (a, b) => peso(a) - peso(b) || String(b.creadoEn).localeCompare(String(a.creadoEn))
+  );
+}
+
+export async function escalacionesCrear(datos) {
+  const motivo = MOTIVOS_ESC.includes(datos.motivo) ? datos.motivo : "peticion_explicita";
+  const urgencia = ["alta", "normal", "baja"].includes(datos.urgencia) ? datos.urgencia : "normal";
+  const ahora = new Date();
+
+  const { destinoRol, venceEn } = await _rutearEsc(motivo, urgencia, ahora);
+  const paciente = datos.telefono ? await pacientesPorTelefono(datos.telefono) : null;
+
+  const escalacion = {
+    id: `ESC-${_sufijoUnico()}`,
+    conversacionId: datos.conversacionId || null,
+    pacienteId: paciente ? paciente.id : null,
+    citaId: datos.citaId || null,
+    canalOrigen: datos.canalOrigen || "medibot",
+    contactoNombre: datos.nombre || "",
+    contactoTelefono: datos.telefono || "",
+    contactoEmail: datos.email || "",
+    motivo, urgencia,
+    resumen: datos.resumen || "",
+    destinoRol,
+    estado: "pendiente",
+    nivel: 0,
+    venceEn,
+    reconocidaEn: null, reconocidaPor: null,
+    resueltaEn: null, resueltaPor: null, notaCierre: "",
+    creadoEn: ahora.toISOString(),
+  };
+
+  const lista = _leer(CLAVE_ESCALACIONES);
+  _guardar(CLAVE_ESCALACIONES, _agregarConTope(lista, escalacion, MAX_ESCALACIONES));
+
+  if (escalacion.conversacionId) {
+    try {
+      await conversacionesCambiarEstado(escalacion.conversacionId, "requiere_atencion_humana");
+    } catch {
+      /* La conversación pudo haberse podado por FIFO. La escalación vale
+         igual: lo que importa es que alguien llame a ese paciente. */
+    }
+  }
+
+  return escalacion;
+}
+
+/** En la demo la sesión es el rol elegido en el inbox; puede no haber ninguno. */
+function _quienSoy() {
+  try {
+    return JSON.parse(localStorage.getItem("medicita_sesion") || "{}").nombre || "Personal";
+  } catch {
+    return "Personal";
+  }
+}
+
+export async function escalacionesReconocer(id) {
+  const lista = _leer(CLAVE_ESCALACIONES);
+  const e = lista.find((x) => x.id === id);
+  if (!e) throw new Error("Esa escalación ya no existe");
+  if (e.estado !== "pendiente" && e.estado !== "vencida") {
+    throw new Error("Esa escalación ya no está abierta");
+  }
+
+  e.estado = "reconocida";
+  e.reconocidaEn = new Date().toISOString();
+  e.reconocidaPor = _quienSoy();
+  _guardar(CLAVE_ESCALACIONES, lista);
+  return e;
+}
+
+export async function escalacionesResolver(id, nota) {
+  /* Un cierre sin nota es indistinguible de alguien limpiando la lista
+     para que deje de parpadear. */
+  if (!String(nota || "").trim()) {
+    throw new Error("Hay que anotar qué se hizo antes de cerrarla");
+  }
+
+  const lista = _leer(CLAVE_ESCALACIONES);
+  const e = lista.find((x) => x.id === id);
+  if (!e) throw new Error("Esa escalación ya no existe");
+  if (e.estado === "resuelta") throw new Error("Esa escalación ya estaba cerrada");
+
+  const ahora = new Date().toISOString();
+  e.estado = "resuelta";
+  e.resueltaEn = ahora;
+  e.resueltaPor = _quienSoy();
+  e.notaCierre = String(nota).trim();
+  e.reconocidaEn = e.reconocidaEn || ahora;
+  e.reconocidaPor = e.reconocidaPor || e.resueltaPor;
+  _guardar(CLAVE_ESCALACIONES, lista);
+  return e;
+}
+
+export async function escalacionesContarAbiertas() {
+  const lista = await escalacionesListar({ abiertas: true });
+  return {
+    total: lista.length,
+    vencidas: lista.filter((e) => e.estado === "vencida").length,
+  };
+}
+
+/**
+ * La escalera. Espejo de promover_escalaciones().
+ *
+ * Devuelve cuántas movió, para que el panel sepa si tiene que repintar.
+ * `vencida` es terminal: no hay nivel 4 ni cierre automático, y esa es la
+ * garantía entera de la función.
+ */
+export async function escalacionesPromover() {
+  const lista = _leer(CLAVE_ESCALACIONES);
+  const ahora = Date.now();
+  let movidas = 0;
+
+  for (const e of lista) {
+    if (e.estado !== "pendiente") continue;
+    if (new Date(e.venceEn).getTime() > ahora) continue;
+
+    movidas++;
+    if (e.nivel === 0) {
+      e.nivel = 1;
+      e.venceEn = new Date(ahora + 5 * 60000).toISOString();
+    } else if (e.nivel === 1) {
+      e.nivel = 2;
+      e.venceEn = new Date(ahora + 10 * 60000).toISOString();
+    } else {
+      e.estado = "vencida";
+      e.nivel = 3;
+      if (e.conversacionId) {
+        try {
+          await conversacionesCambiarEstado(e.conversacionId, "requiere_atencion_humana");
+        } catch { /* la conversación pudo haberse podado */ }
+      }
+    }
+  }
+
+  if (movidas) _guardar(CLAVE_ESCALACIONES, lista);
+  return movidas;
+}
+
+/**
+ * Superficie pública: pedir un humano sin tener cuenta.
+ *
+ * Devuelve el estado real del horario en vez de una frase hecha, igual
+ * que la RPC. Quien redacta la respuesta solo puede prometer lo que estos
+ * datos sostienen.
+ */
+export async function publicoEscalarAHumano(datos) {
+  const escalacion = await escalacionesCrear(datos);
+
+  const abiertoAhora = await horariosAbiertoAhora();
+  const proxima = abiertoAhora ? null : await horariosProximaApertura();
+  const esEmergencia = escalacion.motivo === "urgencia_medica";
+
+  let instruccion;
+  if (esEmergencia) {
+    instruccion = "ANTES QUE NADA dile que si es una emergencia llame al 911 o vaya a urgencias AHORA, sin esperar respuesta. Después confirma que ya avisaste a la clínica.";
+  } else if (abiertoAhora) {
+    instruccion = "Confirma que ya avisaste y que en unos minutos lo contactan.";
+  } else if (proxima) {
+    instruccion = "Confirma que ya avisaste y di que lo contactan cuando abra el consultorio, en la fecha y hora de atencionEn. No prometas antes.";
+  } else {
+    instruccion = "Confirma que ya avisaste. NO prometas una hora: el consultorio no tiene horario cargado y sería inventarla.";
+  }
+
+  return {
+    id: escalacion.id,
+    destino: escalacion.destinoRol,
+    urgencia: escalacion.urgencia,
+    abiertoAhora,
+    atencionEn: proxima,
+    esEmergencia,
+    instruccion,
+  };
 }

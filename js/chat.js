@@ -88,6 +88,7 @@ HERRAMIENTAS DISPONIBLES:
 • buscar_citas — Busca la cita de ESTA persona. Pide su folio o su teléfono primero.
 • crear_cita — Registra una nueva cita (solo tras confirmar datos con el paciente)
 • enviar_email_paciente — Confirmación por correo tras agendar
+• escalar_a_humano — Avisa a una persona de la clínica para que lo contacte
 
 LO QUE NO PUEDES HACER, y cómo responder si lo piden:
 • No listas ni consultas las citas de otras personas
@@ -100,6 +101,26 @@ HORARIO — no inventes disponibilidad:
 Antes de proponer una fecha, consulta ver_horario_atencion. Si ese día está
 cerrado, dilo y ofrece el siguiente día abierto. Nunca ofrezcas una hora en
 un día sin horario: el paciente se presentaría a un consultorio cerrado.
+
+SEÑALES DE URGENCIA — esta regla está por encima de todas las demás:
+Ante dolor en el pecho, dificultad para respirar, sangrado que no para,
+pérdida de conciencia, convulsiones, debilidad súbita de un lado del cuerpo,
+pensamientos de hacerse daño, o cualquier cosa que suene a emergencia:
+1. PRIMERO dile que llame al 911 o vaya a urgencias AHORA, sin esperarte.
+2. Después llama a escalar_a_humano con motivo "urgencia_medica".
+Nunca al revés, nunca solo lo segundo, y nunca "déjame consultarlo". Ante la
+duda, trátalo como urgencia: equivocarte hacia ese lado no le cuesta nada a
+nadie, y hacia el otro sí.
+
+No diagnostiques, no interpretes estudios y no sugieras medicamentos ni
+dosis. Eso es del médico. Si te lo piden, ofrece escalar.
+
+CUANDO ESCALAS — solo prometes lo que el horario sostiene:
+escalar_a_humano devuelve una \`instruccion\` y un campo \`atencionEn\`. Sigue
+la instrucción literalmente. Si dice que no prometas una hora, NO la
+prometas. Si trae \`atencionEn\`, di esa fecha y hora en palabras, y ninguna
+antes. "En breve te contactamos" un domingo a las 11 de la noche es mentira,
+y el paciente se queda esperando junto al teléfono.
 
 FLUJO PARA AGENDAR CITA (sigue este orden exacto):
 1. Obtén: nombre completo y teléfono del paciente
@@ -354,6 +375,27 @@ const TOOLS = [
         motivo:      { type: "string", description: "Uso interno; nunca se muestra al paciente" },
       },
       required: ["fecha", "cerrado"],
+    },
+  },
+  {
+    name: "escalar_a_humano",
+    description: "Avisa a una persona de la clínica para que contacte al paciente. Úsala cuando te lo pidan, cuando la pregunta necesite criterio médico, ante una queja, o cuando no puedas resolver algo. Pide nombre y teléfono ANTES de llamarla: sin teléfono nadie puede devolver el contacto. Devuelve una `instruccion`: síguela al pie de la letra al redactar tu respuesta.",
+    input_schema: {
+      type: "object",
+      properties: {
+        motivo: {
+          type: "string",
+          enum: ["urgencia_medica", "duda_clinica", "queja", "agenda",
+                 "administrativo", "peticion_explicita", "bot_no_pudo"],
+          description: "urgencia_medica ante cualquier señal de emergencia, aunque no estés seguro",
+        },
+        urgencia: { type: "string", enum: ["alta", "normal", "baja"] },
+        resumen:  { type: "string", description: "Qué necesita, para que no tengan que volver a preguntárselo" },
+        nombre:   { type: "string" },
+        telefono: { type: "string" },
+        email:    { type: "string" },
+      },
+      required: ["motivo", "resumen"],
     },
   },
 ];
@@ -713,6 +755,25 @@ async function ejecutarHerramienta(nombre, p) {
         });
       }
 
+      case "escalar_a_humano": {
+        const r = await API.publico.escalarAHumano({
+          motivo: p.motivo,
+          urgencia: p.urgencia || "normal",
+          resumen: p.resumen || "",
+          nombre: p.nombre || contactoInbox.nombre || "",
+          telefono: p.telefono || contactoInbox.telefono || "",
+          email: p.email || "",
+          canalOrigen: "medibot",
+        });
+
+        /* Se guarda el contacto por si la conversación sigue: quien vuelva
+           a escalar no debería tener que volver a pedir el teléfono. */
+        if (p.telefono) contactoInbox.telefono = p.telefono;
+        if (p.nombre) contactoInbox.nombre = p.nombre;
+
+        return JSON.stringify(r);
+      }
+
       default:
         return JSON.stringify({ error: `Herramienta desconocida: ${nombre}` });
     }
@@ -929,6 +990,7 @@ function labelHerramienta(nombre) {
     ver_horario_atencion:     "Consultando el horario del consultorio…",
     cambiar_horario_base:     "Actualizando el horario semanal…",
     agregar_excepcion_horario: "Programando el cambio de horario…",
+    escalar_a_humano:         "Avisando a una persona de la clínica…",
   }[nombre] ?? "Procesando…";
 }
 

@@ -2386,3 +2386,132 @@ input[type="color"]::-webkit-color-swatch { border-radius: 4px; border: none; }
   .hor-exc-fecha { min-width: 0; width: 100%; }
   .hor-exc-form { padding: 16px 16px 0; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Escalaciones a humano
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ─── Insignia del header ─────────────────────────────────────────────── */
+/* Roja y separada de la ⏰ ámbar de seguimientos: un seguimiento que se
+   atrasa un día no es lo mismo que un paciente esperando ahora mismo. */
+.badge-escalaciones-btn {
+  height: 36px;
+  padding: 0 13px;
+  border-radius: var(--radio-sm);
+  background: var(--rojo);
+  color: var(--blanco);
+  font-size: .82rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all var(--transicion);
+}
+.badge-escalaciones-btn:hover { background: #dc2626; }
+.badge-escalaciones-btn.hay-vencidas { animation: esc-latido 1.4s ease-in-out infinite; }
+@keyframes esc-latido {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(239,68,68,.55); }
+  50%      { transform: scale(1.04); box-shadow: 0 0 0 7px rgba(239,68,68,0); }
+}
+
+/* ─── Aviso de modo demostración ──────────────────────────────────────── */
+.esc-aviso-demo {
+  background: var(--ambar-claro);
+  border-left: 3px solid var(--ambar);
+  border-radius: var(--radio-sm);
+  padding: 12px 15px;
+  font-size: .85rem;
+  color: #92400e;
+  margin-bottom: 18px;
+  max-width: 78ch;
+}
+
+/* ─── Filtros y sonido ────────────────────────────────────────────────── */
+.esc-filtros { display: inline-flex; gap: 2px; background: var(--fondo); border-radius: var(--radio-sm); padding: 3px; }
+.esc-filtro {
+  padding: 6px 13px;
+  border-radius: 6px;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--gris-suave);
+  transition: all var(--transicion);
+}
+.esc-filtro.activo { background: var(--blanco); color: var(--azul-principal); box-shadow: var(--sombra-sm); }
+.btn-hor-ghost.activo { color: var(--verde-salud); border-color: var(--verde-salud); }
+
+/* ─── Lista ───────────────────────────────────────────────────────────── */
+.esc-lista { padding: 18px 20px 22px; display: flex; flex-direction: column; gap: 11px; }
+
+.esc-item {
+  border: 1px solid var(--gris-borde);
+  border-left: 4px solid var(--gris-suave);
+  border-radius: var(--radio-sm);
+  padding: 14px 16px;
+  background: var(--blanco);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.esc-item--pendiente  { border-left-color: var(--ambar); }
+.esc-item--vencida    { border-left-color: var(--rojo); background: #fffafa; }
+.esc-item--reconocida { border-left-color: var(--azul-principal); }
+.esc-item--resuelta   { border-left-color: var(--verde-salud); opacity: .72; }
+
+.esc-item-cab { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.esc-motivo { font-weight: 700; font-size: .92rem; }
+.esc-motivo--urgente { color: #b91c1c; }
+
+.esc-chip {
+  font-size: .72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.esc-chip--alta       { background: var(--rojo-claro);  color: #b91c1c; }
+.esc-chip--pendiente  { background: var(--ambar-claro); color: #92400e; }
+.esc-chip--vencida    { background: var(--rojo-claro);  color: #b91c1c; }
+.esc-chip--reconocida { background: var(--azul-claro);  color: var(--azul-oscuro); }
+.esc-chip--resuelta   { background: var(--verde-claro); color: #065f46; }
+
+.esc-tiempo { margin-left: auto; font-size: .78rem; color: var(--gris-suave); }
+
+.esc-item-quien { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: .88rem; }
+.esc-tel { color: var(--azul-principal); text-decoration: none; font-weight: 600; }
+.esc-tel:hover { text-decoration: underline; }
+.esc-destino { font-size: .8rem; color: var(--gris-suave); }
+
+.esc-resumen {
+  font-size: .87rem;
+  color: var(--gris-texto);
+  background: var(--fondo);
+  border-radius: var(--radio-sm);
+  padding: 9px 12px;
+}
+.esc-meta { font-size: .79rem; color: var(--gris-suave); }
+.esc-meta--cierre { color: #065f46; }
+
+.esc-acciones { display: flex; gap: 8px; }
+.esc-btn {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--radio-sm);
+  font-size: .82rem;
+  font-weight: 600;
+  transition: all var(--transicion);
+}
+.esc-btn:disabled { opacity: .55; cursor: not-allowed; }
+.esc-btn--tomar  { background: var(--azul-principal); color: var(--blanco); }
+.esc-btn--tomar:hover:not(:disabled) { background: var(--azul-oscuro); }
+.esc-btn--cerrar { border: 1px solid var(--gris-borde); color: var(--gris-suave); background: var(--blanco); }
+.esc-btn--cerrar:hover:not(:disabled) { color: var(--verde-salud); border-color: var(--verde-salud); }
+
+.esc-vacio { font-size: .88rem; color: var(--gris-suave); text-align: center; padding: 30px; }
+
+.esc-cerrar-ayuda { font-size: .79rem; color: var(--gris-suave); margin-top: 7px; }
+#esc-cerrar-nota { width: 100%; resize: vertical; padding: 9px 11px; }
+
+@media (max-width: 640px) {
+  .esc-tiempo { margin-left: 0; }
+  .esc-lista { padding: 14px; }
+}

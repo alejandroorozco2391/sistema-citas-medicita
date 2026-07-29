@@ -185,6 +185,23 @@ export const horarios = {
   },
 };
 
+/**
+ * Escalaciones a humano.
+ *
+ * `promover()` es la escalera. Con backend la corre pg_cron cada minuto y
+ * aquí es un no-op; sin backend la adelanta el navegador mientras la
+ * pestaña esté abierta, que es todo lo que una demo puede hacer y así se
+ * le dice al usuario.
+ */
+export const escalaciones = {
+  async listar(filtros)      { return (await impl()).escalacionesListar(filtros); },
+  async crear(datos)         { return (await impl()).escalacionesCrear(datos); },
+  async reconocer(id)        { return (await impl()).escalacionesReconocer(id); },
+  async resolver(id, nota)   { return (await impl()).escalacionesResolver(id, nota); },
+  async contarAbiertas()     { return (await impl()).escalacionesContarAbiertas(); },
+  async promover()           { return (await impl()).escalacionesPromover(); },
+};
+
 export const seguimientos = {
   async listar()           { return (await impl()).seguimientosListar(); },
   async registrar(citaId, fechaAtendida) {
@@ -210,5 +227,12 @@ export const publico = {
      motivo del cierre: que esté cerrado es público, por qué no lo es. */
   async horarioDisponible(desde, hasta) {
     return (await implPublica()).publicoHorarioDisponible(desde, hasta);
+  },
+
+  /* Pedir un humano tampoco requiere cuenta: quien lo necesita casi nunca
+     la tiene. Devuelve el estado real del horario para que quien redacte
+     la respuesta solo pueda prometer lo que ese dato sostiene. */
+  async escalarAHumano(datos) {
+    return (await implPublica()).publicoEscalarAHumano(datos);
   },
 };

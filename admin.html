@@ -25,6 +25,13 @@
         <span class="admin-badge">Panel Admin</span>
       </div>
       <div class="header-acciones">
+        <!-- Roja y aparte de la ⏰ ámbar: un seguimiento que se atrasa un
+             día no es lo mismo que un paciente esperando a que le
+             contesten ahora. -->
+        <button class="badge-escalaciones-btn oculto" id="badge-escalaciones-btn"
+                title="Pacientes esperando a que alguien los atienda">
+          🚨 <span id="badge-escalaciones-num">0</span> esperando
+        </button>
         <button class="badge-seguimientos-btn oculto" id="badge-seguimientos-btn"
                 title="Seguimientos pendientes — haz clic para verlos">
           ⏰ <span id="badge-seguimientos-num">0</span> pendientes
@@ -194,6 +201,10 @@
         <button class="tabs-nav-btn" data-tab="horarios" role="tab"
                 id="tab-btn-horarios" aria-controls="tab-horarios" aria-selected="false">
           🗓 Horarios
+        </button>
+        <button class="tabs-nav-btn" data-tab="escalaciones" role="tab"
+                id="tab-btn-escalaciones" aria-controls="tab-escalaciones" aria-selected="false">
+          🚨 Escalaciones
         </button>
         <button class="tabs-nav-btn" data-tab="analytics" role="tab"
                 id="tab-btn-analytics" aria-controls="tab-analytics" aria-selected="false">
@@ -603,8 +614,72 @@
 
       </div>
 
+      <!-- ─── Pestaña: Escalaciones ──────────────────────────────────────── -->
+      <div id="tab-escalaciones" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-escalaciones">
+
+        <!-- Sin backend no hay reloj que corra con la pestaña cerrada. Se
+             dice, no se disimula: es justo lo que esta función corrige. -->
+        <div class="esc-aviso-demo oculto" id="esc-aviso-demo">
+          <strong>Modo demostración.</strong> La re-alerta avanza solo mientras esta
+          pestaña esté abierta. En una clínica con backend la lleva el servidor, y
+          funciona con todo cerrado.
+        </div>
+
+        <div class="tabla-card">
+          <div class="tabla-header">
+            <div class="tabla-header-izq">
+              <h3>Pacientes esperando a una persona</h3>
+              <p class="hor-sub">Toma la que vayas a atender: eso detiene la alerta.
+                 Una escalación vencida <strong>no se cierra sola</strong>.</p>
+            </div>
+            <div class="tabla-header-der">
+              <div class="esc-filtros" role="group" aria-label="Filtro de escalaciones">
+                <button type="button" class="esc-filtro activo" data-filtro="abiertas">Abiertas</button>
+                <button type="button" class="esc-filtro" data-filtro="todas">Todas</button>
+              </div>
+              <button type="button" class="btn-hor-ghost" id="btn-esc-sonido"
+                      title="Avisar con un sonido cuando llegue una escalación nueva">
+                🔔 Activar aviso
+              </button>
+            </div>
+          </div>
+
+          <div class="esc-lista" id="esc-lista">
+            <!-- Renderizado por js/escalaciones.js -->
+          </div>
+        </div>
+
+      </div>
+
     </div>
   </main>
+
+  <!-- ─── Modal: cerrar una escalación ──────────────────────────────────── -->
+  <!-- Cerrar exige decir qué se hizo. Un cierre sin nota es indistinguible
+       de alguien limpiando la lista para que deje de parpadear. -->
+  <div id="modal-esc-cerrar" class="modal-overlay oculto" role="dialog" aria-modal="true"
+       aria-labelledby="modal-esc-cerrar-titulo">
+    <div class="modal-card" role="document">
+      <div class="modal-header">
+        <h2 id="modal-esc-cerrar-titulo">Cerrar la escalación</h2>
+        <button type="button" class="modal-cerrar" id="btn-esc-cerrar-x" aria-label="Cancelar">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc" id="esc-cerrar-desc"></p>
+        <label class="config-label" for="esc-cerrar-nota">¿Qué se hizo?</label>
+        <textarea id="esc-cerrar-nota" class="form-control-admin" rows="3"
+                  placeholder="Ej. Le llamé, ya quedó agendada para el jueves"></textarea>
+        <p class="esc-cerrar-ayuda">
+          Queda en el expediente de la escalación. Sirve para saber después
+          qué pasó con este paciente.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-esc-cerrar-cancelar" class="btn-modal-cancelar">Cancelar</button>
+        <button type="button" id="btn-esc-cerrar-confirmar" class="btn-modal-guardar">Cerrar escalación</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ─── Modal: citas que quedan fuera de horario ──────────────────────── -->
   <!-- Cerrar un día y dejar pacientes citados es el silencio que hay que
@@ -1235,6 +1310,13 @@
         }, true);
       }
 
+      var badgeEsc = document.getElementById('badge-escalaciones-btn');
+      if (badgeEsc) {
+        badgeEsc.addEventListener('click', function () {
+          activarTab('escalaciones');
+        }, true);
+      }
+
       var tabGuardada = localStorage.getItem(STORAGE_KEY) || 'citas';
       activarTab(tabGuardada);
     });
@@ -1251,5 +1333,6 @@
   <script src="js/analytics.js"></script>
   <script src="js/pacientes.js"></script>
   <script src="js/horarios.js"></script>
+  <script src="js/escalaciones.js"></script>
 </body>
 </html>

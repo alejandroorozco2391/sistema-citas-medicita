@@ -676,6 +676,11 @@ textarea:focus-visible,
   white-space: nowrap;
 }
 .btn-hilo:hover { background: var(--azul-principal); color: var(--blanco); border-color: var(--azul-principal); }
+
+/* Escalar no es "marcar como algo": abre una alerta con acuse que le va a
+   sonar a una persona. Se ve distinto por eso. */
+.btn-hilo--escalar { color: #b91c1c; border-color: #fecaca; }
+.btn-hilo--escalar:hover { background: #ef4444; border-color: #ef4444; color: var(--blanco); }
 .sel-estado {
   padding: 7px 26px 7px 11px;
   border: 1.5px solid var(--gris-borde);

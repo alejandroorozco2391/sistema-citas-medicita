@@ -591,6 +591,47 @@ function conectarEventos() {
     toast(`Marcada como "${ESTADO_LABEL[e.target.value]}"`);
   });
 
+  /* Escalar a una persona.
+     Cambiar el estado a "requiere atención" es una etiqueta: no le avisa a
+     nadie ni tiene plazo. Escalar abre el ciclo de acuse con re-alerta, y
+     por eso es un botón aparte y no otra opción del mismo desplegable. */
+  $("btn-escalar").addEventListener("click", () => {
+    if (!estado.convActivaId) return toast("Abre primero una conversación", true);
+    $("esc-resumen").value = "";
+    $("modal-escalar").hidden = false;
+    $("esc-resumen").focus();
+  });
+
+  $("modal-escalar-x").addEventListener("click", () => { $("modal-escalar").hidden = true; });
+  $("modal-escalar-cancelar").addEventListener("click", () => { $("modal-escalar").hidden = true; });
+
+  $("modal-escalar-confirmar").addEventListener("click", async () => {
+    const boton = $("modal-escalar-confirmar");
+    boton.disabled = true;
+    try {
+      const conv = await obtenerConversacion(estado.convActivaId);
+      await window.API.escalaciones.crear({
+        conversacionId: conv.id,
+        canalOrigen: conv.canal,
+        nombre: conv.nombreContacto || "",
+        telefono: conv.telefono || "",
+        motivo: $("esc-motivo").value,
+        urgencia: $("esc-urgencia").value,
+        resumen: $("esc-resumen").value.trim(),
+      });
+
+      $("modal-escalar").hidden = true;
+      await refrescarLista();
+      toast("Escalada. Aparece en el panel hasta que alguien la tome.");
+    } catch (e) {
+      toast(e.message || "No se pudo escalar", true);
+    } finally {
+      /* En una variable y no e.currentTarget: después del await ya es null
+         y el botón se quedaría muerto. */
+      boton.disabled = false;
+    }
+  });
+
   $("btn-ver-perfil").addEventListener("click", e => {
     e.preventDefault();
     // Se usa el contrato que admin.html ya tiene para recordar su pestaña

@@ -25,7 +25,7 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PUERTO = Number(process.env.PUERTO || 5173);
@@ -95,6 +95,45 @@ async function proxyChat(peticion, respuesta) {
   }
 }
 
+/**
+ * Espeja api/avisar.js, que vacía la cola de avisos de escalaciones.
+ *
+ * En producción la despierta pg_cron cada minuto vía pg_net. En local no
+ * hay quien la despierte, así que se llama a mano para probar el envío:
+ *
+ *   curl -X POST "http://localhost:5173/api/avisar?token=$ESCALACIONES_TOKEN"
+ *
+ * Se importa en cada llamada, sin cachear, para poder editar la función y
+ * volver a probar sin reiniciar el servidor.
+ */
+async function proxyAvisar(peticion, respuesta) {
+  const url = new URL(peticion.url, `http://localhost:${PUERTO}`);
+
+  try {
+    const modulo = await import(
+      `${pathToFileURL(path.join(RAIZ, "api", "avisar.js")).href}?v=${Date.now()}`
+    );
+
+    /* La función está escrita contra la forma de Vercel (req/res de
+       Express). Se le arma esa forma encima del http de node. */
+    await modulo.default(
+      {
+        method: peticion.method,
+        headers: peticion.headers,
+        query: Object.fromEntries(url.searchParams),
+      },
+      {
+        status(codigo) { this._codigo = codigo; return this; },
+        json(cuerpo) { json(respuesta, this._codigo || 200, cuerpo); },
+        end() { respuesta.writeHead(this._codigo || 200); respuesta.end(); },
+        setHeader() {},
+      }
+    );
+  } catch (e) {
+    json(respuesta, 500, { error: e.message });
+  }
+}
+
 const servidor = http.createServer((peticion, respuesta) => {
   const url = new URL(peticion.url, `http://localhost:${PUERTO}`);
   let relativa = decodeURIComponent(url.pathname);
@@ -102,6 +141,11 @@ const servidor = http.createServer((peticion, respuesta) => {
 
   if (relativa === "/api/chat") {
     proxyChat(peticion, respuesta);
+    return;
+  }
+
+  if (relativa === "/api/avisar") {
+    proxyAvisar(peticion, respuesta);
     return;
   }
 
@@ -134,8 +178,13 @@ servidor.listen(PUERTO, () => {
   console.log(`  Landing: http://localhost:${PUERTO}/index.html\n`);
   console.log(
     LLAVE_ANTHROPIC
-      ? "  /api/chat: activo (MediPost, MediDocs e insights de Analytics)\n"
-      : "  /api/chat: SIN LLAVE — pon ANTHROPIC_API_KEY en .env.local\n"
+      ? "  /api/chat: activo (MediPost, MediDocs e insights de Analytics)"
+      : "  /api/chat: SIN LLAVE — pon ANTHROPIC_API_KEY en .env.local"
+  );
+  console.log(
+    process.env.ESCALACIONES_TOKEN
+      ? "  /api/avisar: activo — llámalo a mano para vaciar la cola de escalaciones\n"
+      : "  /api/avisar: SIN TOKEN — pon ESCALACIONES_TOKEN en .env.local\n"
   );
   console.log(`  Ctrl+C para detener.\n`);
 });

@@ -47,6 +47,8 @@ sistema-citas-medicas/
 │   ├── conversaciones-envio.js    # [NUEVO F0] Dispatcher de salida por canal
 │   ├── conversaciones-demo.js     # [NUEVO F0] Payloads crudos de muestra de los 4 canales
 │   ├── conversaciones.js          # [NUEVO F0] Lógica de la vista del inbox
+│   ├── horarios.js     # [NUEVO E] Panel del horario de atención
+│   ├── escalaciones.js # [NUEVO E] Panel de escalaciones + sondeo y aviso sonoro
 │   ├── medipost.js     # [NUEVO M1] Lógica del generador de posts
 │   ├── analytics.js    # [NUEVO M3] Cálculo de métricas + integración Chart.js
 │   ├── medidocs.js     # [NUEVO M4] Lógica del generador de documentos
@@ -88,8 +90,8 @@ No hay linter ni build step. La verificación corre con el runner nativo de node
 
 ```bash
 npm test           # 65 pruebas del frontend, cero dependencias
-npm run test:db    # 85 pruebas contra un Postgres real (pglite, WebAssembly)
-npm run test:all   # las 150
+npm run test:db    # 131 pruebas contra un Postgres real (pglite, WebAssembly)
+npm run test:all   # las 206
 npm run db:verificar  # contra el proyecto de Supabase real, ya desplegado
 ```
 
@@ -119,6 +121,8 @@ Las pruebas de base de datos no necesitan Docker ni la CLI de Supabase: `tests/d
 | `medicita_conversaciones` | F0 MediInbox | Array de conversaciones (id, claveExterna, pacienteId, telefono, nombreContacto, canal, canalMeta, estado, asunto, ultimoMensaje, noLeidos, creadaEn, actualizadaEn, cerradaEn) |
 | `medicita_mensajes` | F0 MediInbox | Array de mensajes (id, conversacionId, remitente, autorNombre, tipo, contenido, audioUrl, duracionSeg, estadoEnvio, metadata, fecha) |
 | `medicita_sesion` | F0 MediInbox | Objeto único con el rol activo (rol, nombre, iniciadaEn) — **solo en la demo sin backend**; con backend la sesión es de Supabase Auth y esta clave no se usa |
+| `medicita_horarios` | Fase E MediHorario | Objeto único con `base` (bloques recurrentes por día) y `excepciones` (cambios por fecha) |
+| `medicita_escalaciones` | Fase E | Array de escalaciones a humano (id, motivo, urgencia, resumen, destinoRol, estado, nivel, venceEn, acuse y cierre) |
 | `medicita_config_clinica` | Global | Objeto único con configuración de la clínica: nombreClinica, nombreMedico, especialidadPrincipal, ciudad, telefono, email, logoUrl, cedulaProfesional, horarioAtencion, direccionConsultorio, fraseHero, fotoHero, fotoMedico, bioMedico, formacionMedico, totalPacientes, anosExperiencia, calificacionPromedio, serviciosClinica, whatsapp, facebook, instagram, **colorPrimario, colorAcento, tipografia** |
 
 ### Estructura de `medicita_pacientes`
@@ -150,6 +154,9 @@ Las pruebas de base de datos no necesitan Docker ni la CLI de Supabase: `tests/d
 - No usar frameworks ni librerías externas sin consenso previo (Chart.js es la excepción aprobada para M3)
 - Los documentos en MediDocs se guardan solo como metadatos + inputs; el HTML completo se regenera con Claude al abrirlos (evita llenar los 5MB de localStorage)
 - **Ningún módulo toca `localStorage` de datos.** Todo pasa por `js/api.mjs`, que decide si los datos viven en este navegador o en Postgres. Los scripts clásicos lo alcanzan por `window.API`, que publica `js/puente-api.js`. Las únicas claves que quedan sueltas son las dos de estado de interfaz listadas arriba
+- **El horario es dato, no texto.** `clinicas.horario_atencion` sigue existiendo porque lo imprime el membrete, pero **se regenera** desde `horarios_base`; nadie lo escribe a mano. Toda pregunta sobre si hay alguien pasa por `en_horario()` / `proxima_apertura()`, que convierten con la zona horaria de la clínica — el servidor está en UTC
+- **Nadie promete una hora que el horario no sostenga.** `escalar_a_humano` devuelve `atencionEn` e `instruccion`, y quien redacta (MediBot) solo puede decir lo que esos datos permiten. "En breve te contactamos" un domingo a las 11 de la noche es mentira, y el paciente se queda junto al teléfono
+- **Una escalación `vencida` no se cierra sola. Nunca.** Es la garantía entera de la función, y hay una prueba que se cae si alguien agrega un barrido de "limpiar viejas". Silenciarla sin cerrarla haría que en dos semanas nadie mirara esa pestaña
 - **Dos superficies, dos criterios.** `api.publico.*` (landing, encuesta) resuelve por *¿hay backend?*; todo lo demás por *¿hay sesión?*. No mezclarlas: `nps.responder()` es el paciente contestando desde su celular y `nps.registrar()` es el panel capturando. Confundirlas hizo que sembrar la demo escribiera en la base de una clínica real mientras las citas se quedaban en el navegador
 - **Las páginas de personal exigen sesión cuando hay backend** (`sesionExigirAcceso()`). Sin eso, recepción abriendo el panel sin haber entrado lo ve arrancar en modo local: pantalla completa, vacía, y todo lo que capture se guarda en su navegador. Pensaría que perdió los expedientes
 - **Toda rutina de arranque abre con `await window.APIListo`.** No es por el orden de carga —los módulos ES corren antes de `DOMContentLoaded`— sino porque saber si hay una clínica real detrás requiere preguntarle a Supabase, y de eso dependen decisiones como no sembrar datos de demostración
@@ -510,6 +517,7 @@ supabase/migrations/     0001 utilidades · 0002 clínicas y staff · 0003 pacie
                          0007 testimonios públicos · 0008 campos faltantes de posts
 supabase/seed-clinica.sql  Alta de una clínica nueva (se pega en el panel)
 supabase/reset-datos.sql   Vaciar los datos de una clínica (se pega en el panel)
+supabase/cron.sql          El reloj de las escalaciones (pg_cron + pg_net)
 docs/nueva-clinica.md      Procedimiento completo de aprovisionamiento
 js/supabase-client.mjs     Cliente por CDN + detección de modo
 js/api.mjs                 Interfaz única (39 métodos) + despachador
@@ -625,6 +633,72 @@ Sus funciones devolvían `Promise` desde el primer día, aunque `localStorage` f
 
 ---
 
+## Fase E — Horarios reales y escalación a humano
+
+**Estado:** ✅ Completo (28 julio 2026)
+
+Son las dos funciones que motivaron todo el backend, y hasta B2 eran *imposibles*, no difíciles: una pestaña del navegador no puede despertarse a las 11 de la noche a re-alertar de un paciente que nadie atendió.
+
+### Por qué el horario tuvo que ir primero
+
+El ruteo de una escalación depende del horario, y `clinicas.horario_atencion` era **texto libre** (`'Lun–Vie 9:00–14:00'`): sirve para imprimirlo en el membrete y para nada más. Ninguna máquina puede responder con eso si el consultorio está abierto ahora, ni cuándo vuelve a abrir — y la promesa que el agente le hace al paciente sale justo de ahí.
+
+El otro requisito lo puso el uso: **la agenda de un consultorio es volátil**. El médico opera un jueves, se va a un congreso, mueve su tarde. Por eso son dos tablas y no una, y la interfaz lo dice con esas palabras: la *semana habitual* se cambia poco, los *próximos cambios* se cambian todo el tiempo.
+
+| Tabla | Qué es |
+|---|---|
+| `horarios_base` | Bloques recurrentes por día. Varias filas cubren mañana y tarde sin campos raros |
+| `horarios_excepciones` | Cierres, vacaciones o un día con otro horario. **Pisan** a la base en esa fecha |
+
+Tres funciones sostienen todo lo demás: `horario_del_dia()`, `en_horario()` y `proxima_apertura()`. La última devuelve **`NULL`** si no encuentra horario en 14 días, en vez de una fecha cualquiera: es exactamente lo que el agente le diría a un paciente.
+
+`clinicas.zona_horaria` es nueva y no es cosmética. Supabase corre en UTC: sin conversión explícita, las 3 de la tarde en Guadalajara se evalúan como las 21:00 y el consultorio sale cerrado seis horas antes de estarlo. De paso, `generar_folio_cita()` y `generar_codigo_paciente()` dejaron de tener `'America/Mexico_City'` incrustado — se reemplazaron **sin cambiar su firma**, para no reescribir `solicitar_cita()` por un prefijo de fecha.
+
+### El ciclo de la escalación
+
+```
+pendiente ──(alguien la toma)──> reconocida ──> resuelta
+    │
+    └──(nadie la toma a tiempo)──> sube de nivel ──> vencida
+```
+
+- **Ruteo:** `urgencia_medica` y `duda_clinica` al doctor, `queja` a admin, el resto a recepción. Si no hay nadie con ese rol se cae al que sí existe: enrutar a un rol vacío es enrutar a nadie.
+- **Plazos:** 5 / 15 / 60 minutos según urgencia. Fuera de horario el reloj **empieza cuando abren** — vencer una escalación de madrugada solo produce alertas que nadie puede atender, y enseña al personal a ignorarlas.
+- **Salvo `urgencia_medica`**, que nunca espera: va al doctor con el reloj corriendo aunque sea domingo.
+- **La escalera** (`promover_escalaciones`, en `pg_cron` cada minuto): nivel 0 → 1 amplía de un rol a todo el personal; 1 → 2 encola correo; 2 → 3 la marca **`vencida`**, marca su conversación y **se queda en rojo hasta que un humano la cierre**.
+- **"La tomo"** detiene la escalera en seco. **Cerrar exige nota**: un cierre sin nota es indistinguible de alguien limpiando la lista para que deje de parpadear.
+
+### La regla del 911
+
+Ante `urgencia_medica`, lo primero que el agente dice es **llama al 911 o ve a urgencias ahora**, y solo después menciona la escalación. Está en la función (que devuelve la `instruccion`) y en el prompt, en los dos lados. Un agente de IA no retiene una posible emergencia en una cola. Ante la duda se trata como urgencia: equivocarse hacia ese lado no le cuesta nada a nadie, y hacia el otro sí.
+
+### El reloj, y por qué está fuera de las migraciones
+
+`pg_cron` y `pg_net` se habilitan a mano en el panel de Supabase, así que su programación vive en **`supabase/cron.sql`**, no en una migración — si no, el esquema no se podría probar contra un Postgres pelón, que es como corren las pruebas.
+
+Son dos trabajos. El primero sube la escalera, entero dentro de Postgres. El segundo solo **toca el timbre**: `pg_net` hace un POST a `/api/avisar` con un token, y toda la lógica de armar y mandar el correo vive en `api/avisar.js`, donde se puede leer y arreglar sin migrar la base. El correo sale por la **API REST de EmailJS**, con la misma cuenta que ya usa MediFollow: cero proveedores nuevos por clínica.
+
+Entre la escalera y el envío está `avisos_pendientes`, una bandeja de salida. Separarlos permite reintentar un correo sin volver a mover la escalación, y deja el hueco para que WhatsApp sea después solo otro remitente.
+
+### MediBot dividido
+
+Estaba ambiguo y era un hueco real: su prompt le habla al paciente, el inbox registra sus turnos como `remitente: "paciente"`, y sin embargo tenía `eliminar_cita`, `leer_todas_las_citas` y `ver_notas_paciente`. Contra el backend RLS ya le devolvería cero renglones a quien no tiene sesión, pero en la demo no hay nada que lo frene.
+
+- **Personal** (con sesión): las 13 herramientas de siempre más las tres de horario. Sin `escalar_a_humano` — ya eres el humano.
+- **Paciente** (sin sesión): consultar, agendar, preguntar el horario y `escalar_a_humano`.
+
+Se decide por la sesión, no por un parámetro de URL, que sería una reja que se abre escribiéndola. Hay **segunda reja** en `ejecutarHerramienta`: no ofrecer la herramienta basta para que el modelo no la use, pero un prompt inyectado en un mensaje del paciente puede pedirla por su nombre. En modo demostración —donde no hay frontera que defender— sí existe `?perfil=paciente`, para poder enseñar el otro lado en una demostración de ventas.
+
+### Modo demostración
+
+Sin backend no hay reloj, y no se finge que lo haya. La escalera avanza cuando el panel llama a `escalaciones.promover()`, o sea **mientras la pestaña esté abierta**, y la pestaña lo dice con todas sus letras. En modo remoto ese método es un **no-op deliberado**: si el panel también empujara, dos relojes moverían las mismas filas y el nivel avanzaría al doble en las clínicas que dejan el panel abierto.
+
+### Limitación conocida
+
+Un MediBot **sin sesión no puede escribir su conversación en el inbox**: `conversacionesUpsert` necesita `clinica_actual()`, que exige sesión. La escalación no depende de eso —lleva nombre, teléfono y resumen propios, que es lo que hace falta para devolver el contacto—, pero el hilo de esa charla no queda registrado hasta que exista ingesta anónima. Es el mismo hueco que tienen los webhooks de terceros.
+
+---
+
 ## Fase 0 — MediInbox: inbox unificado de conversaciones
 
 **Estado:** ✅ Completo (26 julio 2026)
@@ -725,6 +799,7 @@ Un webhook de WhatsApp o ElevenLabs **no puede escribir en el localStorage de un
 - **1 julio 2026** — Branding Symbiotiq: logos copiados desde el proyecto `symbiotiq-web` a `assets/symbiotiq/` (`logo.png`, `logo-white.png`, `logo-icon.png`, `logo-icon-white.png`). Insignia "creado por Symbiotiq" con logo agregada en: header de `admin.html`, `medipost.html`, `medidocs.html` y `chat.html` (variante blanca, fondos oscuros); footer de `demo.html`, `terminos.html`, `privacidad.html` e `index.html` (variante blanca); pie de `encuesta.html` (variante a color, fondo claro). Refuerza que los módulos de la suite fueron creados por Symbiotiq en todas las superficies del sistema, no solo en la demo comercial. Archivos modificados: `admin.html`, `chat.html`, `medipost.html`, `medidocs.html`, `demo.html`, `terminos.html`, `privacidad.html`, `index.html`, `encuesta.html`, `css/admin.css`, `css/medipost.css`, `css/medidocs.css`, `css/chat.css`, `css/styles.css`, `css/encuesta.css`.
 - **26 julio 2026** — **Fase B2 — El corte**: los 9 módulos dejaron de tocar `localStorage` y pasan por `js/api.mjs`. Nuevos: `js/puente-api.js` y `js/puente-sesion.js` (la única frontera entre los scripts clásicos y los módulos ES), `supabase/migrations/0007_testimonios_publicos.sql` y `0008_posts_campos_faltantes.sql`, `tests/datos-para-pruebas.js`. Borrado: `js/sesion.js` — el inbox usa `js/sesion.mjs`, que ahora trae un modo de demostración explícito (`esDemo`) para que la demo pública conserve el selector de rol sin fingir seguridad. Etiquetas `<meta>` de Supabase (en marcador) agregadas a las 7 páginas que faltaban. 138 pruebas en verde, 8 nuevas. **Tres bugs heredados que el corte destapó:** (1) la superficie sin sesión —pedir cita desde la landing y responder la encuesta— caía en modo local aunque hubiera backend, así que en una clínica real la cita del paciente se habría guardado en el `localStorage` de su propio navegador y la clínica nunca la habría visto; las funciones `SECURITY DEFINER` que B1 construyó para eso no las alcanzaba nadie. Se separó `api.publico`, que resuelve por *¿hay backend?* y no por *¿hay sesión?*. (2) La tabla `posts` no tenía columnas para la sugerencia de imagen, el prompt en inglés ni la llamada a la acción: tres de las cuatro cosas que genera MediPost se habrían perdido en silencio. (3) Los documentos no traían `folio` en remoto, así que el historial de MediDocs habría salido en blanco. **Y un hueco de privacidad que ya existía en local:** la landing pública cargaba el arreglo completo de citas —nombres, teléfonos, correos, notas— para sacar un nombre de pila en la sección de opiniones; ahora lo resuelve la vista `testimonios_publicos`, con el mismo recorte en los dos modos.
 - **28 julio 2026** — **B2 verificado en el navegador, en los dos modos.** Ocho hallazgos, cuatro míos de B2 y cuatro heredados. (1) **El puente cargaba tarde**: era `puente-api.mjs` con `<script type="module">`, dando por hecho que los módulos corren antes de `DOMContentLoaded`. Eso solo vale sin `await` de nivel superior, y `supabase-client.mjs` tiene uno — así que cada módulo arrancaba con `window.API` sin definir y moría antes de registrar un solo manejador: ningún botón respondía. La guardia `await window.APIListo` tampoco servía, porque `await undefined` resuelve de inmediato. Ahora son scripts clásicos (`puente-api.js`, `puente-sesion.js`) que definen la promesa de forma síncrona y cargan el módulo con `import()` dinámico. (2) `actualizarBadgeSeguimientos` hacía `.filter` sobre una Promise y tumbaba el arranque del panel tres líneas antes de la siembra. (3) La siembra de demo usaba `nps.responder()`, que vive en la superficie pública, así que mandaba las opiniones de muestra al Supabase real mientras las citas se quedaban en localStorage — se separó `nps.registrar()`. (4) `api-remoto.citasCrear` no generaba folio (la columna es NOT NULL) ni vinculaba el expediente: toda cita creada desde MediBot o desde "+ Nueva cita" moría contra Postgres, mientras la landing seguía funcionando porque va por la RPC. (5) El botón "Confirmar" de la landing leía `e.currentTarget` después de un `await`, cuando ya es `null`: quedaba deshabilitado para siempre y el paciente solo podía agendar una cita por carga de página. **Heredados:** (6) los ids internos llevaban 4 dígitos aleatorios, y como el store descarta ids repetidos por idempotencia, dos mensajes creados en el mismo milisegundo hacían desaparecer uno del hilo sin ningún error — lo cazó una prueba intermitente; ahora usan UUID, y folio y código de paciente conservan su formato con reintento. (7) El panel sin sesión corría en modo local en silencio aunque hubiera backend. (8) `/api/chat` daba 404 en local desde B1. 142 pruebas.
+- **28 julio 2026** — **Fase E — Horarios reales y escalación a humano.** Las dos funciones que motivaron el backend, y que hasta B2 eran imposibles: una pestaña del navegador no puede despertarse a las 11 de la noche. **MediHorario primero, porque la escalación lee de ahí**: `horario_atencion` era texto libre y ninguna máquina puede responder con eso si el consultorio está abierto. Nuevos: `0009_horarios.sql` (zona horaria, `horarios_base`, `horarios_excepciones`, `en_horario`, `proxima_apertura`, `horario_texto`), `0010_escalaciones.sql` (escalaciones, bandeja de salida, ruteo, escalera, acuse), `supabase/cron.sql`, `js/horarios.js`, `js/escalaciones.js`, `api/avisar.js`, y dos archivos de pruebas. La landing dejó de ofrecer días cerrados y MediBot consulta y edita el horario. **MediBot se dividió en perfil paciente y personal**: su prompt le hablaba al paciente y el inbox lo registra como canal de paciente, pero tenía `eliminar_cita` y `ver_notas_paciente`. **La escalera vive en `pg_cron`** y `pg_net` solo toca el timbre de `/api/avisar`, que manda por la API REST de EmailJS con la cuenta que ya usa MediFollow. Tres invariantes con prueba propia: una `vencida` **no se cierra sola jamás**, acusarla **detiene la escalera en seco**, y `proxima_apertura` devuelve **NULL** en vez de inventar una fecha. Dos cosas que las pruebas corrigieron: `citas.hora` es texto y no `time` (la comparación de citas afectadas por un cierre no compilaba), y `SELECT INTO` no acepta un elemento de arreglo como destino. 206 pruebas (56 nuevas).
 - **26 julio 2026** — **B1 puesto en marcha contra un proyecto real.** Esquema aplicado, clínica dada de alta y `npm run db:verificar` en verde: 11 tablas, la vista pública, las 3 funciones anónimas, y RLS negándole a la llave pública un solo renglón de cada tabla. Nuevos: `scripts/servidor.mjs` (+ `npm run dev`), `scripts/bundle-migraciones.mjs`, `scripts/verificar-supabase.mjs`, `js/config-local.ejemplo.mjs`. Cuatro cosas que salieron mal y se corrigieron: (1) el flujo de recuperación de contraseña estaba a medias — el correo salía pero al volver no había pantalla donde escribir la nueva; se agregó, junto con `sesionCambiarContrasena()` y el aviso de enlace vencido; (2) los errores de Supabase se traducían adivinando sobre el texto en inglés, así que `email_not_confirmed` caía en el mensaje genérico — ahora se traducen por código, lo que importa porque ese caso no se arregla cambiando la contraseña; (3) `db:verificar` sondeaba las funciones con cuerpo vacío y PostgREST devuelve 404 tanto si faltan como si los argumentos no cuadran — daba tres falsas alarmas por clínica; (4) `seed-clinica.sql` obligaba a cambiar el nombre de la clínica en tres lugares, y olvidar uno dejaba al personal sin clínica — se reescribió como bloque `DO` con un solo lugar editable, probado contra pglite en cuatro escenarios. Las credenciales salieron del repositorio: los `<meta>` quedan en marcador y el desarrollo usa `js/config-local.mjs` (ignorado por git). No es por ocultar la publishable key, que es pública por diseño, sino porque el repo es la plantilla de la siguiente clínica y no debe venir apuntando a la base de la anterior.
 
 ---
@@ -774,9 +849,14 @@ Un webhook de WhatsApp o ElevenLabs **no puede escribir en el localStorage de un
 - [x] Vista `testimonios_publicos` (migración 0007) y columnas faltantes de `posts` (0008)
 - [x] 138 pruebas en verde
 
-### ← SIGUIENTE PASO — las dos mejoras pedidas
-- [ ] **Escalación a humano:** herramienta `escalar_a_humano` en MediBot, ruteo a recepción o doctor según el motivo y el horario, notificación al staff, y **ciclo de acuse con re-alerta** si nadie la toma en N minutos. Una escalación sin acuse es un hoyo negro: el paciente queda peor que si nunca hubiera pedido un humano. El estado `requiere_atencion_humana` y el inbox ya son el sustrato.
-- [ ] **Contacto proactivo:** cron + tabla de tareas programadas + consentimiento por canal + tope de frecuencia + salida fácil.
+### Fase E — Horarios y escalación ✅ Completo
+- [x] **MediHorario:** `horarios_base` + `horarios_excepciones` + `zona_horaria`, panel propio, la landing respeta el horario y MediBot lo consulta y lo edita
+- [x] **Escalación a humano:** `escalar_a_humano` en MediBot, ruteo por motivo y horario, escalera de re-alerta con `pg_cron`, acuse que la detiene y estado `vencida` que no se cierra solo
+- [x] **MediBot dividido** en perfil paciente y perfil personal
+- [x] 206 pruebas en verde
+
+### ← SIGUIENTE PASO
+- [ ] **Contacto proactivo:** cron + tabla de tareas programadas + consentimiento por canal + tope de frecuencia + salida fácil. El reloj (`pg_cron`) y la bandeja de salida (`avisos_pendientes`) ya existen desde la Fase E: esto es agregarle un productor, no construir la infraestructura.
   **Restricción que condiciona el diseño, no un detalle:** WhatsApp no permite texto libre fuera de las 24 h posteriores al último mensaje del paciente — solo plantillas pre-aprobadas por Meta y con opt-in registrado. Mandar texto libre proactivo tumba el número. Texto generado por Claude funciona por correo y SMS; en WhatsApp, solo dentro de la ventana o con plantillas. Súmale la LFPDPPP: contacto proactivo con datos de salud exige consentimiento registrado.
 
 ### Integración con Doctoralia

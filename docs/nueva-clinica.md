@@ -62,7 +62,10 @@ Si prefieres ir de una en una, el orden es obligatorio — cada archivo da por h
 0001_utilidades.sql · 0002_clinicas_y_staff.sql · 0003_pacientes.sql
 0004_citas.sql · 0005_conversaciones_y_modulos.sql · 0006_rpc_publicas.sql
 0007_testimonios_publicos.sql · 0008_posts_campos_faltantes.sql
+0009_horarios.sql · 0010_escalaciones.sql
 ```
+
+`supabase/cron.sql` **no** va aquí: necesita extensiones que se habilitan a mano y la URL del despliegue, así que es el paso 6.
 
 ---
 
@@ -140,14 +143,40 @@ Sin esto, el enlace de recuperación de contraseña **no lleva a ningún lado**:
 En Vercel, agrega las variables de entorno del proyecto:
 
 ```
-ANTHROPIC_API_KEY=...           # ya existente, para el proxy de Claude
+ANTHROPIC_API_KEY=...           # proxy de Claude (MediPost, MediDocs, insights)
 SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=...   # solo aquí, jamás en el frontend
+
+# Avisos de escalación (ver el paso 6)
+ESCALACIONES_TOKEN=...          # invéntala larga y al azar
+EMAILJS_SERVICE_ID=...
+EMAILJS_TEMPLATE_ID_ESCALACION=...
+EMAILJS_PUBLIC_KEY=...
+EMAILJS_PRIVATE_KEY=...         # la privada, no la publishable del navegador
 ```
 
 ---
 
-## 6. Migrar datos existentes (si los hay)
+## 6. El reloj de las escalaciones
+
+Sin esto, la escalación a humano funciona a medias: se crea, se ve en el panel y se puede tomar — pero **la re-alerta no ocurre si nadie tiene el panel abierto**, que es justo el caso que importa. Un paciente que pidió un humano a las 11 de la noche no puede depender de que alguien tenga una pestaña abierta.
+
+1. **Panel de Supabase → Database → Extensions**: habilita `pg_cron` y `pg_net`.
+2. Abre `supabase/cron.sql`, cambia **solo sus dos primeras líneas** (la URL de `/api/avisar` de este despliegue y el mismo `ESCALACIONES_TOKEN` que pusiste en Vercel) y pégalo en el **SQL Editor**.
+3. Al final trae dos consultas de comprobación: la primera debe listar los dos trabajos con `active = true`, y la segunda —tras un minuto— que hayan corrido sin error.
+
+Son dos trabajos, y están separados a propósito:
+
+- **`medicita-promover-escalaciones`** sube de nivel las escalaciones sin acuse y, al final de la escalera, las marca como *vencidas*. Corre entero dentro de Postgres.
+- **`medicita-vaciar-avisos`** solo toca el timbre: `pg_net` hace un POST a `/api/avisar` con el token, y toda la lógica de armar y mandar el correo vive en `api/avisar.js`, donde se puede leer y arreglar sin migrar la base.
+
+**Sobre EmailJS**: la función usa la API REST con la **llave privada**, no la publishable del navegador. En el panel de EmailJS hay que permitir el envío desde fuera del navegador (*Account → Security → API requests*); si esa cuenta no lo permite, se cambia el remitente dentro de `mandarCorreo()` en `api/avisar.js` y nada más — por eso hay una bandeja de salida en medio.
+
+Si decides no poner el reloj, dilo en la entrega: el sistema sigue siendo útil, pero la promesa de "si nadie la toma, vuelve a avisar" no se cumple con el panel cerrado.
+
+---
+
+## 7. Migrar datos existentes (si los hay)
 
 Si la clínica venía usando el sistema en modo local y quiere conservar lo capturado:
 
@@ -162,11 +191,11 @@ Los datos locales **no se borran automáticamente**. La opción de limpiarlos ap
 
 ---
 
-## 7. Verificación antes de entregar
+## 8. Verificación antes de entregar
 
 ```bash
 npm run db:verificar    # contra el proyecto real, ya desplegado
-npm run test:all        # 150 pruebas contra un Postgres simulado
+npm run test:all        # 206 pruebas contra un Postgres simulado
 ```
 
 Las dos comprueban cosas distintas y hacen falta las dos:
@@ -182,6 +211,10 @@ Y a mano, en el navegador:
 - [ ] Se puede pedir una cita desde la landing sin sesión
 - [ ] Esa cita aparece en el panel al iniciar sesión
 - [ ] `encuesta.html?folio=XXXX` acepta una respuesta y rechaza la segunda
+- [ ] La pestaña Horarios guarda la semana y el membrete se actualiza solo
+- [ ] Cerrar un día quita ese día del formulario de la landing
+- [ ] Pedirle un humano a MediBot crea la escalación y el panel la muestra
+- [ ] Dejarla sin tomar sube su nivel al minuto (`select * from cron.job_run_details`)
 
 ---
 
