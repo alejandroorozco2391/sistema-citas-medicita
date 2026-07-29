@@ -67,6 +67,7 @@ async function montarApiLocal() {
       listar: l.npsListar,
       responder: l.npsResponder,
       yaRespondida: l.npsYaRespondida,
+      registrar: l.npsRegistrar,
     },
     seguimientos: {
       listar: l.seguimientosListar,

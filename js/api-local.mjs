@@ -99,48 +99,94 @@ function _agregarConTope(arr, item, max) {
   return arr;
 }
 
-function _idPaciente() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const rand = Math.floor(Math.random() * 9000) + 1000;
-  return `PAC-${yyyy}${mm}${dd}-${rand}`;
+/**
+ * Sufijo único para ids internos.
+ *
+ * Antes estos ids llevaban 4 dígitos aleatorios: 10 000 combinaciones. Con
+ * `_idMensaje` eso era una fuga de datos silenciosa —dos mensajes creados
+ * en el mismo milisegundo chocaban con probabilidad 1/10 000, y como
+ * `mensajesAgregar` descarta ids repetidos por idempotencia, el segundo
+ * mensaje simplemente desaparecía del hilo sin ningún error.
+ *
+ * Lo cazó una prueba intermitente del inbox. Es la misma clase de defecto
+ * que B1 encontró en los folios, y la respuesta es la misma: quitarle el
+ * azar al problema en vez de bajarle la probabilidad.
+ *
+ * Estos ids no son visibles para nadie —los que sí lo son, folio de cita y
+ * código de paciente, conservan su formato y se protegen con reintento—,
+ * así que aquí se puede usar un UUID sin más.
+ */
+let _contadorId = 0;
+function _sufijoUnico() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  _contadorId = (_contadorId + 1) % 1e9;
+  return `${Date.now().toString(36)}-${_contadorId}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
 function _idConversacion() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const rand = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  return `CONV-${yyyy}${mm}${dd}-${rand}`;
+  return `CONV-${_sufijoUnico()}`;
 }
 
 function _idMensaje() {
-  return `MSG-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  return `MSG-${_sufijoUnico()}`;
 }
 
 function _idDoc() {
-  return `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  return _sufijoUnico();
 }
 
 function _idPost() {
-  return `POST-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  return `POST-${_sufijoUnico()}`;
 }
 
 function _idNPS() {
-  return `NPS-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  return `NPS-${_sufijoUnico()}`;
 }
 
-/** Folio de cita: mismo formato que generarFolio() en app.js / generarFolioAdmin() en admin.js. */
-function _generarFolioCita() {
+/**
+ * Folio de cita — mismo formato de siempre, `CIT-AAMMDD-XXXX`.
+ *
+ * Aquí el formato SÍ importa: el paciente lo lee por teléfono, lo trae
+ * apuntado y aparece en documentos ya emitidos. Así que en vez de cambiar
+ * la forma, se reintenta hasta encontrar uno libre — que es exactamente lo
+ * que hace `solicitar_cita` en Postgres contra su índice único.
+ *
+ * Con 9 000 combinaciones por día y ~60 citas diarias, la probabilidad de
+ * choque ronda el 16%: sin esto, tarde o temprano dos pacientes distintos
+ * comparten folio.
+ */
+function _folioCitaLibre(citas) {
   const d = new Date();
   const aa = String(d.getFullYear()).slice(2);
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
-  const rnd = String(Math.floor(Math.random() * 9000) + 1000);
-  return `CIT-${aa}${mm}${dd}-${rnd}`;
+  const usados = new Set(citas.map((c) => c.folio));
+
+  for (let intento = 0; intento < 50; intento++) {
+    const folio = `CIT-${aa}${mm}${dd}-${Math.floor(Math.random() * 9000) + 1000}`;
+    if (!usados.has(folio)) return folio;
+  }
+  /* 50 choques seguidos significa que el día está lleno. Antes que
+     devolver un folio repetido en silencio, se avisa. */
+  throw new Error("No se pudo generar un folio libre para hoy. Contacta a soporte.");
+}
+
+/**
+ * Código de paciente — `PAC-AAAAMMDD-XXXX`, con el mismo criterio y el
+ * mismo motivo que el folio: aparece en pantalla y en documentos.
+ */
+function _codigoPacienteLibre(pacientes) {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const usados = new Set(pacientes.map((p) => p.id));
+
+  for (let intento = 0; intento < 50; intento++) {
+    const id = `PAC-${yyyy}${mm}${dd}-${Math.floor(Math.random() * 9000) + 1000}`;
+    if (!usados.has(id)) return id;
+  }
+  throw new Error("No se pudo generar un código de paciente libre para hoy.");
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -217,7 +263,7 @@ export async function pacientesGuardar(pac) {
   }
 
   const nuevo = {
-    id: pac.id || _idPaciente(),
+    id: pac.id || _codigoPacienteLibre(pacientes),
     nombre: "", apellidos: "", telefono: "", email: "",
     fechaNacimiento: "", sexo: "", estatura: "", peso: "",
     tipoSangre: "", alergias: "", enfermedadesCronicas: "", medicamentosActuales: "",
@@ -294,7 +340,7 @@ function _asegurarPacientePorCita(cita) {
   }
 
   const nuevo = {
-    id: _idPaciente(),
+    id: _codigoPacienteLibre(pacientes),
     nombre: cita.nombre || "",
     apellidos: cita.apellidos || "",
     telefono: cita.telefono || "",
@@ -355,7 +401,7 @@ export async function citasPorFolio(folio) {
  */
 export async function citasCrear(cita) {
   const citas = _leer(CLAVE_CITAS);
-  const folio = cita.folio || _generarFolioCita();
+  const folio = cita.folio || _folioCitaLibre(citas);
   const nueva = {
     folio,
     nombre: cita.nombre || "",
@@ -786,6 +832,23 @@ export async function npsResponder(folio, puntuacion, comentario) {
   nps.unshift(respuesta);
   _guardar(CLAVE_NPS, nps);
   return respuesta;
+}
+
+/**
+ * Registra una respuesta desde el panel, no desde la encuesta.
+ *
+ * Se ve igual que npsResponder pero es otra cosa, y por eso existe
+ * aparte: `responder` es el paciente contestando desde su celular sin
+ * sesión, y vive en la superficie pública. Esto es personal de la
+ * clínica capturando o sembrando datos, y va por la superficie normal.
+ *
+ * La distinción no es cosmética. Al confundirlas, la siembra de datos de
+ * demostración salía disparada contra el Supabase de la clínica real
+ * —porque la superficie pública resuelve por "¿hay backend?" y no por
+ * "¿hay sesión?"— mientras las citas se quedaban en este navegador.
+ */
+export async function npsRegistrar(folio, puntuacion, comentario) {
+  return npsResponder(folio, puntuacion, comentario);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

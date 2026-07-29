@@ -12,6 +12,8 @@ let ejsPublicKeyAdmin  = "";
 /* ─── Init ────────────────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", async () => {
   await window.APIListo;
+  /* Con backend y sin sesión no se sigue: ver sesionExigirAcceso(). */
+  if (!(await window.Sesion.exigirAcceso())) return;
 
   aplicarAparienciaConfig(await leerConfigClinica());
   await cargarCitas();
@@ -395,7 +397,7 @@ async function cargarDatosMuestra(auto = false) {
   if (nuevosNps.length > 0) {
     for (const r of nuevosNps) {
       try {
-        await API.nps.responder(r.folio, r.puntuacion, r.comentario);
+        await API.nps.registrar(r.folio, r.puntuacion, r.comentario);
       } catch { /* folio de muestra ya respondido: no es un problema */ }
     }
     await renderStats();
@@ -841,7 +843,7 @@ function buildCeldaSeguimiento(s, tipo, dias, tieneEmail) {
 }
 
 async function actualizarBadgeSeguimientos() {
-  const pendientes = leerSeguimientos().filter((s) => !s.emailEnviado_3d || !s.emailEnviado_30d);
+  const pendientes = (await leerSeguimientos()).filter((s) => !s.emailEnviado_3d || !s.emailEnviado_30d);
   const btn = document.getElementById("badge-seguimientos-btn");
   if (pendientes.length > 0) {
     document.getElementById("badge-seguimientos-num").textContent = pendientes.length;

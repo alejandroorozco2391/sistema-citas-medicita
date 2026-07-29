@@ -276,3 +276,30 @@ export async function sesionProtegerPagina(rolesPermitidos = ["doctor", "recepci
 export function sesionRoles() {
   return Object.values(ROLES);
 }
+
+/**
+ * Guardia para las páginas de personal (panel, MediPost, MediDocs, inbox).
+ *
+ * La diferencia con `sesionProtegerPagina()` es el modo demostración: allá
+ * la ausencia de perfil siempre manda a login, y aquí no, porque la demo
+ * pública tiene que seguir siendo clicable sin registrarse.
+ *
+ * Lo que cierra es un hueco real: sin esto, alguien de recepción que abra
+ * el panel sin haber iniciado sesión en una clínica de verdad lo ve
+ * arrancar en modo local. La pantalla se ve completa y vacía, y todo lo
+ * que capture se guarda en su navegador en vez de en la clínica. Pensaría
+ * que perdió los expedientes.
+ *
+ * Devuelve `true` si se puede seguir; si redirige, devuelve `false` y
+ * quien llama debe abortar su arranque.
+ */
+export async function sesionExigirAcceso() {
+  if (sesionEsDemo()) return true;
+
+  const perfil = await sesionPerfil();
+  if (perfil) return true;
+
+  const destino = encodeURIComponent(location.pathname.split("/").pop() + location.search);
+  location.replace(`login.html?destino=${destino}`);
+  return false;
+}

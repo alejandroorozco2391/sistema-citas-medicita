@@ -326,8 +326,10 @@
     </div>
   </div>
 
-  <!-- Puente al módulo de datos. Va antes que los scripts clásicos. -->
-  <script type="module" src="js/puente-api.mjs"></script>
+  <!-- Puente a la capa de datos. Script clásico y sin defer: así
+       window.APIListo ya existe cuando los módulos arrancan. -->
+  <script src="js/puente-api.js"></script>
+  <script src="js/puente-sesion.js"></script>
   <script src="js/data.js"></script>
   <script src="js/medipost.js"></script>
 </body>

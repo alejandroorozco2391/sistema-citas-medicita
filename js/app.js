@@ -536,14 +536,22 @@ function mostrarConfirmacion(datos) {
   modal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
 
-  document.getElementById("btn-confirmar").onclick = async (e) => {
+  /* El botón se guarda en una variable en vez de leerlo del evento.
+     `e.currentTarget` solo es válido mientras el evento se está
+     despachando: en cuanto el manejador cede el control en el primer
+     `await`, el navegador lo pone en null. Leerlo después reventaba en el
+     `finally` y, como esa línea es la que vuelve a habilitar el botón,
+     quedaba deshabilitado para siempre — el paciente podía agendar una
+     cita y ninguna más hasta recargar la página. */
+  const btnConfirmar = document.getElementById("btn-confirmar");
+  btnConfirmar.onclick = async () => {
     /* Contra el backend esto tarda. Sin bloquear el botón, dos clics
        nerviosos son dos citas para el mismo paciente a la misma hora. */
-    e.currentTarget.disabled = true;
+    btnConfirmar.disabled = true;
     try {
       await finalizarCita(datos);
     } finally {
-      e.currentTarget.disabled = false;
+      btnConfirmar.disabled = false;
     }
   };
 

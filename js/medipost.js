@@ -50,6 +50,7 @@ function buscarTono(id) { return TONOS_MP.find((t) => t.id === id); }
 /* ─── Init ────────────────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", async () => {
   await window.APIListo;
+  if (!(await window.Sesion.exigirAcceso())) return;
 
   poblarEspecialidades();
   bindSelectores();

@@ -206,9 +206,10 @@
 
   <!-- ═══ Scripts ═══════════════════════════════════════════════════════ -->
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-  <!-- Puente al módulo de datos y a la sesión. Van antes que los clásicos. -->
-  <script type="module" src="js/puente-api.mjs"></script>
-  <script type="module" src="js/puente-sesion.mjs"></script>
+  <!-- Puentes a la capa de datos y a la sesión. Scripts clásicos y sin
+       defer: así sus promesas ya existen cuando el inbox arranca. -->
+  <script src="js/puente-api.js"></script>
+  <script src="js/puente-sesion.js"></script>
   <script src="js/conversaciones-store.js"></script>
   <script src="js/conversaciones-adapters.js"></script>
   <script src="js/conversaciones-demo.js"></script>

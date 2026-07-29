@@ -143,12 +143,21 @@ export const posts = {
 
 export const nps = {
   async listar()           { return (await impl()).npsListar(); },
+
   /* Responder va por la superficie pública: quien contesta la encuesta es
      el paciente desde su celular, y no tiene sesión. */
   async responder(folio, puntuacion, comentario) {
     return (await implPublica()).npsResponder(folio, puntuacion, comentario);
   },
   async yaRespondida(folio) { return (await implPublica()).npsYaRespondida(folio); },
+
+  /* Registrar es lo mismo visto desde el panel: personal de la clínica
+     capturando o sembrando. Va por la superficie normal, no por la
+     pública — si no, sembrar la demo escribiría en la base de una clínica
+     real mientras el resto de los datos se queda en este navegador. */
+  async registrar(folio, puntuacion, comentario) {
+    return (await impl()).npsRegistrar(folio, puntuacion, comentario);
+  },
 };
 
 export const seguimientos = {

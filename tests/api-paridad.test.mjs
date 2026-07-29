@@ -171,6 +171,43 @@ test("el upsert de conversación no duplica por formato de teléfono", async () 
   assert.strictEqual((await local.conversacionesListar()).length, 1);
 });
 
+/* ═══ Colisiones de identificadores ═════════════════════════════════════
+   Los ids llevaban 4 dígitos aleatorios. Con los mensajes eso era una
+   pérdida de datos silenciosa: dos creados en el mismo milisegundo
+   chocaban, y como el store descarta ids repetidos por idempotencia, el
+   segundo mensaje desaparecía del hilo sin ningún error. Lo cazó una
+   prueba intermitente del inbox. */
+
+test("mil mensajes seguidos no pierden ni uno por choque de id", async () => {
+  ls.clear();
+  const conv = await local.conversacionesUpsert({ canal: "whatsapp", telefono: "55 1000 2000" });
+
+  for (let i = 0; i < 1000; i++) {
+    await local.mensajesAgregar(conv.id, { remitente: "paciente", contenido: `msg ${i}` });
+  }
+
+  const guardados = await local.mensajesListar(conv.id);
+  assert.strictEqual(
+    guardados.length, 1000,
+    "un mensaje descartado por choque de id es un mensaje que el paciente escribió y nadie leyó"
+  );
+});
+
+test("mil citas del mismo día no repiten folio", async () => {
+  ls.clear();
+  const folios = new Set();
+
+  for (let i = 0; i < 1000; i++) {
+    const c = await local.citasCrear({ nombre: `P${i}`, telefono: `55 0000 ${i}`, fecha: "2026-08-10" });
+    assert.ok(!folios.has(c.folio), `folio repetido: ${c.folio}`);
+    folios.add(c.folio);
+  }
+
+  assert.strictEqual(folios.size, 1000);
+  /* El formato visible no cambia: el paciente lo trae apuntado. */
+  for (const f of folios) assert.match(f, /^CIT-\d{6}-\d{4}$/);
+});
+
 test("un localStorage corrupto no tumba la capa de datos", async () => {
   ls.clear();
   ls.setItem("medicita_pacientes", "{esto no es json");
@@ -222,6 +259,54 @@ test("los testimonios respetan el umbral de puntuación", async () => {
     (await local.publicoTestimonios({ minPuntuacion: 1 })).length, 1,
     "pero sigue estando en los datos: es el umbral lo que la deja fuera"
   );
+});
+
+test("crear una cita sin folio genera uno, en las dos implementaciones", async () => {
+  ls.clear();
+
+  /* Local se comprueba ejecutándola. */
+  const c = await local.citasCrear({
+    nombre: "Ramón", apellidos: "Díaz", telefono: "55 3131 4141",
+    fecha: "2026-08-12", especialidad: "Medicina General",
+  });
+  assert.match(c.folio, /^CIT-\d{6}-\d{4}$/, "la capa de datos pone el folio, no quien llama");
+  assert.ok(await local.pacientesPorTelefono("55 3131 4141"), "y vincula el expediente");
+
+  /* La remota no se puede ejecutar sin un Supabase vivo, así que se
+     comprueba que su cuerpo hace las dos cosas. Es una prueba de texto y
+     es fea, pero cubre una regresión que costó cara: al centralizar la
+     generación de folios en B2, los módulos dejaron de mandarlo y solo
+     api-local lo generaba. Contra Postgres, donde `citas.folio` es NOT
+     NULL, toda cita creada desde MediBot o desde "+ Nueva cita" moría —
+     mientras la landing seguía funcionando, porque va por otra ruta. */
+  const src = fs.readFileSync(path.join(RAIZ, "js", "api-remoto.mjs"), "utf8");
+  const cuerpo = src.slice(src.indexOf("export async function citasCrear"));
+  const hasta = cuerpo.slice(0, cuerpo.indexOf("\nexport "));
+
+  assert.match(hasta, /_folioCita\(\)/, "api-remoto debe generar folio si no viene");
+  assert.match(hasta, /23505/, "y reintentar cuando el folio ya existe");
+  assert.match(hasta, /pacientesPorTelefono/, "y vincular el expediente como hace la local");
+});
+
+test("responder y registrar NPS viven en superficies distintas", async () => {
+  /* Se ven casi iguales y hacen casi lo mismo, pero no van por el mismo
+     camino: `responder` es el paciente sin sesión (superficie pública, que
+     resuelve por "¿hay backend?"), y `registrar` es el panel (superficie
+     normal, que resuelve por "¿hay sesión?").
+     Confundirlas hizo que sembrar la demo escribiera en el Supabase de una
+     clínica real mientras las citas se quedaban en localStorage. */
+  const src = fs.readFileSync(path.join(RAIZ, "js", "api.mjs"), "utf8");
+
+  const responder = src.match(/async responder\([^)]*\)\s*\{[\s\S]*?\}/)?.[0] ?? "";
+  const registrar = src.match(/async registrar\([^)]*\)\s*\{[\s\S]*?\}/)?.[0] ?? "";
+
+  assert.match(responder, /implPublica\(\)/, "responder lo usa un paciente sin sesión");
+  assert.match(registrar, /(?<!Publica)\bimpl\(\)/, "registrar lo usa el panel, con sesión");
+
+  /* Y ambas implementaciones deben tenerla, o el modo remoto se cae al
+     sembrar. */
+  assert.strictEqual(typeof local.npsRegistrar, "function");
+  assert.ok(exportadosDe("api-remoto.mjs").has("npsRegistrar"));
 });
 
 test("la clínica pública no expone el plan contratado", async () => {

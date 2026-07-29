@@ -331,10 +331,69 @@ export async function citasPorFolio(folio) {
   );
 }
 
+/** Folio de cita con el formato de siempre: `CIT-AAMMDD-XXXX`. */
+function _folioCita() {
+  const d = new Date();
+  const aa = String(d.getFullYear()).slice(2);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `CIT-${aa}${mm}${dd}-${Math.floor(Math.random() * 9000) + 1000}`;
+}
+
+/**
+ * Crea una cita desde el panel o desde MediBot.
+ *
+ * Hace dos cosas que la versión anterior daba por hechas y no lo eran:
+ *
+ * 1. **Genera el folio.** `citas.folio` es NOT NULL, y al centralizar la
+ *    generación en la capa de datos (B2) los módulos dejaron de mandarlo.
+ *    Solo api-local lo generaba, así que contra Postgres toda cita creada
+ *    desde el chat o desde "+ Nueva cita" moría con violación de NOT NULL.
+ *    El reintento es contra el índice único `(clinica_id, folio)`, mismo
+ *    criterio que ya usa la función `solicitar_cita`.
+ *
+ * 2. **Vincula el expediente.** api-local llama a `_asegurarPacientePorCita`
+ *    y aquí no había nada equivalente: no hay disparador en la tabla, solo
+ *    la RPC pública lo hacía. Una cita creada desde el panel se habría
+ *    quedado sin paciente, y el expediente sin esa cita.
+ */
 export async function citasCrear(cita) {
   const cliente = await db();
-  const fila = { ...aDbCita(cita), clinica_id: await clinicaId() };
-  return deDbCita(reventar(await cliente.from("citas").insert(fila).select().single()));
+  const idClinica = await clinicaId();
+
+  let pacienteId = cita.pacienteId || null;
+  if (!pacienteId && cita.telefono) {
+    const existente = await pacientesPorTelefono(cita.telefono);
+    pacienteId = existente
+      ? existente.id
+      : (await pacientesGuardar({
+          nombre: cita.nombre || "",
+          apellidos: cita.apellidos || "",
+          telefono: cita.telefono,
+          email: cita.email || "",
+          tieneSeguro: Boolean(cita.tieneSeguro),
+          nombreSeguro: cita.nombreSeguro || "",
+          numeroPoliza: cita.numeroPoliza || "",
+        })).id;
+  }
+
+  for (let intento = 0; intento < 12; intento++) {
+    const folio = cita.folio || _folioCita();
+    const { data, error } = await cliente
+      .from("citas")
+      .insert({ ...aDbCita({ ...cita, folio, pacienteId }), clinica_id: idClinica })
+      .select()
+      .single();
+
+    if (!error) return deDbCita(data);
+
+    /* 23505 es violación de índice único. Si el folio lo eligió quien
+       llama, el choque es suyo y hay que avisarle; si lo generamos aquí,
+       se reintenta con otro. */
+    if (cita.folio || error.code !== "23505") throw new Error(error.message);
+  }
+
+  throw new Error("No se pudo generar un folio libre para hoy. Intenta de nuevo.");
 }
 
 /** Actualización parcial: solo viajan las columnas que vengan en `cambios`. */
@@ -701,6 +760,39 @@ export async function npsResponder(folio, puntuacion, comentario = "") {
   });
   if (error) throw new Error(error.message);
   return true;
+}
+
+/**
+ * Registra una respuesta desde el panel, no desde la encuesta.
+ *
+ * No usa la RPC `responder_encuesta`: esa es para el paciente anónimo y
+ * valida como tal. Aquí hay sesión de staff, así que se inserta directo
+ * y RLS se encarga de que sea en la clínica correcta.
+ */
+export async function npsRegistrar(folio, puntuacion, comentario = "") {
+  const cliente = await db();
+
+  const cita = reventar(
+    await cliente.from("citas").select("id").eq("folio", folio).maybeSingle()
+  );
+  if (!cita) throw new Error(`No existe ninguna cita con el folio ${folio}.`);
+
+  const fila = reventar(
+    await cliente.from("nps_respuestas").insert({
+      clinica_id: await clinicaId(),
+      cita_id: cita.id,
+      puntuacion,
+      comentario: comentario || "",
+    }).select().single()
+  );
+
+  return {
+    id: fila.id,
+    folio,
+    puntuacion: fila.puntuacion,
+    comentario: fila.comentario,
+    fechaRespuesta: fila.creado_en,
+  };
 }
 
 export async function npsYaRespondida(folio) {

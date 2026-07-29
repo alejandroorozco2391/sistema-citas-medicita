@@ -100,6 +100,7 @@ let ejsPublicKeyMD  = "";
 /* ─── Init ────────────────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", async function () {
   await window.APIListo;
+  if (!(await window.Sesion.exigirAcceso())) return;
 
   await poblarDatalistFolios();
   bindSelectorTipos();

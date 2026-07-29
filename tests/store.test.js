@@ -11,7 +11,7 @@ const ls = instalarLocalStorage();
 const store = require("../js/conversaciones-store.js");
 
 /* El store ya no toca localStorage: delega en la capa de datos. En el
-   navegador se la da js/puente-api.mjs; aquí se la inyectamos. */
+   navegador se la da js/puente-api.js; aquí se la inyectamos. */
 before(async () => {
   store._usarDatos(await montarApiLocal());
 });

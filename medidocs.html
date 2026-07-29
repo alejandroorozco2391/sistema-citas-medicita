@@ -206,8 +206,10 @@
   <div id="md-toast" class="md-toast" role="status" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-  <!-- Puente al módulo de datos. Va antes que los scripts clásicos. -->
-  <script type="module" src="js/puente-api.mjs"></script>
+  <!-- Puente a la capa de datos. Script clásico y sin defer: así
+       window.APIListo ya existe cuando los módulos arrancan. -->
+  <script src="js/puente-api.js"></script>
+  <script src="js/puente-sesion.js"></script>
   <script src="js/data.js"></script>
   <script src="js/medidocs.js"></script>
 </body>

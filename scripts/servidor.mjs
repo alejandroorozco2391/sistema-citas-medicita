@@ -10,6 +10,15 @@
    El resto del proyecto sigue sin build step: esto solo sirve archivos
    tal cual, no compila nada.
 
+   Con una excepción: `/api/chat`. En producción eso es una función
+   serverless de Vercel (api/chat.js) que hace de proxy hacia Anthropic
+   para que la API key no viaje al navegador. Aquí no hay Vercel, así que
+   sin esto MediPost, MediDocs y los insights de Analytics daban 404 en
+   local — es decir, tres módulos que no se podían probar sin desplegar.
+
+   La llave se lee de ANTHROPIC_API_KEY del entorno. Si no está, se
+   responde con un mensaje que lo dice, no con un 404 que confunde.
+
    Uso:  npm run dev
    ═══════════════════════════════════════════════════════════════════════ */
 
@@ -20,6 +29,20 @@ import { fileURLToPath } from "node:url";
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PUERTO = Number(process.env.PUERTO || 5173);
+
+/* .env.local es el mismo archivo que ya se usa para desplegar, y está en
+   .gitignore. Se carga aquí para no tener que exportar la variable a mano
+   cada vez que se levanta el servidor. */
+const ENV_LOCAL = path.join(RAIZ, ".env.local");
+if (fs.existsSync(ENV_LOCAL) && typeof process.loadEnvFile === "function") {
+  try {
+    process.loadEnvFile(ENV_LOCAL);
+  } catch {
+    /* Un .env.local con formato raro no debe impedir levantar el sitio. */
+  }
+}
+
+const LLAVE_ANTHROPIC = process.env.ANTHROPIC_API_KEY || "";
 
 const TIPOS = {
   ".html": "text/html; charset=utf-8",
@@ -36,10 +59,51 @@ const TIPOS = {
   ".woff2": "font/woff2",
 };
 
+function json(respuesta, estado, cuerpo) {
+  respuesta.writeHead(estado, { "Content-Type": "application/json; charset=utf-8" });
+  respuesta.end(JSON.stringify(cuerpo));
+}
+
+/** Espeja lo que hace api/chat.js en Vercel: proxy hacia Anthropic. */
+async function proxyChat(peticion, respuesta) {
+  if (peticion.method !== "POST") return json(respuesta, 405, { error: "Method not allowed" });
+
+  if (!LLAVE_ANTHROPIC) {
+    return json(respuesta, 500, {
+      error:
+        "Falta ANTHROPIC_API_KEY en el entorno. En producción la pone Vercel; " +
+        "para desarrollo, ponla en .env.local y arranca con: npm run dev",
+    });
+  }
+
+  const trozos = [];
+  for await (const t of peticion) trozos.push(t);
+
+  try {
+    const arriba = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": LLAVE_ANTHROPIC,
+        "anthropic-version": "2023-06-01",
+      },
+      body: Buffer.concat(trozos).toString("utf8"),
+    });
+    json(respuesta, arriba.status, await arriba.json());
+  } catch (e) {
+    json(respuesta, 502, { error: e.message });
+  }
+}
+
 const servidor = http.createServer((peticion, respuesta) => {
   const url = new URL(peticion.url, `http://localhost:${PUERTO}`);
   let relativa = decodeURIComponent(url.pathname);
   if (relativa === "/") relativa = "/index.html";
+
+  if (relativa === "/api/chat") {
+    proxyChat(peticion, respuesta);
+    return;
+  }
 
   /* Nada fuera de la raíz del proyecto, por si acaso: es un servidor de
      desarrollo, pero un ".." en la ruta no tiene por qué funcionar. */
@@ -68,5 +132,10 @@ servidor.listen(PUERTO, () => {
   console.log(`  Panel:   http://localhost:${PUERTO}/admin.html`);
   console.log(`  Acceso:  http://localhost:${PUERTO}/login.html`);
   console.log(`  Landing: http://localhost:${PUERTO}/index.html\n`);
+  console.log(
+    LLAVE_ANTHROPIC
+      ? "  /api/chat: activo (MediPost, MediDocs e insights de Analytics)\n"
+      : "  /api/chat: SIN LLAVE — pon ANTHROPIC_API_KEY en .env.local\n"
+  );
   console.log(`  Ctrl+C para detener.\n`);
 });

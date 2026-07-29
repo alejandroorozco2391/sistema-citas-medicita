@@ -16,7 +16,7 @@
    único de todo lo que llega de un canal externo.
 
    ── La capa de datos ────────────────────────────────────────────────────
-   En el navegador la publica js/puente-api.mjs como `window.API`. En las
+   En el navegador la publica js/puente-api.js como `window.API`. En las
    pruebas de node se inyecta con `_usarDatos()`, porque ahí no hay
    `window` ni módulos ES cargables desde un script clásico.
    ═══════════════════════════════════════════════════════════════════════ */
@@ -44,7 +44,7 @@ function _api() {
   if (!api) {
     throw new Error(
       "conversaciones-store: no hay capa de datos disponible. " +
-      "En el navegador la publica js/puente-api.mjs; en pruebas, usa _usarDatos()."
+      "En el navegador la publica js/puente-api.js; en pruebas, usa _usarDatos()."
     );
   }
   return api;
