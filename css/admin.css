@@ -2151,3 +2151,238 @@ input[type="color"]::-webkit-color-swatch { border-radius: 4px; border: none; }
 .prev-medico-esp { font-size: .77rem; color: #64748b; margin-top: 1px; }
 .prev-medico-ced { font-size: .71rem; color: #94a3b8; margin-top: 1px; }
 .prev-medico-bio { font-size: .77rem; color: #475569; margin-top: 8px; line-height: 1.5; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MediHorario — pestaña "Horarios"
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ─── Estado actual ───────────────────────────────────────────────────── */
+/* Va arriba de todo porque es lo primero que alguien quiere saber al
+   abrir la pestaña: ¿hay alguien en el consultorio ahora mismo? */
+.hor-estado {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--blanco);
+  border: 1px solid var(--gris-borde);
+  border-radius: var(--radio);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  box-shadow: var(--sombra-sm);
+}
+.hor-estado-punto {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--gris-suave);
+  flex-shrink: 0;
+}
+.hor-estado-punto.abierto {
+  background: var(--verde-salud);
+  box-shadow: 0 0 0 4px var(--verde-claro);
+}
+.hor-estado-punto.cerrado {
+  background: var(--gris-suave);
+  box-shadow: 0 0 0 4px var(--gris-borde);
+}
+.hor-estado-texto { font-weight: 600; font-size: .95rem; }
+
+.hor-sub {
+  font-size: .82rem;
+  color: var(--gris-suave);
+  margin-top: 3px;
+  max-width: 62ch;
+}
+.hor-sub strong { color: var(--gris-texto); font-weight: 600; }
+
+/* ─── Rejilla de la semana ────────────────────────────────────────────── */
+.hor-semana {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  padding: 20px;
+}
+.hor-dia {
+  border: 1px solid var(--gris-borde);
+  border-radius: var(--radio-sm);
+  padding: 14px;
+  background: var(--blanco);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.hor-dia--cerrado { background: var(--fondo); }
+.hor-dia-nombre {
+  font-weight: 700;
+  font-size: .9rem;
+  color: var(--gris-texto);
+}
+.hor-dia-bloques { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+
+.hor-bloque { display: flex; align-items: center; gap: 5px; }
+.hor-input {
+  border: 1px solid var(--gris-borde);
+  border-radius: 6px;
+  padding: 5px 6px;
+  font-size: .82rem;
+  width: 100%;
+  min-width: 0;
+  color: var(--gris-texto);
+  transition: border-color var(--transicion);
+}
+.hor-input:focus { outline: none; border-color: var(--azul-principal); }
+.hor-guion { font-size: .78rem; color: var(--gris-suave); flex-shrink: 0; }
+
+.hor-quitar {
+  color: var(--gris-suave);
+  font-size: .9rem;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  transition: all var(--transicion);
+}
+.hor-quitar:hover { color: var(--rojo); background: var(--rojo-claro); }
+
+.hor-cerrado-txt {
+  font-size: .82rem;
+  color: var(--gris-suave);
+  font-style: italic;
+  padding: 5px 0;
+}
+.hor-agregar {
+  font-size: .78rem;
+  color: var(--azul-principal);
+  font-weight: 600;
+  text-align: left;
+  padding: 4px 0;
+}
+.hor-agregar:hover { text-decoration: underline; }
+
+.hor-membrete {
+  border-top: 1px solid var(--gris-borde);
+  padding: 14px 20px;
+  font-size: .82rem;
+  color: var(--gris-suave);
+}
+.hor-membrete strong { color: var(--gris-texto); font-weight: 600; }
+
+/* ─── Botones propios ─────────────────────────────────────────────────── */
+.btn-hor-guardar,
+.btn-hor-ghost {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radio-sm);
+  font-size: .84rem;
+  font-weight: 600;
+  transition: all var(--transicion);
+  white-space: nowrap;
+}
+.btn-hor-guardar { background: var(--azul-principal); color: var(--blanco); }
+.btn-hor-guardar:hover:not(:disabled) { background: var(--azul-oscuro); }
+.btn-hor-guardar:disabled { opacity: .55; cursor: not-allowed; }
+
+.btn-hor-ghost { color: var(--gris-suave); border: 1px solid var(--gris-borde); background: var(--blanco); }
+.btn-hor-ghost:hover { color: var(--azul-principal); border-color: var(--azul-principal); }
+
+/* ─── Formulario de excepciones ───────────────────────────────────────── */
+.hor-exc-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 20px 20px 0;
+}
+.hor-exc-campo { display: flex; flex-direction: column; gap: 5px; }
+.hor-exc-campo--tipo { min-width: 180px; }
+.hor-exc-campo--motivo { flex: 1; min-width: 220px; }
+.hor-exc-horas {
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+}
+.hor-exc-horas .config-label { margin: 0; }
+.hor-exc-form .form-control-admin { height: 36px; }
+
+.hor-privacidad {
+  font-size: .78rem;
+  color: var(--gris-suave);
+  padding: 10px 20px 0;
+  max-width: 70ch;
+}
+
+/* ─── Lista de excepciones ────────────────────────────────────────────── */
+.hor-exc-lista { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 8px; }
+
+.hor-exc-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 14px;
+  border: 1px solid var(--gris-borde);
+  border-left: 3px solid var(--ambar);
+  border-radius: var(--radio-sm);
+  background: var(--blanco);
+}
+.hor-exc-item--cerrado { border-left-color: var(--rojo); }
+.hor-exc-fecha {
+  font-weight: 600;
+  font-size: .87rem;
+  min-width: 190px;
+  text-transform: capitalize;
+}
+.hor-exc-que { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; }
+.hor-exc-motivo { font-size: .82rem; color: var(--gris-suave); }
+
+.hor-chip {
+  font-size: .74rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.hor-chip--cerrado { background: var(--rojo-claro); color: #b91c1c; }
+.hor-chip--horario { background: var(--ambar-claro); color: #92400e; }
+
+.hor-vacio {
+  font-size: .85rem;
+  color: var(--gris-suave);
+  text-align: center;
+  padding: 22px;
+}
+
+/* ─── Modal de citas afectadas ────────────────────────────────────────── */
+.hor-afectadas-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 14px 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.hor-afectada {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  background: var(--fondo);
+  border-radius: var(--radio-sm);
+  font-size: .85rem;
+}
+.hor-afectada-hora { font-weight: 700; min-width: 62px; color: var(--azul-principal); }
+.hor-afectada-nombre { flex: 1; font-weight: 500; }
+.hor-afectada-contacto { color: var(--gris-suave); font-size: .8rem; }
+
+.hor-afectadas-nota {
+  font-size: .82rem;
+  color: #92400e;
+  background: var(--ambar-claro);
+  border-radius: var(--radio-sm);
+  padding: 11px 13px;
+}
+
+@media (max-width: 640px) {
+  .hor-exc-item { flex-wrap: wrap; gap: 8px; }
+  .hor-exc-fecha { min-width: 0; width: 100%; }
+  .hor-exc-form { padding: 16px 16px 0; }
+}

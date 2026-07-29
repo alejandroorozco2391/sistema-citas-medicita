@@ -56,6 +56,8 @@ function buildSystemPrompt() {
 
 Fecha y hora actual: ${ahora}
 
+${perfilBot === "personal" ? `CON QUIÉN HABLAS: personal de la clínica, con sesión iniciada. Puedes consultar y modificar expedientes.
+
 HERRAMIENTAS DISPONIBLES:
 • listar_especialidades — Lista todas las especialidades de la clínica con descripción
 • listar_doctores — Lista médicos disponibles con horarios; filtrable por especialidad_id
@@ -72,7 +74,32 @@ También tienes acceso al expediente completo:
 • ver_notas_paciente — notas internas del perfil del paciente
 • ver_nps_paciente — encuestas de satisfacción de un paciente específico
 
-Úsalas proactivamente cuando el contexto lo requiera sin pedir permiso.
+Y el horario del consultorio:
+• ver_horario_atencion — el horario real, con cierres y cambios ya aplicados
+• cambiar_horario_base — reemplaza la semana habitual COMPLETA (confirma antes)
+• agregar_excepcion_horario — cierra un día suelto o le pone otro horario
+
+Úsalas proactivamente cuando el contexto lo requiera sin pedir permiso.` : `CON QUIÉN HABLAS: un paciente o alguien del público. No tiene sesión.
+
+HERRAMIENTAS DISPONIBLES:
+• listar_especialidades — Lista todas las especialidades de la clínica con descripción
+• listar_doctores — Lista médicos disponibles con horarios; filtrable por especialidad_id
+• ver_horario_atencion — el horario real del consultorio, con cierres ya aplicados
+• buscar_citas — Busca la cita de ESTA persona. Pide su folio o su teléfono primero.
+• crear_cita — Registra una nueva cita (solo tras confirmar datos con el paciente)
+• enviar_email_paciente — Confirmación por correo tras agendar
+
+LO QUE NO PUEDES HACER, y cómo responder si lo piden:
+• No listas ni consultas las citas de otras personas
+• No cancelas ni eliminas citas: eso lo hace la clínica. Ofrece comunicarlo con alguien
+• No lees notas internas, documentos clínicos ni encuestas del expediente
+• No cambias el horario del consultorio
+Si te piden algo de esto, dilo con naturalidad y ofrece pasar con una persona. No lo intentes.`}
+
+HORARIO — no inventes disponibilidad:
+Antes de proponer una fecha, consulta ver_horario_atencion. Si ese día está
+cerrado, dilo y ofrece el siguiente día abierto. Nunca ofrezcas una hora en
+un día sin horario: el paciente se presentaría a un consultorio cerrado.
 
 FLUJO PARA AGENDAR CITA (sigue este orden exacto):
 1. Obtén: nombre completo y teléfono del paciente
@@ -279,11 +306,132 @@ const TOOLS = [
       required: ["folio","nombre_paciente","email_paciente","accion","detalles_cita"],
     },
   },
+  {
+    name: "ver_horario_atencion",
+    description: "Consulta el horario real del consultorio en un rango de fechas, ya con los cierres y cambios aplicados. Úsala antes de proponer una fecha y siempre que pregunten a qué hora abren.",
+    input_schema: {
+      type: "object",
+      properties: {
+        fecha_desde: { type: "string", description: "YYYY-MM-DD. Por omisión, hoy." },
+        fecha_hasta: { type: "string", description: "YYYY-MM-DD. Por omisión, 14 días después." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "cambiar_horario_base",
+    description: "Reemplaza el horario semanal habitual del consultorio. Solo para cambios permanentes; para un día suelto usa agregar_excepcion_horario. Confirma con la persona antes de llamarla: reemplaza la semana COMPLETA.",
+    input_schema: {
+      type: "object",
+      properties: {
+        bloques: {
+          type: "array",
+          description: "Semana completa. Cada bloque es un tramo continuo de un día.",
+          items: {
+            type: "object",
+            properties: {
+              dia_semana:  { type: "number", description: "0 domingo … 6 sábado" },
+              hora_inicio: { type: "string", description: "HH:MM" },
+              hora_fin:    { type: "string", description: "HH:MM" },
+            },
+            required: ["dia_semana", "hora_inicio", "hora_fin"],
+          },
+        },
+      },
+      required: ["bloques"],
+    },
+  },
+  {
+    name: "agregar_excepcion_horario",
+    description: "Cierra un día concreto o le pone un horario distinto, sin tocar la semana habitual. Devuelve las citas que quedan fuera: MENCIÓNALAS SIEMPRE, porque el sistema no cancela ni avisa a nadie por su cuenta.",
+    input_schema: {
+      type: "object",
+      properties: {
+        fecha:       { type: "string", description: "YYYY-MM-DD" },
+        cerrado:     { type: "boolean", description: "true cierra el día completo" },
+        hora_inicio: { type: "string", description: "HH:MM, solo si cerrado es false" },
+        hora_fin:    { type: "string", description: "HH:MM, solo si cerrado es false" },
+        motivo:      { type: "string", description: "Uso interno; nunca se muestra al paciente" },
+      },
+      required: ["fecha", "cerrado"],
+    },
+  },
 ];
+
+/* ─── Perfiles: quién está del otro lado ──────────────────────────────────
+   MediBot le habla al paciente, y el inbox registra sus turnos como
+   `remitente: "paciente"`. Pero hasta aquí tenía además eliminar_cita,
+   leer_todas_las_citas y ver_notas_paciente: poderes de personal.
+
+   Contra el backend, RLS ya le devolvería cero renglones a quien no tiene
+   sesión. Aun así, ofrecerle borrar citas o leer notas internas a un
+   paciente es un error aunque la base lo frene — y en la demo sin backend
+   no hay nada que lo frene.
+
+   Se resuelve por sesión, no por parámetro de URL: un ?perfil=personal
+   sería una reja que se abre escribiéndola.                             */
+const TOOLS_PACIENTE = [
+  "listar_especialidades", "listar_doctores", "ver_horario_atencion",
+  "buscar_citas", "crear_cita", "enviar_email_paciente",
+];
+
+let perfilBot = "paciente";
+
+function toolsDelPerfil() {
+  return perfilBot === "personal"
+    ? TOOLS.filter(t => t.name !== "escalar_a_humano")
+    : TOOLS.filter(t => TOOLS_PACIENTE.includes(t.name) || t.name === "escalar_a_humano");
+}
+
+/**
+ * Decide el perfil al arrancar.
+ *
+ * Con backend manda la sesión, y nada más: es la única fuente que un
+ * visitante no puede falsificar.
+ *
+ * Sin backend —la demo pública— no hay frontera que defender: los datos
+ * son de mentira y viven en este navegador. Ahí el perfil por omisión es
+ * `personal`, porque a chat.html se llega desde el panel, y `?perfil=`
+ * permite enseñar el otro lado en una demostración de ventas. Ese
+ * parámetro se IGNORA en cuanto hay backend.
+ */
+async function resolverPerfilBot() {
+  let esDemo = true;
+  let hayPerfil = false;
+
+  try {
+    await window.SesionLista;
+    esDemo = window.Sesion.esDemo();
+    hayPerfil = Boolean(await window.Sesion.perfil());
+  } catch (e) {
+    /* Sin puente de sesión no se puede saber quién es: se asume el perfil
+       con menos poderes, no el más cómodo. */
+    console.warn("[chat] No se pudo resolver la sesión:", e);
+    perfilBot = "paciente";
+    return;
+  }
+
+  if (!esDemo) {
+    perfilBot = hayPerfil ? "personal" : "paciente";
+    return;
+  }
+
+  const pedido = new URLSearchParams(location.search).get("perfil");
+  perfilBot = pedido === "paciente" ? "paciente" : "personal";
+}
 
 /* ─── Ejecución de herramientas (vía js/api.mjs) ──────────────────────── */
 async function ejecutarHerramienta(nombre, p) {
   try {
+    /* Segunda reja, además de no ofrecer la herramienta. No ofrecerla
+       basta para que el modelo no la use, pero un prompt inyectado en un
+       mensaje del paciente puede pedirla por su nombre. */
+    if (perfilBot !== "personal" && !TOOLS_PACIENTE.includes(nombre) && nombre !== "escalar_a_humano") {
+      return JSON.stringify({
+        error: "Esa acción es del personal de la clínica. Ofrece comunicarlo con una persona.",
+      });
+    }
+
     switch (nombre) {
       case "listar_especialidades":
         return JSON.stringify(
@@ -490,6 +638,81 @@ async function ejecutarHerramienta(nombre, p) {
       case "enviar_email_paciente":
         return JSON.stringify(await sendEmailToPatient(p));
 
+      /* ─── Horario de atención ─────────────────────────────────────── */
+
+      case "ver_horario_atencion": {
+        const hoy = new Date();
+        const iso = d => d.toISOString().slice(0, 10);
+        const desde = p.fecha_desde || iso(hoy);
+        const hasta = p.fecha_hasta ||
+          iso(new Date(hoy.getTime() + 14 * 86400000));
+
+        const bloques = await API.publico.horarioDisponible(desde, hasta);
+
+        /* Agrupado por fecha: un arreglo plano de bloques hace que el
+           modelo tenga que deducir qué días faltan, y ahí se equivoca. */
+        const porFecha = {};
+        for (const b of bloques) {
+          (porFecha[b.fecha] ||= []).push(`${b.horaInicio}–${b.horaFin}`);
+        }
+
+        const dias = [];
+        for (let d = new Date(`${desde}T00:00:00`); iso(d) <= hasta; d.setDate(d.getDate() + 1)) {
+          const fecha = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+          dias.push({ fecha, abierto: !!porFecha[fecha], horarios: porFecha[fecha] || [] });
+        }
+
+        return JSON.stringify({
+          dias,
+          nota: "Los días sin horarios están cerrados. No ofrezcas citas en ellos.",
+        });
+      }
+
+      case "cambiar_horario_base": {
+        const texto = await API.horarios.guardarBase(
+          (p.bloques || []).map(b => ({
+            diaSemana: Number(b.dia_semana),
+            horaInicio: b.hora_inicio,
+            horaFin: b.hora_fin,
+          }))
+        );
+        return JSON.stringify({ ok: true, horarioResultante: texto });
+      }
+
+      case "agregar_excepcion_horario": {
+        const cerrado = Boolean(p.cerrado);
+
+        /* Se consulta ANTES de guardar: si el cambio falla, no queremos
+           haberle dicho al usuario a quién iba a dejar plantado. */
+        const afectadas = await API.horarios.citasAfectadas(
+          p.fecha,
+          cerrado ? null : p.hora_inicio,
+          cerrado ? null : p.hora_fin
+        );
+
+        await API.horarios.agregarExcepcion({
+          fecha: p.fecha,
+          cerrado,
+          horaInicio: p.hora_inicio,
+          horaFin: p.hora_fin,
+          motivo: p.motivo || "",
+        });
+
+        return JSON.stringify({
+          ok: true,
+          citasAfectadas: afectadas.map(c => ({
+            folio: c.folio,
+            paciente: `${c.nombre} ${c.apellidos || ""}`.trim(),
+            hora: c.hora,
+            telefono: c.telefono,
+            email: c.email,
+          })),
+          advertencia: afectadas.length
+            ? "El sistema NO canceló ni avisó a estos pacientes. Dile a la persona que hay que reagendarlos o llamarlos."
+            : "No había citas agendadas ese día.",
+        });
+      }
+
       default:
         return JSON.stringify({ error: `Herramienta desconocida: ${nombre}` });
     }
@@ -520,7 +743,7 @@ async function procesarMensaje(texto) {
           model: modelo,
           max_tokens: 1024,
           system: buildSystemPrompt(),
-          tools: TOOLS,
+          tools: toolsDelPerfil(),
           messages: conversacion,
         }),
       });
@@ -703,6 +926,9 @@ function labelHerramienta(nombre) {
     ver_documentos_paciente:  "Buscando en expediente…",
     ver_notas_paciente:       "Buscando en expediente…",
     ver_nps_paciente:         "Buscando en expediente…",
+    ver_horario_atencion:     "Consultando el horario del consultorio…",
+    cambiar_horario_base:     "Actualizando el horario semanal…",
+    agregar_excepcion_horario: "Programando el cambio de horario…",
   }[nombre] ?? "Procesando…";
 }
 
@@ -848,6 +1074,8 @@ function buildEmailHTML(p) {
 /* ─── Inicialización ──────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", async () => {
   await window.APIListo;
+
+  await resolverPerfilBot();
 
   /* ── Demo: inicio automático con credenciales precargadas ── */
   apiKey        = document.getElementById("api-key-input").value.trim();

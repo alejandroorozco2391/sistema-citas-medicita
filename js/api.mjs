@@ -160,6 +160,31 @@ export const nps = {
   },
 };
 
+/**
+ * Horario de atención.
+ *
+ * `base` es la semana normal; `excepciones` es lo que pasa de verdad ese
+ * día. `delDia()` devuelve ya resuelto lo uno encima de lo otro, y es lo
+ * único que debería consultar quien solo quiere saber si hay alguien.
+ */
+export const horarios = {
+  async base()                  { return (await impl()).horariosBase(); },
+  async guardarBase(bloques)    { return (await impl()).horariosGuardarBase(bloques); },
+  async excepciones(desde, hasta) { return (await impl()).horariosExcepciones(desde, hasta); },
+  async agregarExcepcion(exc)   { return (await impl()).horariosAgregarExcepcion(exc); },
+  async quitarExcepcion(id)     { return (await impl()).horariosQuitarExcepcion(id); },
+  async delDia(fecha)           { return (await impl()).horariosDelDia(fecha); },
+  async abiertoAhora()          { return (await impl()).horariosAbiertoAhora(); },
+  async proximaApertura()       { return (await impl()).horariosProximaApertura(); },
+
+  /* A quién deja plantado un cierre. Se consulta ANTES de guardarlo:
+     cerrar el jueves y dejar tres pacientes citados es justo el silencio
+     que hay que evitar. */
+  async citasAfectadas(fecha, horaInicio, horaFin) {
+    return (await impl()).horariosCitasAfectadas(fecha, horaInicio, horaFin);
+  },
+};
+
 export const seguimientos = {
   async listar()           { return (await impl()).seguimientosListar(); },
   async registrar(citaId, fechaAtendida) {
@@ -179,4 +204,11 @@ export const publico = {
   async solicitarCita(datos) { return (await implPublica()).publicoSolicitarCita(datos); },
   async clinica()            { return (await implPublica()).publicoClinica(); },
   async testimonios(opciones) { return (await implPublica()).publicoTestimonios(opciones); },
+
+  /* El formulario de citas no debe ofrecer un día en que el consultorio
+     está cerrado. Devuelve el horario ya resuelto por fecha, sin el
+     motivo del cierre: que esté cerrado es público, por qué no lo es. */
+  async horarioDisponible(desde, hasta) {
+    return (await implPublica()).publicoHorarioDisponible(desde, hasta);
+  },
 };

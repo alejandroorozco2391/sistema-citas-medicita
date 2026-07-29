@@ -28,6 +28,7 @@ const CLAVE_DOCS = "medicita_docs";
 const CLAVE_POSTS = "medicita_posts";
 const CLAVE_NPS = "medicita_nps";
 const CLAVE_FOLLOWUP = "medicita_followup_pendientes";
+const CLAVE_HORARIOS = "medicita_horarios";
 
 /* ─── Topes FIFO (mismos límites que ya usan pacientes.js/medipost.js/
        medidocs.js/conversaciones-store.js hoy) ───────────────────────── */
@@ -906,4 +907,247 @@ export async function seguimientosMarcarEnviado(id, cual) {
 export async function publicoSolicitarCita(datos) {
   const cita = await citasCrear({ ...datos, estado: "pendiente" });
   return cita.folio;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Horario de atención (MediHorario)
+
+   Espejo de 0009_horarios.sql. Las reglas tienen que ser LAS MISMAS que
+   las de Postgres, porque la landing y el agente van a razonar con esto
+   en los dos modos:
+
+     · una excepción PISA a la base para esa fecha, no se suma
+     · un cierre gana sobre cualquier bloque alternativo del mismo día
+     · sin horario cargado, la respuesta es "cerrado" y `null`, nunca una
+       fecha inventada
+
+   Diferencia deliberada: aquí no hay zona horaria configurable. La demo
+   corre en el navegador del visitante y su reloj ES la hora local; una
+   zona distinta a la suya no significaría nada.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const DIAS_CORTOS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+function _horarios() {
+  const h = _leerObjeto(CLAVE_HORARIOS);
+  return { base: h.base || [], excepciones: h.excepciones || [] };
+}
+
+/** "9:5" → "09:05". Deja las horas comparables como texto. */
+function _hhmm(valor) {
+  const m = String(valor || "").match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return "";
+  return `${m[1].padStart(2, "0")}:${m[2]}`;
+}
+
+/** Día de la semana de "YYYY-MM-DD", 0 = domingo, igual que extract(dow). */
+function _diaSemana(fecha) {
+  return new Date(`${fecha}T00:00:00`).getDay();
+}
+
+function _soloFecha(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export async function horariosBase() {
+  return _horarios().base;
+}
+
+/**
+ * Reemplaza la semana completa. La rejilla del panel es la fuente: un
+ * guardado parcial dejaría vivos los bloques que el usuario quitó de la
+ * pantalla. Devuelve el texto del membrete, igual que la función de SQL.
+ */
+export async function horariosGuardarBase(bloques) {
+  const limpios = (bloques || []).map((b) => ({
+    id: `HOR-${_sufijoUnico()}`,
+    diaSemana: Number(b.diaSemana),
+    horaInicio: _hhmm(b.horaInicio),
+    horaFin: _hhmm(b.horaFin),
+  }));
+
+  for (const b of limpios) {
+    if (!(b.diaSemana >= 0 && b.diaSemana <= 6)) throw new Error("Día de la semana inválido");
+    if (!b.horaInicio || !b.horaFin) throw new Error("Falta la hora de inicio o de fin");
+    if (b.horaFin <= b.horaInicio) throw new Error("La hora de fin debe ser posterior a la de inicio");
+  }
+
+  for (const a of limpios) {
+    for (const b of limpios) {
+      if (a === b || a.diaSemana !== b.diaSemana) continue;
+      if (a.horaInicio < b.horaFin && b.horaInicio < a.horaFin) {
+        throw new Error("Hay bloques que se enciman en el mismo día");
+      }
+    }
+  }
+
+  const h = _horarios();
+  _guardar(CLAVE_HORARIOS, { ...h, base: limpios });
+
+  /* El membrete de MediDocs y la landing leen `horarioAtencion`. Se
+     regenera aquí para que no puedan decir cosas distintas. */
+  const texto = _horarioTexto(limpios);
+  const cfg = _leerObjeto(CLAVE_CLINICA);
+  _guardar(CLAVE_CLINICA, { ...cfg, horarioAtencion: texto });
+  return texto;
+}
+
+/** Resumen legible agrupando días consecutivos iguales. Espejo de horario_texto(). */
+function _horarioTexto(base) {
+  const firma = [];
+  for (let d = 0; d <= 6; d++) {
+    firma[d] = base
+      .filter((b) => b.diaSemana === d)
+      .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio))
+      .map((b) => `${b.horaInicio}–${b.horaFin}`)
+      .join(", ");
+  }
+
+  const partes = [];
+  let d = 0;
+  while (d <= 6) {
+    if (!firma[d]) { d++; continue; }
+    const ini = d;
+    while (d < 6 && firma[d + 1] === firma[ini]) d++;
+    const etiqueta = ini === d ? DIAS_CORTOS[ini] : `${DIAS_CORTOS[ini]}–${DIAS_CORTOS[d]}`;
+    partes.push(`${etiqueta} ${firma[ini]}`);
+    d++;
+  }
+  return partes.join(" · ");
+}
+
+export async function horariosExcepciones(desde, hasta) {
+  return _horarios()
+    .excepciones.filter((e) => (!desde || e.fecha >= desde) && (!hasta || e.fecha <= hasta))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+
+export async function horariosAgregarExcepcion(exc) {
+  const cerrado = !!exc.cerrado;
+  const registro = {
+    id: `EXC-${_sufijoUnico()}`,
+    fecha: String(exc.fecha || "").slice(0, 10),
+    cerrado,
+    horaInicio: cerrado ? null : _hhmm(exc.horaInicio),
+    horaFin: cerrado ? null : _hhmm(exc.horaFin),
+    motivo: exc.motivo || "",
+    creadoEn: new Date().toISOString(),
+  };
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(registro.fecha)) throw new Error("Fecha inválida");
+  if (!cerrado) {
+    if (!registro.horaInicio || !registro.horaFin) throw new Error("Falta la hora de inicio o de fin");
+    if (registro.horaFin <= registro.horaInicio) throw new Error("La hora de fin debe ser posterior a la de inicio");
+  }
+
+  const h = _horarios();
+
+  /* Un día se cierra una vez: dos clics en "Cerrar" no deben dejar el
+     cierre duplicado en la lista. */
+  if (cerrado && h.excepciones.some((e) => e.fecha === registro.fecha && e.cerrado)) {
+    return h.excepciones.find((e) => e.fecha === registro.fecha && e.cerrado);
+  }
+
+  h.excepciones.push(registro);
+  _guardar(CLAVE_HORARIOS, h);
+  return registro;
+}
+
+export async function horariosQuitarExcepcion(id) {
+  const h = _horarios();
+  const antes = h.excepciones.length;
+  h.excepciones = h.excepciones.filter((e) => e.id !== id);
+  _guardar(CLAVE_HORARIOS, h);
+  return antes !== h.excepciones.length;
+}
+
+/** Bloques ya resueltos para una fecha. Espejo de horario_del_dia(). */
+export async function horariosDelDia(fecha) {
+  const dia = String(fecha).slice(0, 10);
+  const { base, excepciones } = _horarios();
+  const delDia = excepciones.filter((e) => e.fecha === dia);
+
+  if (delDia.length) {
+    if (delDia.some((e) => e.cerrado)) return [];
+    return delDia
+      .map((e) => ({ horaInicio: e.horaInicio, horaFin: e.horaFin }))
+      .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+  }
+
+  return base
+    .filter((b) => b.diaSemana === _diaSemana(dia))
+    .map((b) => ({ horaInicio: b.horaInicio, horaFin: b.horaFin }))
+    .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+}
+
+export async function horariosAbiertoAhora() {
+  const ahora = new Date();
+  const hora = `${String(ahora.getHours()).padStart(2, "0")}:${String(ahora.getMinutes()).padStart(2, "0")}`;
+  const bloques = await horariosDelDia(_soloFecha(ahora));
+  return bloques.some((b) => hora >= b.horaInicio && hora < b.horaFin);
+}
+
+/**
+ * Siguiente instante con alguien en el consultorio, en ISO. Si ya está
+ * abierto, devuelve ahora. `null` si no hay horario en 14 días — devolver
+ * una fecha cualquiera haría que el agente prometiera algo falso.
+ */
+export async function horariosProximaApertura() {
+  const ahora = new Date();
+
+  for (let i = 0; i <= 14; i++) {
+    const dia = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + i);
+    const bloques = await horariosDelDia(_soloFecha(dia));
+
+    for (const b of bloques) {
+      const [hi, mi] = b.horaInicio.split(":").map(Number);
+      const [hf, mf] = b.horaFin.split(":").map(Number);
+      const inicio = new Date(dia.getFullYear(), dia.getMonth(), dia.getDate(), hi, mi);
+      const fin = new Date(dia.getFullYear(), dia.getMonth(), dia.getDate(), hf, mf);
+
+      if (ahora < inicio) return inicio.toISOString();
+      if (ahora < fin) return ahora.toISOString();
+    }
+  }
+  return null;
+}
+
+/** Citas vivas que quedarían fuera si se cierra o se recorta esa fecha. */
+export async function horariosCitasAfectadas(fecha, horaInicio, horaFin) {
+  const dia = String(fecha).slice(0, 10);
+  const ini = horaInicio ? _hhmm(horaInicio) : null;
+  const fin = horaFin ? _hhmm(horaFin) : null;
+
+  return _leer(CLAVE_CITAS)
+    .filter((c) => c.fecha === dia && ["pendiente", "confirmada"].includes(c.estado))
+    .filter((c) => {
+      if (!ini) return true;                    // se cierra el día entero
+      const h = _hhmm(c.hora);
+      if (!h) return true;                      // sin hora: que lo vea un humano
+      return h < ini || h >= fin;
+    })
+    .sort((a, b) => String(a.hora).localeCompare(String(b.hora)));
+}
+
+/**
+ * Superficie pública: el horario resuelto por fecha, para que el
+ * formulario de la landing no ofrezca un día cerrado. No devuelve el
+ * motivo — que el consultorio esté cerrado es público, por qué no lo es.
+ */
+export async function publicoHorarioDisponible(desde, hasta) {
+  const salida = [];
+  const d = new Date(`${String(desde).slice(0, 10)}T00:00:00`);
+  const tope = new Date(`${String(hasta).slice(0, 10)}T00:00:00`);
+
+  if (isNaN(d) || isNaN(tope) || tope < d) throw new Error("Rango de fechas inválido");
+  if ((tope - d) / 86400000 > 90) throw new Error("El rango de fechas no puede pasar de 90 días");
+
+  while (d <= tope) {
+    const fecha = _soloFecha(d);
+    for (const b of await horariosDelDia(fecha)) {
+      salida.push({ fecha, horaInicio: b.horaInicio, horaFin: b.horaFin });
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return salida;
 }

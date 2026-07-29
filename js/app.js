@@ -395,16 +395,16 @@ function inicializarFormulario() {
     cargarDoctores(id, selectDoc);
   });
 
-  selectDoc.addEventListener("change", () => {
+  selectDoc.addEventListener("change", async () => {
     const id = parseInt(selectDoc.value);
     estado.doctorSeleccionado = DOCTORES.find((d) => d.id === id) || null;
-    cargarHorarios(estado.doctorSeleccionado);
+    await cargarHorarios(estado.doctorSeleccionado);
   });
 
   document.getElementById("form-cita").addEventListener("submit", manejarEnvio);
 
-  document.getElementById("fecha").addEventListener("change", () => {
-    if (estado.doctorSeleccionado) cargarHorarios(estado.doctorSeleccionado);
+  document.getElementById("fecha").addEventListener("change", async () => {
+    if (estado.doctorSeleccionado) await cargarHorarios(estado.doctorSeleccionado);
   });
 
   const toggleSeguro = document.getElementById("tiene-seguro");
@@ -453,9 +453,40 @@ function cargarDoctores(especialidadId, selectDoc) {
   limpiarHorarios();
 }
 
-function cargarHorarios(doctor) {
+/**
+ * Horario de la clínica para toda la ventana de agendamiento.
+ *
+ * Se pide una sola vez y se guarda: son 60 días de bloques, y volver a
+ * preguntarlo cada vez que alguien cambia la fecha sería una petición de
+ * red por clic.
+ *
+ * `null` = todavía no se preguntó. `[]` = se preguntó y no hay horario
+ * cargado, que NO es lo mismo que "cerrado": una clínica que nunca
+ * configuró sus horas debe seguir recibiendo citas como hasta ahora. Si
+ * confundiéramos las dos cosas, el formulario se quedaría sin una sola
+ * hora que ofrecer y nadie entendería por qué.
+ */
+let horarioClinica = null;
+
+async function asegurarHorarioClinica() {
+  if (horarioClinica) return horarioClinica;
+  try {
+    const input = document.getElementById("fecha");
+    horarioClinica = await API.publico.horarioDisponible(input.min, input.max);
+  } catch (e) {
+    /* Si el horario no se puede consultar, el formulario sigue
+       funcionando con los horarios del médico. Perder la cita de un
+       paciente por esto sería mucho peor que ofrecer una hora de más. */
+    console.warn("No se pudo consultar el horario de la clínica:", e);
+    horarioClinica = [];
+  }
+  return horarioClinica;
+}
+
+async function cargarHorarios(doctor) {
   const contenedor = document.getElementById("horarios-container");
   const grid = document.getElementById("grid-horarios");
+  const aviso = document.getElementById("horarios-cerrado");
   const fecha = document.getElementById("fecha").value;
 
   if (!doctor || !fecha) {
@@ -463,11 +494,27 @@ function cargarHorarios(doctor) {
     return;
   }
 
-  grid.innerHTML = doctor.horarios.map((h) => `
-    <button type="button" class="btn-horario" data-hora="${h}" aria-label="Seleccionar ${h}">${h}</button>
-  `).join("");
+  const bloques = await asegurarHorarioClinica();
+
+  let horas = doctor.horarios;
+  if (bloques.length) {
+    const delDia = bloques.filter((b) => b.fecha === fecha);
+    horas = horas.filter((h) => delDia.some((b) => h >= b.horaInicio && h < b.horaFin));
+  }
 
   contenedor.style.display = "block";
+
+  if (!horas.length) {
+    grid.innerHTML = "";
+    aviso.textContent = "Ese día el consultorio no atiende. Elige otra fecha, por favor.";
+    aviso.hidden = false;
+    return;
+  }
+
+  aviso.hidden = true;
+  grid.innerHTML = horas.map((h) => `
+    <button type="button" class="btn-horario" data-hora="${h}" aria-label="Seleccionar ${h}">${h}</button>
+  `).join("");
 
   grid.querySelectorAll(".btn-horario").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -482,6 +529,8 @@ function limpiarHorarios() {
   const contenedor = document.getElementById("horarios-container");
   contenedor.style.display = "none";
   document.getElementById("grid-horarios").innerHTML = "";
+  const aviso = document.getElementById("horarios-cerrado");
+  if (aviso) aviso.hidden = true;
 }
 
 function manejarEnvio(e) {

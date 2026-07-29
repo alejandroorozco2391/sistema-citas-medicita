@@ -316,3 +316,134 @@ test("la clínica pública no expone el plan contratado", async () => {
   assert.strictEqual(cfg.nombreClinica, "Consultorio Prueba");
   assert.ok(!("plan" in cfg), "el plan contratado no es dato de la landing");
 });
+
+/* ═══ Horario de atención ═══════════════════════════════════════════════
+   Las reglas de api-local tienen que ser LAS MISMAS que las de
+   0009_horarios.sql. No es simetría por gusto: la landing y el agente
+   razonan con esto en los dos modos, y una demo que ofrece horas que la
+   clínica real rechazaría es una demo que miente.
+
+   Las mismas reglas están probadas contra Postgres en db-horarios.test.mjs.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Lunes a viernes 9–14 y 16–19. */
+const SEMANA = [1, 2, 3, 4, 5].flatMap(d => [
+  { diaSemana: d, horaInicio: "09:00", horaFin: "14:00" },
+  { diaSemana: d, horaInicio: "16:00", horaFin: "19:00" },
+]);
+
+const LUNES = "2026-08-03";
+const MARTES = "2026-08-04";
+const DOMINGO = "2026-08-09";
+
+test("una excepción con horas reemplaza al día, no se suma", async () => {
+  ls.clear();
+  await local.horariosGuardarBase(SEMANA);
+  await local.horariosAgregarExcepcion({ fecha: MARTES, horaInicio: "10:00", horaFin: "12:00" });
+
+  const martes = await local.horariosDelDia(MARTES);
+  assert.deepStrictEqual(martes, [{ horaInicio: "10:00", horaFin: "12:00" }]);
+
+  const lunes = await local.horariosDelDia(LUNES);
+  assert.strictEqual(lunes.length, 2, "la excepción contaminó otro día");
+});
+
+test("un cierre gana sobre cualquier bloque alternativo del mismo día", async () => {
+  /* Ante la duda, "cerrado": ofrecer una cita que nadie va a atender es
+     peor que no ofrecer ninguna. */
+  ls.clear();
+  await local.horariosGuardarBase(SEMANA);
+  await local.horariosAgregarExcepcion({ fecha: MARTES, horaInicio: "10:00", horaFin: "12:00" });
+  await local.horariosAgregarExcepcion({ fecha: MARTES, cerrado: true, motivo: "Congreso" });
+
+  assert.deepStrictEqual(await local.horariosDelDia(MARTES), []);
+});
+
+test("cerrar dos veces el mismo día no duplica el cierre", async () => {
+  ls.clear();
+  await local.horariosAgregarExcepcion({ fecha: MARTES, cerrado: true });
+  await local.horariosAgregarExcepcion({ fecha: MARTES, cerrado: true });
+
+  const excepciones = await local.horariosExcepciones(MARTES, MARTES);
+  assert.strictEqual(excepciones.filter(e => e.cerrado).length, 1);
+});
+
+test("un día sin horario no devuelve bloques", async () => {
+  ls.clear();
+  await local.horariosGuardarBase(SEMANA);
+  assert.deepStrictEqual(await local.horariosDelDia(DOMINGO), []);
+});
+
+test("guardar la semana rechaza bloques encimados", async () => {
+  ls.clear();
+  await assert.rejects(
+    () => local.horariosGuardarBase([
+      { diaSemana: 1, horaInicio: "09:00", horaFin: "14:00" },
+      { diaSemana: 1, horaInicio: "13:00", horaFin: "18:00" },
+    ]),
+    /enciman/
+  );
+});
+
+test("guardar la semana regenera el texto del membrete agrupando días iguales", async () => {
+  ls.clear();
+  const texto = await local.horariosGuardarBase([
+    { diaSemana: 1, horaInicio: "08:00", horaFin: "13:00" },
+    { diaSemana: 2, horaInicio: "08:00", horaFin: "13:00" },
+    { diaSemana: 6, horaInicio: "09:00", horaFin: "12:00" },
+  ]);
+
+  assert.match(texto, /Lun–Mar 08:00–13:00/);
+  assert.match(texto, /Sáb 09:00–12:00/);
+
+  /* Y queda escrito donde lo lee el membrete de MediDocs. */
+  const cfg = await local.clinicaObtener();
+  assert.strictEqual(cfg.horarioAtencion, texto);
+});
+
+test("sin horario cargado, la próxima apertura es null y no una fecha inventada", async () => {
+  ls.clear();
+  assert.strictEqual(await local.horariosProximaApertura(), null);
+  assert.strictEqual(await local.horariosAbiertoAhora(), false);
+});
+
+test("cerrar un día reporta las citas vivas que deja plantadas", async () => {
+  ls.clear();
+  for (const [hora, estado] of [["09:00", "confirmada"], ["17:00", "pendiente"], ["11:00", "cancelada"]]) {
+    await local.citasCrear({
+      nombre: "Paciente", apellidos: "X", telefono: "5511112222",
+      fecha: MARTES, hora, especialidad: "Medicina General", estado,
+    });
+  }
+
+  const afectadas = await local.horariosCitasAfectadas(MARTES);
+  assert.deepStrictEqual(afectadas.map(c => c.hora), ["09:00", "17:00"],
+    "una cita cancelada no deja a nadie plantado");
+
+  /* Recortar a 9–14 solo debería afectar a la de las 17:00. */
+  const recorte = await local.horariosCitasAfectadas(MARTES, "09:00", "14:00");
+  assert.deepStrictEqual(recorte.map(c => c.hora), ["17:00"]);
+});
+
+test("el horario público no filtra el motivo de un cierre", async () => {
+  ls.clear();
+  await local.horariosGuardarBase(SEMANA);
+  await local.horariosAgregarExcepcion({
+    fecha: MARTES, cerrado: true, motivo: "Cirugía de la Dra. Ruiz",
+  });
+
+  const dias = await local.publicoHorarioDisponible(LUNES, MARTES);
+  const serializado = JSON.stringify(dias);
+
+  assert.ok(!serializado.includes("Cirugía"), "se filtró el motivo del cierre");
+  assert.ok(!serializado.includes("Ruiz"));
+  assert.ok(dias.every(d => d.fecha === LUNES), "el martes cerrado no debe ofrecer horas");
+});
+
+test("el horario público frena un rango absurdo", async () => {
+  ls.clear();
+  await assert.rejects(
+    () => local.publicoHorarioDisponible("2026-01-01", "2036-01-01"),
+    /90 días/
+  );
+});

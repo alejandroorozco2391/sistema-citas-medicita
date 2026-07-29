@@ -651,6 +651,14 @@ textarea.form-control { resize: vertical; min-height: 90px; }
 }
 .btn-horario:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .btn-horario.activo { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+.horarios-cerrado {
+  font-size: .86rem;
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 8px;
+  padding: 10px 13px;
+  margin-top: 4px;
+}
 .form-submit {
   grid-column: 1 / -1;
   display: flex;

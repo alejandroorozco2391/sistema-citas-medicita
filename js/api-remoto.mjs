@@ -891,3 +891,160 @@ export async function publicoSolicitarCita(d) {
   if (error) throw new Error(error.message);
   return data;
 }
+
+/**
+ * Horario resuelto por fecha, sin sesión. Va por RPC por la misma razón
+ * que solicitar_cita: el rol anónimo no tiene política sobre
+ * horarios_base ni horarios_excepciones, y la función es la que recorta
+ * el motivo del cierre y frena rangos absurdos.
+ */
+export async function publicoHorarioDisponible(desde, hasta) {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("horario_disponible", {
+    p_desde: soloFecha(desde),
+    p_hasta: soloFecha(hasta),
+  });
+  if (error) throw new Error(error.message);
+  return (data || []).map(deDbBloqueFecha);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Horario de atención (MediHorario)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const deDbBloque = r => ({
+  id: r.id,
+  diaSemana: r.dia_semana,
+  horaInicio: recortarHora(r.hora_inicio),
+  horaFin: recortarHora(r.hora_fin),
+});
+
+const deDbBloqueFecha = r => ({
+  fecha: soloFecha(r.fecha),
+  horaInicio: recortarHora(r.hora_inicio),
+  horaFin: recortarHora(r.hora_fin),
+});
+
+const deDbExcepcion = r => ({
+  id: r.id,
+  fecha: soloFecha(r.fecha),
+  cerrado: r.cerrado,
+  horaInicio: recortarHora(r.hora_inicio),
+  horaFin: recortarHora(r.hora_fin),
+  motivo: r.motivo || "",
+  creadoEn: r.creado_en,
+});
+
+/* Postgres devuelve `time` como "09:00:00"; el resto del sistema habla
+   "HH:MM". Se recorta aquí y no en la vista para que la comparación con
+   los horarios de data.js siga siendo de texto contra texto. */
+const recortarHora = h => (h ? String(h).slice(0, 5) : null);
+
+export async function horariosBase() {
+  const cliente = await db();
+  const filas = reventar(
+    await cliente
+      .from("horarios_base")
+      .select("*")
+      .is("staff_id", null)
+      .order("dia_semana")
+      .order("hora_inicio")
+  );
+  return (filas || []).map(deDbBloque);
+}
+
+/** Reemplaza la semana completa. La RPC valida traslapes y regenera el membrete. */
+export async function horariosGuardarBase(bloques) {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("guardar_horario_base", {
+    p_bloques: (bloques || []).map(b => ({
+      diaSemana: Number(b.diaSemana),
+      horaInicio: b.horaInicio,
+      horaFin: b.horaFin,
+    })),
+  });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function horariosExcepciones(desde, hasta) {
+  const cliente = await db();
+  let q = cliente.from("horarios_excepciones").select("*").is("staff_id", null);
+  if (desde) q = q.gte("fecha", soloFecha(desde));
+  if (hasta) q = q.lte("fecha", soloFecha(hasta));
+  return (reventar(await q.order("fecha")) || []).map(deDbExcepcion);
+}
+
+export async function horariosAgregarExcepcion(exc) {
+  const cliente = await db();
+  const cerrado = Boolean(exc.cerrado);
+
+  const { data, error } = await cliente
+    .from("horarios_excepciones")
+    .insert({
+      clinica_id: await clinicaId(),
+      fecha: soloFecha(exc.fecha),
+      cerrado,
+      hora_inicio: cerrado ? null : exc.horaInicio,
+      hora_fin: cerrado ? null : exc.horaFin,
+      motivo: exc.motivo || "",
+    })
+    .select()
+    .single();
+
+  /* El índice único de cierre por día: cerrar dos veces el mismo día no
+     es un error del usuario, es doble clic. Se devuelve el que ya estaba. */
+  if (error && error.code === "23505") {
+    const previas = await horariosExcepciones(exc.fecha, exc.fecha);
+    return previas.find(e => e.cerrado) || null;
+  }
+  if (error) throw new Error(error.message);
+  return deDbExcepcion(data);
+}
+
+export async function horariosQuitarExcepcion(id) {
+  const cliente = await db();
+  reventar(await cliente.from("horarios_excepciones").delete().eq("id", id));
+  return true;
+}
+
+export async function horariosDelDia(fecha) {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("horario_del_dia", {
+    p_clinica: await clinicaId(),
+    p_fecha: soloFecha(fecha),
+  });
+  if (error) throw new Error(error.message);
+  return (data || []).map(r => ({
+    horaInicio: recortarHora(r.hora_inicio),
+    horaFin: recortarHora(r.hora_fin),
+  }));
+}
+
+export async function horariosAbiertoAhora() {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("en_horario", { p_clinica: await clinicaId() });
+  if (error) throw new Error(error.message);
+  return Boolean(data);
+}
+
+export async function horariosProximaApertura() {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("proxima_apertura", { p_clinica: await clinicaId() });
+  if (error) throw new Error(error.message);
+  return data || null;
+}
+
+export async function horariosCitasAfectadas(fecha, horaInicio, horaFin) {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("citas_afectadas_por_cierre", {
+    p_fecha: soloFecha(fecha),
+    p_hora_inicio: horaInicio || null,
+    p_hora_fin: horaFin || null,
+  });
+  if (error) throw new Error(error.message);
+  return (data || []).map(r => ({
+    id: r.id, folio: r.folio, nombre: r.nombre, apellidos: r.apellidos,
+    telefono: r.telefono, email: r.email, hora: r.hora, doctor: r.doctor,
+  }));
+}

@@ -203,6 +203,9 @@
                 <div id="horarios-container" role="group" aria-labelledby="label-horarios">
                   <label id="label-horarios">Horario disponible <span aria-label="obligatorio">*</span></label>
                   <div id="grid-horarios" aria-label="Selecciona un horario"></div>
+                  <!-- Cuando el consultorio no atiende ese día. Ofrecer horas
+                       que nadie va a atender es peor que no ofrecer ninguna. -->
+                  <p id="horarios-cerrado" class="horarios-cerrado" hidden></p>
                 </div>
 
                 <div class="form-grupo full">

@@ -191,6 +191,10 @@
                 id="tab-btn-pacientes" aria-controls="tab-pacientes" aria-selected="false">
           👥 Pacientes
         </button>
+        <button class="tabs-nav-btn" data-tab="horarios" role="tab"
+                id="tab-btn-horarios" aria-controls="tab-horarios" aria-selected="false">
+          🗓 Horarios
+        </button>
         <button class="tabs-nav-btn" data-tab="analytics" role="tab"
                 id="tab-btn-analytics" aria-controls="tab-analytics" aria-selected="false">
           📊 Analytics
@@ -508,8 +512,127 @@
 
       </div>
 
+      <!-- ─── Pestaña: Horarios ──────────────────────────────────────────── -->
+      <div id="tab-horarios" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-horarios">
+
+        <!-- Estado actual: lo primero que alguien quiere saber al abrir -->
+        <div class="hor-estado" id="hor-estado">
+          <span class="hor-estado-punto" id="hor-estado-punto"></span>
+          <span class="hor-estado-texto" id="hor-estado-texto">Cargando horario…</span>
+        </div>
+
+        <!-- ── La semana normal ── -->
+        <div class="tabla-card">
+          <div class="tabla-header">
+            <div class="tabla-header-izq">
+              <h3>Semana habitual</h3>
+              <p class="hor-sub">El horario de siempre. Para un cambio puntual usa
+                 <strong>Próximos cambios</strong> — así no pierdes el horario base.</p>
+            </div>
+            <div class="tabla-header-der">
+              <button type="button" class="btn-hor-ghost" id="btn-hor-copiar">
+                Copiar lunes a toda la semana
+              </button>
+              <button type="button" class="btn-hor-guardar" id="btn-hor-guardar">
+                💾 Guardar semana
+              </button>
+            </div>
+          </div>
+
+          <div class="hor-semana" id="hor-semana" role="group" aria-label="Horario semanal">
+            <!-- Renderizado por js/horarios.js -->
+          </div>
+
+          <p class="hor-membrete">
+            En documentos y en la landing se lee:
+            <strong id="hor-membrete-texto">—</strong>
+          </p>
+        </div>
+
+        <!-- ── Excepciones ── -->
+        <div class="tabla-card">
+          <div class="tabla-header">
+            <div class="tabla-header-izq">
+              <h3>Próximos cambios</h3>
+              <p class="hor-sub">Cierres, vacaciones o un día con horario distinto.
+                 Pisan a la semana habitual solo en esa fecha.</p>
+            </div>
+          </div>
+
+          <form class="hor-exc-form" id="hor-exc-form">
+            <div class="hor-exc-campo">
+              <label class="config-label" for="hor-exc-fecha">Fecha</label>
+              <input type="date" id="hor-exc-fecha" class="form-control-admin" required />
+            </div>
+
+            <div class="hor-exc-campo hor-exc-campo--tipo">
+              <label class="config-label" for="hor-exc-tipo">Qué pasa ese día</label>
+              <select id="hor-exc-tipo" class="form-control-admin">
+                <option value="cerrado">Cerrado todo el día</option>
+                <option value="horario">Abre en otro horario</option>
+              </select>
+            </div>
+
+            <div class="hor-exc-campo hor-exc-horas oculto" id="hor-exc-horas">
+              <label class="config-label" for="hor-exc-inicio">De</label>
+              <input type="time" id="hor-exc-inicio" class="form-control-admin" value="09:00" />
+              <label class="config-label" for="hor-exc-fin">a</label>
+              <input type="time" id="hor-exc-fin" class="form-control-admin" value="14:00" />
+            </div>
+
+            <div class="hor-exc-campo hor-exc-campo--motivo">
+              <label class="config-label" for="hor-exc-motivo">Motivo (uso interno)</label>
+              <input type="text" id="hor-exc-motivo" class="form-control-admin"
+                     placeholder="Ej. Congreso en Guadalajara" maxlength="120" />
+            </div>
+
+            <button type="submit" class="btn-hor-guardar" id="btn-hor-exc-agregar">
+              + Agregar
+            </button>
+          </form>
+
+          <p class="hor-privacidad">
+            El motivo es solo para ustedes: la página pública nunca lo muestra,
+            solo dice que ese día está cerrado.
+          </p>
+
+          <div class="hor-exc-lista" id="hor-exc-lista">
+            <!-- Renderizado por js/horarios.js -->
+          </div>
+        </div>
+
+      </div>
+
     </div>
   </main>
+
+  <!-- ─── Modal: citas que quedan fuera de horario ──────────────────────── -->
+  <!-- Cerrar un día y dejar pacientes citados es el silencio que hay que
+       evitar: antes de confirmar, se ve a quién se va a dejar plantado. -->
+  <div id="modal-hor-afectadas" class="modal-overlay oculto" role="dialog" aria-modal="true"
+       aria-labelledby="modal-hor-afectadas-titulo">
+    <div class="modal-card" role="document">
+      <div class="modal-header">
+        <h2 id="modal-hor-afectadas-titulo">Hay citas ese día</h2>
+        <button type="button" class="modal-cerrar" id="btn-hor-afectadas-x"
+                aria-label="Cancelar">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc" id="hor-afectadas-desc"></p>
+        <div class="hor-afectadas-lista" id="hor-afectadas-lista"></div>
+        <p class="hor-afectadas-nota">
+          Guardar el cambio <strong>no cancela ni avisa nada</strong>. Estas citas
+          siguen en la agenda: hay que reagendarlas o llamar a cada paciente.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-hor-afectadas-cancelar" class="btn-modal-cancelar">Cancelar</button>
+        <button type="button" id="btn-hor-afectadas-confirmar" class="btn-modal-guardar">
+          Entendido, guardar de todos modos
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast de notificaciones -->
   <div id="toast" role="status" aria-live="polite"></div>
@@ -1127,5 +1250,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="js/analytics.js"></script>
   <script src="js/pacientes.js"></script>
+  <script src="js/horarios.js"></script>
 </body>
 </html>
