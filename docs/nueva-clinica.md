@@ -165,10 +165,11 @@ Sin esto, la escalación a humano funciona a medias: se crea, se ve en el panel 
 2. Abre `supabase/cron.sql`, cambia **solo sus dos primeras líneas** (la URL de `/api/avisar` de este despliegue y el mismo `ESCALACIONES_TOKEN` que pusiste en Vercel) y pégalo en el **SQL Editor**.
 3. Al final trae dos consultas de comprobación: la primera debe listar los dos trabajos con `active = true`, y la segunda —tras un minuto— que hayan corrido sin error.
 
-Son dos trabajos, y están separados a propósito:
+Son tres trabajos, y los dos primeros están separados a propósito:
 
 - **`medicita-promover-escalaciones`** sube de nivel las escalaciones sin acuse y, al final de la escalera, las marca como *vencidas*. Corre entero dentro de Postgres.
 - **`medicita-vaciar-avisos`** solo toca el timbre: `pg_net` hace un POST a `/api/avisar` con el token, y toda la lógica de armar y mandar el correo vive en `api/avisar.js`, donde se puede leer y arreglar sin migrar la base.
+- **`medicita-barrer-bitacora`** borra de `cron.job_run_details` lo que pase de 7 días.  escribe un renglón por cada corrida y no los borra nunca: dos trabajos cada minuto son 2,880 renglones al día y cerca de un millón al año. El síntoma aparecería meses después sin relación aparente con nada.
 
 **Sobre EmailJS**: la función usa la API REST con la **llave privada**, no la publishable del navegador. En el panel de EmailJS hay que permitir el envío desde fuera del navegador (*Account → Security → API requests*); si esa cuenta no lo permite, se cambia el remitente dentro de `mandarCorreo()` en `api/avisar.js` y nada más — por eso hay una bandeja de salida en medio.
 

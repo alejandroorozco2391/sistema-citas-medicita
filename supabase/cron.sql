@@ -37,11 +37,11 @@ declare
   -- ╚═══════════════════════════════════════════════════════════════════╝
 
   -- La URL de ESTE despliegue, con /api/avisar al final.
-  v_url_avisar text := 'https://TU-CLINICA.vercel.app/api/avisar';
+  v_url_avisar text := 'https://sistema-citas-medicita.vercel.app/api/avisar';
 
   -- El MISMO valor que pusiste en ESCALACIONES_TOKEN en Vercel.
   -- Si no coinciden, /api/avisar contesta 401 y los correos nunca salen.
-  v_token      text := 'EL_MISMO_ESCALACIONES_TOKEN_DE_VERCEL';
+  v_token      text := '2d0e84ea1a4e49fabcd3a3c4dbbeb31f2ce452ae589a4ef497fc1393c2d387d1';
 
   -- ╔═══════════════════════════════════════════════════════════════════╗
   -- ║  De aquí para abajo no se toca                                    ║
@@ -86,12 +86,32 @@ begin
     )
   );
 
-  raise notice 'Listo. Los dos trabajos quedaron programados cada minuto.';
+  -- ─── 3. Barrer la bitácora del propio cron ───────────────────────────
+  -- pg_cron escribe un renglón en cron.job_run_details por CADA corrida y
+  -- no los borra nunca. Dos trabajos cada minuto son 2,880 renglones al
+  -- día y cerca de un millón al año. En un proyecto chico eso se nota, y
+  -- el síntoma aparecería meses después sin relación aparente con nada.
+  --
+  -- Se conservan 7 días: suficiente para diagnosticar "¿por qué no salió
+  -- el aviso del martes?" y nada más.
+  perform cron.unschedule('medicita-barrer-bitacora')
+    where exists (select 1 from cron.job where jobname = 'medicita-barrer-bitacora');
+
+  perform cron.schedule(
+    'medicita-barrer-bitacora',
+    '17 3 * * *',   -- 3:17 de la mañana; a esa hora no compite con nada
+    $limpia$
+      delete from cron.job_run_details
+      where end_time < now() - interval '7 days';
+    $limpia$
+  );
+
+  raise notice 'Listo. Los tres trabajos quedaron programados.';
 end $$;
 
 
 -- ─── Comprobación 1: ¿están programados? ───────────────────────────────
--- Deben salir DOS renglones, los dos con active = true.
+-- Deben salir TRES renglones, todos con active = true.
 select jobname, schedule, active
 from cron.job
 where jobname like 'medicita-%';
@@ -108,6 +128,12 @@ order by r.start_time desc
 limit 10;
 
 
+-- ─── Cuánto ha crecido la bitácora ─────────────────────────────────────
+-- Si esto pasa de unos 20 mil renglones, el barrido no está corriendo.
+select count(*) as renglones_de_bitacora from cron.job_run_details;
+
+
 -- ─── Para desactivarlos ────────────────────────────────────────────────
 -- select cron.unschedule('medicita-promover-escalaciones');
 -- select cron.unschedule('medicita-vaciar-avisos');
+-- select cron.unschedule('medicita-barrer-bitacora');
