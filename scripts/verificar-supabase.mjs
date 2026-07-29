@@ -68,6 +68,8 @@ const TABLAS = [
   "clinicas", "perfiles_staff", "pacientes", "notas_paciente", "citas",
   "seguimientos", "nps_respuestas", "conversaciones", "mensajes",
   "documentos", "posts",
+  // Fase E
+  "horarios_base", "horarios_excepciones", "escalaciones", "avisos_pendientes",
 ];
 
 console.log(`\nProyecto: ${URL_BASE}`);
@@ -169,13 +171,18 @@ console.log("\n[4] ¿Existen las funciones públicas?");
    función corre — y aborta en su propia validación antes de tocar nada.
    Un error de validación es prueba de que la función está ahí y de que
    valida. Lo que delata la ausencia es el código PGRST202. */
+/* Cada sonda dice de qué migración viene, para que el mensaje de error
+   apunte al archivo que de verdad falta y no siempre al mismo. */
 const SONDAS = [
-  ["solicitar_cita",         { p_nombre: "", p_apellidos: "", p_telefono: "" }],
-  ["responder_encuesta",     { p_folio: "__NO_EXISTE__", p_puntuacion: 5 }],
-  ["encuesta_ya_respondida", { p_folio: "__NO_EXISTE__" }],
+  ["solicitar_cita",         { p_nombre: "", p_apellidos: "", p_telefono: "" }, "0006_rpc_publicas.sql"],
+  ["responder_encuesta",     { p_folio: "__NO_EXISTE__", p_puntuacion: 5 },     "0006_rpc_publicas.sql"],
+  ["encuesta_ya_respondida", { p_folio: "__NO_EXISTE__" },                      "0006_rpc_publicas.sql"],
+  // Fase E: la landing consulta el horario y el paciente puede pedir un humano.
+  ["horario_disponible",     { p_desde: "2000-01-01", p_hasta: "2099-01-01" },  "0009_horarios.sql"],
+  ["escalar_a_humano",       { p_motivo: "", p_resumen: "" },                   "0010_escalaciones.sql"],
 ];
 
-for (const [fn, cuerpo] of SONDAS) {
+for (const [fn, cuerpo, migracion] of SONDAS) {
   const r = await fetch(`${URL_BASE}/rest/v1/rpc/${fn}`, {
     method: "POST",
     headers: { ...cabeceras, "Content-Type": "application/json" },
@@ -185,10 +192,21 @@ for (const [fn, cuerpo] of SONDAS) {
   let json = null;
   try { json = JSON.parse(texto); } catch { /* no era JSON */ }
 
-  if (json?.code === "PGRST202") mal(`${fn}: no existe (¿faltó aplicar 0006_rpc_publicas.sql?)`);
+  if (json?.code === "PGRST202") mal(`${fn}: no existe (¿faltó aplicar ${migracion}?)`);
   else if (r.status === 401 || r.status === 403) mal(`${fn}: existe pero anon no puede ejecutarla`);
   else bien(`${fn}: presente y validando`);
 }
+
+/* ─── Lo único que este script NO puede comprobar ─────────────────────── */
+console.log("\n[5] El reloj de las escalaciones");
+console.log("  · No se puede verificar desde aquí: `cron.job` vive fuera del");
+console.log("    esquema público y la llave pública no lo alcanza — que es");
+console.log("    justo como debe ser.");
+console.log("  · Compruébalo en el editor SQL del panel:");
+console.log("      select jobname, schedule, active from cron.job where jobname like 'medicita-%';");
+console.log("    Deben salir DOS renglones con active = true. Si no, la");
+console.log("    escalación funciona pero la re-alerta no ocurre con el panel");
+console.log("    cerrado. Ver supabase/cron.sql.");
 
 console.log(
   fallas === 0

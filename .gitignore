@@ -8,3 +8,7 @@ supabase/.temp
 # plantilla de la siguiente clínica, y no debe venir apuntando a la base
 # de una clínica anterior. Plantilla: js/config-local.ejemplo.mjs
 js/config-local.mjs
+
+# Bundle parcial de migraciones: depende de en qué versión esté cada
+# clínica, así que guardarlo sería guardar una foto que envejece sola.
+supabase/migraciones-pendientes.sql
