@@ -62,7 +62,7 @@ Si prefieres ir de una en una, el orden es obligatorio — cada archivo da por h
 0001_utilidades.sql · 0002_clinicas_y_staff.sql · 0003_pacientes.sql
 0004_citas.sql · 0005_conversaciones_y_modulos.sql · 0006_rpc_publicas.sql
 0007_testimonios_publicos.sql · 0008_posts_campos_faltantes.sql
-0009_horarios.sql · 0010_escalaciones.sql
+0009_horarios.sql · 0010_escalaciones.sql · 0011_fecha_en_palabras.sql
 ```
 
 `supabase/cron.sql` **no** va aquí: necesita extensiones que se habilitan a mano y la URL del despliegue, así que es el paso 6.
