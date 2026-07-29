@@ -1371,14 +1371,17 @@ export async function publicoEscalarAHumano(datos) {
   const abiertoAhora = await horariosAbiertoAhora();
   const proxima = abiertoAhora ? null : await horariosProximaApertura();
   const esEmergencia = escalacion.motivo === "urgencia_medica";
+  const cuando = proxima ? _fechaEnPalabras(proxima) : null;
 
   let instruccion;
   if (esEmergencia) {
     instruccion = "ANTES QUE NADA dile que si es una emergencia llame al 911 o vaya a urgencias AHORA, sin esperar respuesta. Después confirma que ya avisaste a la clínica.";
   } else if (abiertoAhora) {
     instruccion = "Confirma que ya avisaste y que en unos minutos lo contactan.";
-  } else if (proxima) {
-    instruccion = "Confirma que ya avisaste y di que lo contactan cuando abra el consultorio, en la fecha y hora de atencionEn. No prometas antes.";
+  } else if (cuando) {
+    instruccion = `Confirma que ya avisaste y di que lo contactan el ${cuando}. ` +
+      "Copia esa hora TAL CUAL, en el campo atencionEnTexto. No la conviertas, " +
+      "no la redondees y no le sumes margen: ya viene en la hora local de la clínica.";
   } else {
     instruccion = "Confirma que ya avisaste. NO prometas una hora: el consultorio no tiene horario cargado y sería inventarla.";
   }
@@ -1389,7 +1392,29 @@ export async function publicoEscalarAHumano(datos) {
     urgencia: escalacion.urgencia,
     abiertoAhora,
     atencionEn: proxima,
+    atencionEnTexto: cuando,
     esEmergencia,
     instruccion,
   };
+}
+
+/**
+ * "jueves 30 de julio a las 09:00". Espejo de fecha_en_palabras().
+ *
+ * Existe porque quien redacta la respuesta al paciente es un modelo de
+ * lenguaje: dándole un ISO con zona horaria tiene que convertirlo él, y
+ * en la primera prueba contra un proyecto real dijo una hora de más.
+ * Nadie lo habría notado — suena razonable, y el paciente espera una
+ * llamada que ya ocurrió.
+ */
+const _DIAS_LARGOS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const _MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
+                "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+function _fechaEnPalabras(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return null;
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${_DIAS_LARGOS[d.getDay()]} ${d.getDate()} de ${_MESES[d.getMonth()]} a las ${hh}:${mm}`;
 }

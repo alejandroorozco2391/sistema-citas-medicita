@@ -511,3 +511,59 @@ test("el personal no puede escribir en la bandeja de salida", async () => {
   });
   await db.close();
 });
+
+/* ═══ La hora que se le dice al paciente ═══════════════════════════════ */
+
+test("la hora de atención sale ya escrita en español y en hora local", async () => {
+  /* Quien redacta la respuesta es un modelo de lenguaje. Dándole un ISO en
+     UTC tiene que convertirlo él, y en la primera prueba contra un
+     proyecto real dijo una hora de más. Nadie lo habría notado: suena
+     razonable, y el paciente espera una llamada que ya ocurrió. */
+  const db = await crearBase();
+  const { clinicaId } = await clinicaConEquipo(db);
+
+  /* Se cierra hoy para forzar la rama de "cerrado". */
+  const { rows: [hoy] } = await db.query(
+    "select (now() at time zone 'America/Mexico_City')::date as d"
+  );
+  await db.query(
+    "insert into horarios_excepciones (clinica_id, fecha, cerrado) values ($1, $2, true)",
+    [clinicaId, hoy.d]
+  );
+
+  const r = await escalar(db);
+
+  assert.equal(r.abiertoAhora, false);
+  assert.ok(r.atencionEnTexto, "no vino la hora ya escrita");
+
+  /* En español, con día, mes y hora — nada de 'Thursday' ni de UTC. */
+  assert.match(r.atencionEnTexto, /^(lunes|martes|miércoles|jueves|viernes|sábado|domingo) \d{1,2} de \w+ a las \d{2}:\d{2}$/);
+
+  /* Y coincide con la hora local del timestamp crudo, no con la UTC. */
+  const { rows: [esperado] } = await db.query(
+    "select to_char($1::timestamptz at time zone 'America/Mexico_City', 'HH24:MI') as h",
+    [r.atencionEn]
+  );
+  assert.ok(r.atencionEnTexto.endsWith(esperado.h),
+    `dice "${r.atencionEnTexto}" pero la hora local es ${esperado.h}`);
+
+  /* La instrucción tiene que prohibir el cálculo explícitamente. */
+  assert.match(r.instruccion, /TAL CUAL/);
+  await db.close();
+});
+
+test("fecha_en_palabras respeta la zona horaria que se le pase", async () => {
+  const db = await crearBase();
+
+  /* Las 15:00 UTC son las 09:00 en CDMX y las 08:00 en Tijuana. */
+  const { rows: [r] } = await db.query(`
+    select fecha_en_palabras('2026-07-30T15:00:00Z', 'America/Mexico_City') as cdmx,
+           fecha_en_palabras('2026-07-30T15:00:00Z', 'America/Tijuana')     as tij,
+           fecha_en_palabras(null, 'America/Mexico_City')                   as nulo
+  `);
+
+  assert.equal(r.cdmx, "jueves 30 de julio a las 09:00");
+  assert.equal(r.tij,  "jueves 30 de julio a las 08:00");
+  assert.equal(r.nulo, null, "sin momento no se inventa una fecha");
+  await db.close();
+});
