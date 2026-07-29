@@ -79,6 +79,13 @@ Y el horario del consultorio:
 • cambiar_horario_base — reemplaza la semana habitual COMPLETA (confirma antes)
 • agregar_excepcion_horario — cierra un día suelto o le pone otro horario
 
+• escalar_a_humano — pasa el asunto a QUIEN CORRESPONDE, con acuse y re-alerta.
+  Que quien te habla sea del personal no quiere decir que sea la persona
+  indicada: recepción no resuelve una duda clínica. Úsala cuando te pidan
+  avisarle al médico, cuando la pregunta necesite criterio clínico, o ante
+  una queja. Deja rastro y alguien tiene que hacerse cargo — no es lo mismo
+  que gritar por el pasillo y que se olvide.
+
 Úsalas proactivamente cuando el contexto lo requiera sin pedir permiso.` : `CON QUIÉN HABLAS: un paciente o alguien del público. No tiene sesión.
 
 HERRAMIENTAS DISPONIBLES:
@@ -419,9 +426,18 @@ const TOOLS_PACIENTE = [
 
 let perfilBot = "paciente";
 
+/**
+ * El personal las tiene todas, incluida `escalar_a_humano`.
+ *
+ * Al principio se la quitamos, con el argumento de que "ya eres el
+ * humano". El argumento estaba mal: confunde *ser un humano* con *ser el
+ * humano correcto*. Recepción no es el médico, y que recepción le pase
+ * una duda clínica al doctor —con acuse y re-alerta, no con un grito por
+ * el pasillo que se olvida— es justo el ruteo que esto viene a resolver.
+ */
 function toolsDelPerfil() {
   return perfilBot === "personal"
-    ? TOOLS.filter(t => t.name !== "escalar_a_humano")
+    ? TOOLS
     : TOOLS.filter(t => TOOLS_PACIENTE.includes(t.name) || t.name === "escalar_a_humano");
 }
 
