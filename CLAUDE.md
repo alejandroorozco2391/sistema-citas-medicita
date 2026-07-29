@@ -856,6 +856,8 @@ Un webhook de WhatsApp o ElevenLabs **no puede escribir en el localStorage de un
 - [x] 206 pruebas en verde
 
 ### ← SIGUIENTE PASO
+- [ ] **Aviso al celular de quien le toca la escalación (SMS y WhatsApp).** Hoy el aviso fuera del panel es solo correo. El pitido y la notificación del navegador cubren a quien está trabajando; no cubren al doctor un domingo. Decidido: **SMS para los planes Esencial y Profesional, WhatsApp Business para Premium** — SMS llega a cualquier celular sin trámite ni opt-in y sirve como fase de prueba; WhatsApp es más barato y donde vive la gente, pero exige plantilla aprobada por Meta y verificación de negocio, así que se justifica cuando el plan lo paga.
+  **No hay que rediseñar nada:** `avisos_pendientes.canal` ya existe y `api/avisar.js` ya decide cómo manda cada aviso. Es ampliar el `check (canal in ('email'))`, agregar un remitente en esa función y usar `perfiles_staff.telefono`, que ya está. Fue el punto de separar la escalera del envío.
 - [ ] **Contacto proactivo:** cron + tabla de tareas programadas + consentimiento por canal + tope de frecuencia + salida fácil. El reloj (`pg_cron`) y la bandeja de salida (`avisos_pendientes`) ya existen desde la Fase E: esto es agregarle un productor, no construir la infraestructura.
   **Restricción que condiciona el diseño, no un detalle:** WhatsApp no permite texto libre fuera de las 24 h posteriores al último mensaje del paciente — solo plantillas pre-aprobadas por Meta y con opt-in registrado. Mandar texto libre proactivo tumba el número. Texto generado por Claude funciona por correo y SMS; en WhatsApp, solo dentro de la ventana o con plantillas. Súmale la LFPDPPP: contacto proactivo con datos de salud exige consentimiento registrado.
 
