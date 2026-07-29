@@ -88,8 +88,8 @@ No hay linter ni build step. La verificación corre con el runner nativo de node
 
 ```bash
 npm test           # 65 pruebas del frontend, cero dependencias
-npm run test:db    # 77 pruebas contra un Postgres real (pglite, WebAssembly)
-npm run test:all   # las 142
+npm run test:db    # 85 pruebas contra un Postgres real (pglite, WebAssembly)
+npm run test:all   # las 150
 npm run db:verificar  # contra el proyecto de Supabase real, ya desplegado
 ```
 
@@ -509,6 +509,7 @@ supabase/migrations/     0001 utilidades · 0002 clínicas y staff · 0003 pacie
                          0004 citas · 0005 conversaciones y módulos · 0006 RPC públicas
                          0007 testimonios públicos · 0008 campos faltantes de posts
 supabase/seed-clinica.sql  Alta de una clínica nueva (se pega en el panel)
+supabase/reset-datos.sql   Vaciar los datos de una clínica (se pega en el panel)
 docs/nueva-clinica.md      Procedimiento completo de aprovisionamiento
 js/supabase-client.mjs     Cliente por CDN + detección de modo
 js/api.mjs                 Interfaz única (39 métodos) + despachador

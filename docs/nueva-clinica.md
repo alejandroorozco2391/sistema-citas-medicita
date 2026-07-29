@@ -166,7 +166,7 @@ Los datos locales **no se borran automáticamente**. La opción de limpiarlos ap
 
 ```bash
 npm run db:verificar    # contra el proyecto real, ya desplegado
-npm run test:all        # 138 pruebas contra un Postgres simulado
+npm run test:all        # 150 pruebas contra un Postgres simulado
 ```
 
 Las dos comprueban cosas distintas y hacen falta las dos:
@@ -182,6 +182,26 @@ Y a mano, en el navegador:
 - [ ] Se puede pedir una cita desde la landing sin sesión
 - [ ] Esa cita aparece en el panel al iniciar sesión
 - [ ] `encuesta.html?folio=XXXX` acepta una respuesta y rechaza la segunda
+
+---
+
+## Vaciar un proyecto que se usó para pruebas
+
+Lo normal al montar la primera clínica es haber capturado citas y pacientes de mentira mientras se probaba. Entregar el sistema con esos datos adentro se ve mal y, peor, se confunden con los reales en cuanto empiecen a llegar.
+
+Para eso está `supabase/reset-datos.sql`. Se edita **solo su bloque `QUÉ BORRAR`** y se pega en el **SQL Editor**:
+
+- `v_nombre_clinica` — el nombre exacto, tal como está en la tabla `clinicas`. Hay que escribirlo a mano a propósito: obliga a mirar qué se está borrando. Un nombre que no exista **aborta con error** en vez de borrar cero renglones y reportar éxito.
+- `v_borrar_clinica` — en `false` (lo normal) borra los datos y deja viva la clínica y su personal, así que el sistema arranca vacío pero funcional. En `true` borra también la clínica y los perfiles, y el proyecto queda como recién migrado.
+
+Borra las nueve tablas de datos por `clinica_id`, así que en un proyecto con varias clínicas **no toca a las demás** — hay pruebas que lo verifican renglón por renglón (`tests/db-reset.test.mjs`).
+
+> **No se puede deshacer.** En Supabase no hay papelera. Si el proyecto ya tiene expedientes reales, haz respaldo antes (Database → Backups) o no lo corras.
+
+Dos cosas que **no** borra, a propósito:
+
+- **Las cuentas de Authentication → Users.** Se quitan desde el panel. Y conviene hacerlo en ese orden: si borras el perfil pero dejas la cuenta, esa persona puede entrar a un sistema sin clínica.
+- **El `localStorage` del navegador con el que probaste.** Vive en tu máquina, no en la base. Se limpia desde las herramientas de desarrollo (Application → Local Storage) o con el botón de la demo.
 
 ---
 
