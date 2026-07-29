@@ -28,20 +28,42 @@ export default async function handler(req, res) {
   }
 
   const token = process.env.ESCALACIONES_TOKEN;
-  const url = process.env.SUPABASE_URL;
-  const llave = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!token || !url || !llave) {
-    return res.status(500).json({
-      error: 'Faltan ESCALACIONES_TOKEN, SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY',
-    });
+  /* Sin token configurado no se puede autenticar a nadie, así que esto es
+     lo único que se responde antes de pedir credencial. */
+  if (!token) {
+    return res.status(500).json({ error: 'Falta ESCALACIONES_TOKEN en el entorno' });
   }
 
   /* Este endpoint manda correo con la cuenta de la clínica. Sin token
-     sería un formulario de spam abierto en su dominio. */
+     sería un formulario de spam abierto en su dominio.
+     Va ANTES de revisar el resto de la configuración: a un desconocido no
+     se le cuenta qué tiene puesto este despliegue y qué no. */
   const enviado = req.headers['x-medicita-token'] ||
     (req.query && req.query.token) || '';
   if (enviado !== token) return res.status(401).json({ error: 'No autorizado' });
+
+  /* Ya autenticado, se revisa TODO de una vez —incluidas las de EmailJS,
+     que si no solo se descubrirían fallando aviso por aviso hasta gastar
+     los cinco intentos de cada uno. */
+  const faltan = [
+    'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
+    'EMAILJS_SERVICE_ID', 'EMAILJS_PUBLIC_KEY', 'EMAILJS_PRIVATE_KEY',
+  ].filter(v => !process.env[v]);
+
+  if (!process.env.EMAILJS_TEMPLATE_ID_ESCALACION && !process.env.EMAILJS_TEMPLATE_ID) {
+    faltan.push('EMAILJS_TEMPLATE_ID_ESCALACION');
+  }
+
+  if (faltan.length) {
+    return res.status(500).json({
+      error: `Faltan variables de entorno: ${faltan.join(', ')}`,
+      pista: 'Se ponen en Vercel → Settings → Environment Variables, y hace falta un redeploy para que apliquen.',
+    });
+  }
+
+  const url = process.env.SUPABASE_URL;
+  const llave = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   const cabeceras = {
     apikey: llave,
