@@ -22,57 +22,84 @@
 --       EMAILJS_TEMPLATE_ID_ESCALACION
 --       EMAILJS_PUBLIC_KEY
 --       EMAILJS_PRIVATE_KEY
--- 3. Cambia las DOS líneas de abajo y pega todo en el editor SQL.
+--
+-- SOLO SE EDITA EL BLOQUE "DATOS A LLENAR". Correrlo dos veces es inocuo:
+-- desprograma antes de programar.
 -- ═══════════════════════════════════════════════════════════════════════
-
--- ╔═══════════════════════════════════════════════════════════════════╗
--- ║  DATOS A LLENAR — cambia solo estas dos líneas                    ║
--- ╚═══════════════════════════════════════════════════════════════════╝
-\set url_avisar  'https://TU-CLINICA.vercel.app/api/avisar'
-\set token       'EL_MISMO_ESCALACIONES_TOKEN_DE_VERCEL'
-
--- ── Si el editor del panel no soporta \set (es psql), usa esta variante:
---    borra las dos líneas de arriba y sustituye a mano las dos apariciones
---    marcadas con «⟵ AQUÍ» más abajo.
 
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
--- ─── 1. La escalera ────────────────────────────────────────────────────
--- Cada minuto. Es barato: recorre solo las que ya vencieron, con un
--- índice parcial hecho para eso.
-select cron.schedule(
-  'medicita-promover-escalaciones',
-  '* * * * *',
-  $$ select public.promover_escalaciones(); $$
-);
+do $$
+declare
+  -- ╔═══════════════════════════════════════════════════════════════════╗
+  -- ║  DATOS A LLENAR — cambia solo estas dos líneas                    ║
+  -- ╚═══════════════════════════════════════════════════════════════════╝
 
--- ─── 2. Vaciar la bandeja de avisos ────────────────────────────────────
--- pg_net solo toca el timbre: manda el token y nada más. Toda la lógica
--- de armar y enviar el correo vive en api/avisar.js, donde se puede leer
--- y arreglar sin migrar la base.
-select cron.schedule(
-  'medicita-vaciar-avisos',
-  '* * * * *',
-  format(
-    $$ select net.http_post(
-         url     := %L,
-         headers := jsonb_build_object(
-                      'Content-Type',     'application/json',
-                      'x-medicita-token', %L)
-       ); $$,
-    :'url_avisar',   -- ⟵ AQUÍ: 'https://TU-CLINICA.vercel.app/api/avisar'
-    :'token'         -- ⟵ AQUÍ: 'EL_MISMO_ESCALACIONES_TOKEN_DE_VERCEL'
-  )
-);
+  -- La URL de ESTE despliegue, con /api/avisar al final.
+  v_url_avisar text := 'https://TU-CLINICA.vercel.app/api/avisar';
+
+  -- El MISMO valor que pusiste en ESCALACIONES_TOKEN en Vercel.
+  -- Si no coinciden, /api/avisar contesta 401 y los correos nunca salen.
+  v_token      text := 'EL_MISMO_ESCALACIONES_TOKEN_DE_VERCEL';
+
+  -- ╔═══════════════════════════════════════════════════════════════════╗
+  -- ║  De aquí para abajo no se toca                                    ║
+  -- ╚═══════════════════════════════════════════════════════════════════╝
+begin
+
+  if v_url_avisar like '%TU-CLINICA%' or v_token like 'EL_MISMO_%' then
+    raise exception 'Falta llenar el bloque DATOS A LLENAR de arriba';
+  end if;
+
+  -- Desprogramar primero hace que correr esto dos veces sea inocuo, y que
+  -- cambiar la URL o el token sea volver a pegarlo en vez de acordarse de
+  -- borrar el trabajo viejo a mano.
+  perform cron.unschedule('medicita-promover-escalaciones')
+    where exists (select 1 from cron.job where jobname = 'medicita-promover-escalaciones');
+  perform cron.unschedule('medicita-vaciar-avisos')
+    where exists (select 1 from cron.job where jobname = 'medicita-vaciar-avisos');
+
+  -- ─── 1. La escalera ──────────────────────────────────────────────────
+  -- Cada minuto. Es barato: recorre solo las que ya vencieron, con un
+  -- índice parcial hecho para eso.
+  perform cron.schedule(
+    'medicita-promover-escalaciones',
+    '* * * * *',
+    'select public.promover_escalaciones();'
+  );
+
+  -- ─── 2. Vaciar la bandeja de avisos ──────────────────────────────────
+  -- pg_net solo toca el timbre: manda el token y nada más. Toda la lógica
+  -- de armar y enviar el correo vive en api/avisar.js, donde se puede leer
+  -- y arreglar sin migrar la base.
+  perform cron.schedule(
+    'medicita-vaciar-avisos',
+    '* * * * *',
+    format(
+      'select net.http_post(url := %L, headers := %L::jsonb);',
+      v_url_avisar,
+      json_build_object(
+        'Content-Type',     'application/json',
+        'x-medicita-token', v_token
+      )::text
+    )
+  );
+
+  raise notice 'Listo. Los dos trabajos quedaron programados cada minuto.';
+end $$;
 
 
--- ─── Comprobación ──────────────────────────────────────────────────────
--- Deben aparecer los dos, con active = true.
-select jobname, schedule, active from cron.job
+-- ─── Comprobación 1: ¿están programados? ───────────────────────────────
+-- Deben salir DOS renglones, los dos con active = true.
+select jobname, schedule, active
+from cron.job
 where jobname like 'medicita-%';
 
--- Y después de un minuto, que hayan corrido sin error:
+
+-- ─── Comprobación 2: ¿corrieron sin error? ─────────────────────────────
+-- Espera un minuto y corre esto. `status` debe decir 'succeeded'.
+-- Si dice 'failed', el mensaje explica por qué.
 select j.jobname, r.status, r.return_message, r.start_time
 from cron.job_run_details r
 join cron.job j on j.jobid = r.jobid
