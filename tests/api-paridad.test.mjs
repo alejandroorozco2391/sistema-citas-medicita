@@ -317,6 +317,49 @@ test("la clínica pública no expone el plan contratado", async () => {
   assert.ok(!("plan" in cfg), "el plan contratado no es dato de la landing");
 });
 
+/* ═══ El puente ═════════════════════════════════════════════════════════
+   js/puente-api.js copia los namespaces de api.mjs a window.API con una
+   lista escrita a mano. Si se agrega un namespace a la interfaz y se
+   olvida ahí, `window.API.loQueSea` sale `undefined` y el módulo revienta
+   con un TypeError que la interfaz traduce a un mensaje genérico. Pasó con
+   `horarios`: el panel decía "No se pudo cargar el horario" y la causa no
+   estaba ni cerca de los horarios.
+
+   Ninguna otra prueba lo cubría: api-paridad comparaba api.mjs contra sus
+   dos implementaciones, pero nadie miraba el puente.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+test("el puente expone TODOS los namespaces de la interfaz", () => {
+  const apiSrc = fs.readFileSync(path.join(RAIZ, "js", "api.mjs"), "utf8");
+  const puenteSrc = fs.readFileSync(path.join(RAIZ, "js", "puente-api.js"), "utf8");
+
+  const namespaces = [...apiSrc.matchAll(/^export const (\w+)\s*=/gm)].map(m => m[1]);
+  assert.ok(namespaces.length >= 10, `se leyeron ${namespaces.length} namespaces de api.mjs`);
+
+  /* Las llaves del objeto literal que el puente asigna a window.API. */
+  const cuerpo = puenteSrc.match(/window\.API\s*=\s*\{([\s\S]*?)\n\s*\};/)?.[1] ?? "";
+  const expuestos = new Set([...cuerpo.matchAll(/^\s*(\w+)\s*:/gm)].map(m => m[1]));
+
+  const faltan = namespaces.filter(n => !expuestos.has(n));
+  assert.deepStrictEqual(faltan, [],
+    `puente-api.js no publica: ${faltan.join(", ")} — window.API.${faltan[0]} saldría undefined`);
+
+  /* Y al revés: una llave que ya no existe en la interfaz deja una
+     referencia muerta que solo se descubre al usarla. */
+  const sobran = [...expuestos].filter(k => k !== "modo" && !namespaces.includes(k));
+  assert.deepStrictEqual(sobran, [], `puente-api.js publica algo que api.mjs ya no exporta: ${sobran.join(", ")}`);
+});
+
+test("el puente publica window.API antes de que nadie lo espere", () => {
+  /* Tiene que ser script clásico: un <script type="module"> no corre antes
+     de DOMContentLoaded cuando el grafo tiene un await de nivel superior,
+     y supabase-client.mjs tiene uno. */
+  const puenteSrc = fs.readFileSync(path.join(RAIZ, "js", "puente-api.js"), "utf8");
+  assert.ok(!/^\s*import\s/m.test(puenteSrc),
+    "puente-api.js no puede usar import estático: dejaría de ser un script clásico");
+  assert.match(puenteSrc, /window\.APIListo\s*=/, "debe definir window.APIListo de forma síncrona");
+});
+
 /* ═══ Horario de atención ═══════════════════════════════════════════════
    Las reglas de api-local tienen que ser LAS MISMAS que las de
    0009_horarios.sql. No es simetría por gusto: la landing y el agente

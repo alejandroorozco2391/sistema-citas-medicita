@@ -44,6 +44,13 @@
 
   window.APIListo = import(new URL("./api.mjs", base).href)
     .then(function (api) {
+      /* La lista es explícita a propósito: es la superficie que el sistema
+         expone a los scripts clásicos, y se lee de un vistazo.
+         Su precio es que se puede olvidar un namespace nuevo, y entonces
+         `window.API.loQueSea` sale `undefined` y el módulo revienta con un
+         mensaje que no dice nada ("No se pudo cargar el horario"). Ya pasó.
+         Por eso hay una prueba que compara esta lista contra los `export
+         const` de api.mjs y falla si alguna se queda fuera. */
       window.API = {
         clinica:        api.clinica,
         pacientes:      api.pacientes,
@@ -54,6 +61,8 @@
         posts:          api.posts,
         nps:            api.nps,
         seguimientos:   api.seguimientos,
+        horarios:       api.horarios,
+        escalaciones:   api.escalaciones,
         publico:        api.publico,
         modo:           api.modo,
       };
