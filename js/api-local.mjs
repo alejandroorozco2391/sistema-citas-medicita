@@ -993,6 +993,25 @@ export async function seguimientosMarcarEnviado(id, cual) {
    ═══════════════════════════════════════════════════════════════════════ */
 export async function publicoSolicitarCita(datos) {
   const cita = await citasCrear({ ...datos, estado: "pendiente" });
+
+  /* El consentimiento para invitaciones, si marcó la casilla. Espejo de lo
+     que hace `solicitar_cita` en 0018: solo se ENCIENDE desde aquí —no
+     marcarla en la segunda cita no revoca lo de la primera— y se guarda el
+     texto que estaba leyendo, porque sin él "consentimiento expreso" no se
+     puede demostrar. */
+  if (datos.aceptaPromociones) {
+    const pac = await pacientesPorTelefono(datos.telefono);
+    if (pac) {
+      await pacientesGuardar({
+        ...pac,
+        aceptaPromociones: true,
+        promocionesEn: pac.promocionesEn || new Date().toISOString(),
+        consentimientoTexto: datos.textoConsentimiento || pac.consentimientoTexto || "",
+        consentimientoOrigen: "paciente_web",
+      });
+    }
+  }
+
   return cita.folio;
 }
 
@@ -1197,6 +1216,57 @@ export async function horariosProximaApertura() {
     }
   }
   return null;
+}
+
+/**
+ * Cancela un bloque de citas y deja apuntado el aviso de cada paciente.
+ *
+ * Espejo de `cancelar_bloque()` de 0018, con una diferencia que la interfaz
+ * dice en voz alta: en modo local no hay bandeja de salida que drenar, así
+ * que no sale ningún correo. Se cancela de verdad y se cuenta a quién
+ * habría que avisarle — fingir un envío sería lo único peor que no mandarlo.
+ */
+export async function horariosCancelarBloque(o = {}) {
+  const dia = String(o.fecha || "").slice(0, 10);
+  if (!dia) return { ok: false, canceladas: 0, avisados: 0, sinCorreo: [] };
+
+  const ini = o.horaInicio ? _hhmm(o.horaInicio) : null;
+  const fin = o.horaFin ? _hhmm(o.horaFin) : "23:59";
+  const doc = o.doctor ? String(o.doctor).trim().toLowerCase() : null;
+
+  const citas = _leer(CLAVE_CITAS);
+  const sinCorreo = [];
+  let canceladas = 0;
+  let avisados = 0;
+
+  for (const c of citas) {
+    if (c.fecha !== dia) continue;
+    if (!["pendiente", "confirmada"].includes(c.estado)) continue;
+    if (doc && String(c.doctor || "").trim().toLowerCase() !== doc) continue;
+
+    const h = _hhmm(c.hora);
+    /* Sin hora entra: dejarla en pie haría que alguien se presentara a un
+       consultorio cerrado. */
+    if (ini && h && !(h >= ini && h < fin)) continue;
+
+    c.estado = "cancelada";
+    c.canceladaPor = "clinica";
+    c.motivoCancelacion = String(o.motivo || "").slice(0, 300);
+    canceladas++;
+
+    if (!c.email) {
+      sinCorreo.push({
+        nombre: `${c.nombre || ""} ${c.apellidos || ""}`.trim(),
+        telefono: c.telefono || "",
+        hora: c.hora || "",
+      });
+    } else if (o.avisar !== false) {
+      avisados++;
+    }
+  }
+
+  _guardar(CLAVE_CITAS, citas);
+  return { ok: true, canceladas, avisados, sinCorreo, porSms: false, soloDemo: true };
 }
 
 /** Citas vivas que quedarían fuera si se cierra o se recorta esa fecha. */

@@ -212,7 +212,7 @@ Los datos locales **no se borran automáticamente**. La opción de limpiarlos ap
 
 ```bash
 npm run db:verificar    # contra el proyecto real, ya desplegado
-npm run test:all        # 318 pruebas contra un Postgres real en WebAssembly
+npm run test:all        # 336 pruebas contra un Postgres real en WebAssembly
 ```
 
 Las dos comprueban cosas distintas y hacen falta las dos:
@@ -239,6 +239,8 @@ Y a mano, en el navegador:
 - [ ] En la landing, "Mi cita" con folio + teléfono muestra la cita, y cancelarla libera ese hueco
 - [ ] Esa cancelación aparece sola en el panel al volver a su pestaña, sin recargar
 - [ ] Marcar el consentimiento en el perfil de un paciente lo hace aparecer en "Pacientes por reactivar"
+- [ ] Cerrar un día con citas ofrece cancelarlas y avisar, y nombra a quien no tiene correo
+- [ ] La casilla de consentimiento del formulario nace DESMARCADA y guarda su texto
 
 ---
 

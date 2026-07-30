@@ -775,15 +775,28 @@
       <div class="modal-body">
         <p class="modal-desc" id="hor-afectadas-desc"></p>
         <div class="hor-afectadas-lista" id="hor-afectadas-lista"></div>
-        <p class="hor-afectadas-nota">
-          Guardar el cambio <strong>no cancela ni avisa nada</strong>. Estas citas
-          siguen en la agenda: hay que reagendarlas o llamar a cada paciente.
+        <!-- Antes esto solo advertía y no hacía nada, que dejaba el problema
+             entero en manos de quien tuviera tiempo de llamar uno por uno.
+             Ahora se ofrece hacerlo, marcado por omisión: es lo que casi
+             siempre se quiere, y lo que el paciente necesita. -->
+        <label class="hor-afectadas-accion">
+          <input type="checkbox" id="hor-cancelar-avisar" checked>
+          <span>
+            <strong>Cancelar esas citas y avisar a cada paciente</strong>
+            <small>Les llega un correo con la disculpa y el enlace para reagendar.
+                   A quien no tenga correo te lo digo para que le llames.</small>
+          </span>
+        </label>
+
+        <p class="hor-afectadas-nota" id="hor-afectadas-nota">
+          Si desmarcas la casilla, estas citas <strong>siguen en la agenda</strong>
+          y nadie se entera del cambio.
         </p>
       </div>
       <div class="modal-footer">
         <button type="button" id="btn-hor-afectadas-cancelar" class="btn-modal-cancelar">Cancelar</button>
         <button type="button" id="btn-hor-afectadas-confirmar" class="btn-modal-guardar">
-          Entendido, guardar de todos modos
+          Guardar
         </button>
       </div>
     </div>

@@ -79,6 +79,9 @@ Y el horario del consultorio:
 • ver_horas_libres — qué horas de un médico quedan libres en una fecha
 • cambiar_horario_base — reemplaza la semana habitual COMPLETA (confirma antes)
 • agregar_excepcion_horario — cierra un día suelto o le pone otro horario
+• cancelar_bloque_de_citas — cancela las citas de un rango Y le avisa a cada
+  paciente ofreciéndole reagendar. Es lo que se usa ante una urgencia del
+  médico. CONFIRMA antes: cancela de verdad, y no se puede deshacer.
 
 • escalar_a_humano — pasa el asunto a QUIEN CORRESPONDE, con acuse y re-alerta.
   Que quien te habla sea del personal no quiere decir que sea la persona
@@ -116,6 +119,13 @@ recibir a dos personas a la vez, así que las horas ya tomadas no existen para
 ti: no las menciones ni las ofrezcas "por si se libera". Si crear_cita te
 contesta que la hora se ocupó, discúlpate y ofrece las alternativas que te
 devuelve — no vuelvas a intentar la misma hora.
+
+CANCELAR CITAS — nunca en silencio:
+Si el médico te dice que no va a poder atender, cierra el horario Y cancela
+las citas afectadas con cancelar_bloque_de_citas, que avisa a cada paciente.
+Cerrar el día sin cancelar deja gente presentándose a un consultorio cerrado.
+Y cuando la herramienta te devuelva pacientes SIN correo, dilos por su nombre
+y su teléfono: a esos hay que llamarlos, y si no lo mencionas nadie lo hará.
 
 SEÑALES DE URGENCIA — esta regla está por encima de todas las demás:
 Ante dolor en el pecho, dificultad para respirar, sangrado que no para,
@@ -411,6 +421,21 @@ const TOOLS = [
     },
   },
   {
+    name: "cancelar_bloque_de_citas",
+    description: "Cancela las citas de un rango de horas Y le avisa a cada paciente por correo, ofreciéndole reagendar. Es para cuando el médico no va a poder atender: una urgencia, una cirugía, un imprevisto. Confirma con la persona ANTES de llamarla — cancela de verdad. Devuelve a quién NO se le pudo avisar por no tener correo: esos hay que llamarlos, y tienes que decir sus nombres y teléfonos.",
+    input_schema: {
+      type: "object",
+      properties: {
+        fecha:       { type: "string", description: "YYYY-MM-DD" },
+        hora_inicio: { type: "string", description: "HH:MM. Omítela para cancelar el día entero." },
+        hora_fin:    { type: "string", description: "HH:MM. Omítela para cancelar el día entero." },
+        motivo:      { type: "string", description: "Se le dice al paciente en el correo. Que sea breve y humano: 'una urgencia médica del doctor'." },
+        doctor:      { type: "string", description: "Nombre exacto, si solo se cancela el de un médico. Omítelo para todos." },
+      },
+      required: ["fecha"],
+    },
+  },
+  {
     name: "escalar_a_humano",
     description: "Avisa a una persona de la clínica para que contacte al paciente. Úsala cuando te lo pidan, cuando la pregunta necesite criterio médico, ante una queja, o cuando no puedas resolver algo. Pide nombre y teléfono ANTES de llamarla: sin teléfono nadie puede devolver el contacto. Devuelve una `instruccion`: síguela al pie de la letra al redactar tu respuesta.",
     input_schema: {
@@ -549,6 +574,30 @@ async function ejecutarHerramienta(nombre, p) {
           }
           return true;
         }));
+      }
+
+      case "cancelar_bloque_de_citas": {
+        /* Cancela y avisa de una sola vez. Separarlo en dos pasos es lo que
+           hoy deja a los pacientes sin enterarse: quien cancela a las siete
+           de la mañana camino al quirófano no vuelve a entrar al panel. */
+        const r = await API.horarios.cancelarBloque({
+          fecha: p.fecha,
+          horaInicio: p.hora_inicio || null,
+          horaFin: p.hora_fin || null,
+          motivo: p.motivo || "",
+          doctor: p.doctor || null,
+        });
+
+        return JSON.stringify({
+          exito: true,
+          canceladas: r.canceladas,
+          avisados: r.avisados,
+          sin_correo: r.sinCorreo || [],
+          solo_demo: Boolean(r.soloDemo),
+          instruccion: (r.sinCorreo || []).length
+            ? "Di cuántas cancelaste y a cuántos avisaste. Y LISTA POR NOMBRE Y TELÉFONO a los que no tienen correo: a esos hay que llamarlos o se presentarán a un consultorio cerrado."
+            : "Di cuántas cancelaste y confirma que a todos se les avisó por correo con la opción de reagendar.",
+        });
       }
 
       case "ver_horas_libres": {
@@ -1102,6 +1151,7 @@ function labelHerramienta(nombre) {
     ver_nps_paciente:         "Buscando en expediente…",
     ver_horario_atencion:     "Consultando el horario del consultorio…",
     ver_horas_libres:         "Revisando qué horas quedan libres…",
+    cancelar_bloque_de_citas: "Cancelando y avisando a los pacientes…",
     cambiar_horario_base:     "Actualizando el horario semanal…",
     agregar_excepcion_horario: "Programando el cambio de horario…",
     escalar_a_humano:         "Avisando a una persona de la clínica…",

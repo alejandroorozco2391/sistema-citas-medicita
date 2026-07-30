@@ -215,6 +215,37 @@
     avisarCambioDeHorario();
   }
 
+  /**
+   * Lo que se le dice a quien acaba de cerrar el día.
+   *
+   * Lo importante es la segunda mitad: quien no tiene correo NO se avisa
+   * solo, y si el sistema se queda callado, esa persona se presenta a un
+   * consultorio cerrado y nadie sabe que faltó avisarle.
+   */
+  function avisarResultado(r) {
+    if (!r) return avisar("Cambio programado");
+
+    const sin = r.sinCorreo || [];
+    let texto = `Cambio programado · ${r.canceladas} cita${r.canceladas === 1 ? "" : "s"} cancelada${r.canceladas === 1 ? "" : "s"}`;
+    if (r.avisados) texto += ` · ${r.avisados} avisado${r.avisados === 1 ? "" : "s"} por correo`;
+    if (r.soloDemo && r.avisados) texto += " (en la demo no sale ningún correo)";
+
+    avisar(texto);
+
+    if (sin.length) {
+      /* Un `alert` y no un toast: esto hay que hacerlo a mano y ahora, y un
+         toast se desvanece en cuatro segundos. */
+      const lineas = sin.map(
+        (c) => `  • ${c.nombre}${c.hora ? ` (${c.hora})` : ""} — ${c.telefono || "sin teléfono"}`
+      );
+      alert(
+        `Hay ${sin.length} paciente${sin.length === 1 ? "" : "s"} SIN CORREO.\n` +
+        "Nadie les avisó. Hay que llamarles:\n\n" +
+        lineas.join("\n")
+      );
+    }
+  }
+
   /* ─── Citas que quedan fuera ────────────────────────────────────────── */
 
   /**
@@ -224,9 +255,17 @@
    * Si no hay citas afectadas no interrumpe: preguntar por nada entrena a
    * la gente a decir que sí sin leer.
    */
+  /**
+   * Resuelve a `false` si se cancela el diálogo, o a `{ avisar }` con lo que
+   * la persona decidió hacer con las citas afectadas.
+   *
+   * Antes solo advertía y devolvía true/false, que dejaba el problema entero
+   * en manos de quien tuviera tiempo de llamar uno por uno — y una urgencia
+   * del médico es justo cuando nadie tiene ese tiempo.
+   */
   function confirmarAfectadas(citas, descripcion) {
     return new Promise((resolver) => {
-      if (!citas.length) return resolver(true);
+      if (!citas.length) return resolver({ avisar: false });
 
       $("hor-afectadas-desc").textContent =
         `${citas.length === 1 ? "Hay 1 cita agendada" : `Hay ${citas.length} citas agendadas`} ` +
@@ -254,7 +293,8 @@
         resolver(resultado);
       };
 
-      $("btn-hor-afectadas-confirmar").onclick = () => cerrar(true);
+      $("btn-hor-afectadas-confirmar").onclick = () =>
+        cerrar({ avisar: $("hor-cancelar-avisar")?.checked !== false });
       $("btn-hor-afectadas-cancelar").onclick = () => cerrar(false);
       $("btn-hor-afectadas-x").onclick = () => cerrar(false);
     });
@@ -302,21 +342,34 @@
         cerrado ? null : horaInicio,
         cerrado ? null : horaFin
       );
-      const seguir = await confirmarAfectadas(
+      const decision = await confirmarAfectadas(
         afectadas,
         cerrado ? "ese día" : "con el nuevo horario"
       );
-      if (!seguir) return;
+      if (!decision) return;
+
+      const motivo = $("hor-exc-motivo").value.trim();
 
       await window.API.horarios.agregarExcepcion({
-        fecha, cerrado, horaInicio, horaFin,
-        motivo: $("hor-exc-motivo").value.trim(),
+        fecha, cerrado, horaInicio, horaFin, motivo,
       });
+
+      /* Se cancela DESPUÉS de guardar el cierre, no antes: si el cierre
+         fallara, habríamos cancelado las citas de un día que sigue abierto. */
+      let resultado = null;
+      if (decision.avisar && afectadas.length) {
+        resultado = await window.API.horarios.cancelarBloque({
+          fecha,
+          horaInicio: cerrado ? null : horaInicio,
+          horaFin: cerrado ? null : horaFin,
+          motivo,
+        });
+      }
 
       $("hor-exc-motivo").value = "";
       await recargarExcepciones();
       await renderEstado();
-      avisar("Cambio programado");
+      avisarResultado(resultado);
     } catch (err) {
       avisar(err.message || "No se pudo guardar el cambio", "error");
     } finally {

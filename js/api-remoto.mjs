@@ -940,6 +940,20 @@ export async function seguimientosMarcarEnviado(id, cual) {
  * anónimo no tiene política sobre ninguna tabla, y la función es la que
  * valida, frena abuso y fija estado y origen.
  */
+export async function horariosCancelarBloque(o = {}) {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("cancelar_bloque", {
+    p_fecha: soloFecha(o.fecha),
+    p_hora_inicio: o.horaInicio || null,
+    p_hora_fin: o.horaFin || null,
+    p_motivo: o.motivo || "",
+    p_doctor: o.doctor || null,
+    p_avisar: o.avisar !== false,
+  });
+  if (error) throw new Error(error.message);
+  return data || { ok: false, canceladas: 0, avisados: 0, sinCorreo: [] };
+}
+
 export async function publicoSolicitarCita(d) {
   const cliente = await db();
   const { data, error } = await cliente.rpc("solicitar_cita", {
@@ -950,6 +964,10 @@ export async function publicoSolicitarCita(d) {
     p_notas: d.notas || "",
     p_tiene_seguro: Boolean(d.tieneSeguro),
     p_nombre_seguro: d.nombreSeguro || "", p_numero_poliza: d.numeroPoliza || "",
+    /* La casilla y el texto EXACTO que decía cuando la marcó. Sin el texto,
+       "consentimiento expreso" no se puede demostrar. */
+    p_acepta_promociones: Boolean(d.aceptaPromociones),
+    p_texto_consentimiento: d.textoConsentimiento || "",
   });
   if (error) throw new Error(error.message);
   return data;

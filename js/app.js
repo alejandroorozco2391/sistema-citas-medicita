@@ -125,6 +125,10 @@ function poblarLanding(cfg) {
     }
   }
 
+  // El consentimiento nombra a la clínica: aceptar que "la clínica" te
+  // escriba es más vago que aceptar que lo haga una en concreto.
+  setTxt("consent-clinica", nombreClinica);
+
   // Footer
   setTxt("footer-nombre-clinica", nombreClinica);
   setTxt("footer-nombre-bottom",  nombreClinica);
@@ -592,6 +596,14 @@ function manejarEnvio(e) {
     tieneSeguro:  document.getElementById("tiene-seguro")?.checked || false,
     nombreSeguro,
     numeroPoliza: document.getElementById("poliza")?.value.trim() || "",
+
+    /* El consentimiento para invitaciones, y el TEXTO que estaba leyendo
+       cuando marcó la casilla. Se manda el texto y no solo el `true` porque
+       "consentimiento expreso" que no se puede demostrar no es
+       consentimiento: si mañana cambiamos la redacción, hay que poder
+       enseñar la que él aceptó. */
+    aceptaPromociones: document.getElementById("acepta-promos")?.checked || false,
+    textoConsentimiento: textoDelConsentimiento(),
   };
 
 
@@ -722,6 +734,12 @@ function mostrarAlerta(mensaje, tipo = "info") {
    estilo: el freno de abuso registra los intentos fallidos, y en Postgres
    una excepción desharía ese registro en la misma transacción.
    ═══════════════════════════════════════════════════════════════════════ */
+
+/** El texto de la casilla, tal cual se ve en pantalla y sin espacios de más. */
+function textoDelConsentimiento() {
+  const el = document.getElementById("texto-consentimiento");
+  return el ? el.textContent.replace(/\s+/g, " ").trim() : "";
+}
 
 function inicializarMisCitas() {
   const form = document.getElementById("form-mis-citas");

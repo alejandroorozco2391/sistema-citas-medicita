@@ -202,6 +202,14 @@ export const horarios = {
   async citasAfectadas(fecha, horaInicio, horaFin) {
     return (await impl()).horariosCitasAfectadas(fecha, horaInicio, horaFin);
   },
+
+  /* Y la otra mitad, la que faltaba: cancelarlas Y avisarle a cada uno,
+     ofreciéndole reagendar. Devuelve a quién NO se pudo avisar por falta de
+     correo — esa gente hay que llamarla, y el sistema tiene que decirlo en
+     voz alta en vez de contar solo los avisados. */
+  async cancelarBloque(opciones) {
+    return (await impl()).horariosCancelarBloque(opciones);
+  },
 };
 
 /**

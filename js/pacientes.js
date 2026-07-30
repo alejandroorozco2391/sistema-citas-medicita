@@ -677,6 +677,23 @@ function buildHtmlConsentimiento(pac) {
       </div>`;
   }
 
+  /* De dónde salió el permiso importa, y la interfaz lo dice. Que lo haya
+     marcado el paciente en el formulario es evidencia; que lo haya capturado
+     la clínica por él es una afirmación de la clínica, y si algún día alguien
+     pregunta por qué se le escribió, no es lo mismo. */
+  const porElPaciente = pac.consentimientoOrigen === "paciente_web";
+
+  const evidencia = !acepta ? "" : `
+    <div class="consent-evidencia">
+      ${porElPaciente
+        ? `✓ Lo marcó él mismo al agendar${desde ? `, el ${escHtmlPac(desde)}` : ""}.`
+        : `⚠ Lo capturó el personal${desde ? ` el ${escHtmlPac(desde)}` : ""}.
+           Es evidencia más débil que si lo marcara él en el formulario.`}
+      ${pac.consentimientoTexto
+        ? `<div class="consent-literal">“${escHtmlPac(pac.consentimientoTexto)}”</div>`
+        : ""}
+    </div>`;
+
   return `
     <div class="perfil-seccion">
       <div class="perfil-seccion-titulo">Contacto</div>
@@ -688,10 +705,10 @@ function buildHtmlConsentimiento(pac) {
           <small>
             Correos que no cuelgan de una cita suya. Márcalo solo si te lo dijo:
             es un permiso, no una preferencia.
-            ${acepta && desde ? `<br>Aceptado el ${escHtmlPac(desde)}.` : ""}
           </small>
         </span>
       </label>
+      ${evidencia}
     </div>`;
 }
 
@@ -705,6 +722,13 @@ async function cambiarConsentimientoPac(id, acepta) {
          registro de que alguna vez lo dijo, que es lo que hay que poder
          mostrar si alguien pregunta por qué se le escribió. */
       promocionesEn: acepta ? (previo.promocionesEn || new Date().toISOString()) : previo.promocionesEn,
+
+      /* Se marca como capturado por el personal, y solo si no venía ya del
+         paciente: un permiso que él dio en el formulario no se degrada
+         porque alguien de la clínica toque la casilla después. */
+      consentimientoOrigen: acepta
+        ? (previo.consentimientoOrigen || "personal")
+        : previo.consentimientoOrigen,
     });
     mostrarToast(acepta
       ? "Consentimiento registrado."

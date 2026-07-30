@@ -2893,3 +2893,39 @@ input[type="color"]::-webkit-color-swatch { border-radius: 4px; border: none; }
   .reac-fila { flex-direction: column; align-items: stretch; }
   .reac-btn { width: 100%; }
 }
+
+/* Cerrar un día con citas: la acción, no solo la advertencia. */
+.hor-afectadas-accion {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--azul-claro);
+  border: 1px solid #bfdbfe;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.hor-afectadas-accion input { margin-top: 3px; flex-shrink: 0; accent-color: var(--azul-principal); }
+.hor-afectadas-accion span { display: flex; flex-direction: column; gap: 3px; }
+.hor-afectadas-accion strong { font-size: .85rem; color: var(--gris-texto); font-weight: 600; }
+.hor-afectadas-accion small { font-size: .76rem; color: var(--gris-suave); line-height: 1.45; }
+
+/* De dónde salió el consentimiento. Que lo marcara el paciente es evidencia;
+   que lo capturara la clínica por él es una afirmación de la clínica. */
+.consent-evidencia {
+  margin-top: 8px;
+  padding: 9px 12px;
+  background: var(--fondo);
+  border-radius: 8px;
+  font-size: .74rem;
+  color: var(--gris-suave);
+  line-height: 1.5;
+}
+.consent-literal {
+  margin-top: 6px;
+  padding-left: 10px;
+  border-left: 2px solid var(--gris-borde);
+  font-style: italic;
+  color: var(--gris-texto);
+}

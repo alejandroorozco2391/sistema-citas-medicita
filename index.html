@@ -253,6 +253,32 @@
                   </div>
                 </div>
 
+                <!-- ─── Consentimiento para contacto no relacionado con esta cita ──
+                     La LFPDPPP trata los datos de salud como sensibles y exige
+                     consentimiento expreso para las finalidades secundarias.
+                     Invitar a volver es una: no hace falta para dar la cita.
+
+                     Por eso va SEPARADA, DESMARCADA y con su texto a la vista.
+                     Marcarla de fábrica o esconderla dentro de "acepto los
+                     términos" invalidaría el consentimiento — y entonces cada
+                     correo que saliera de ahí sería indefendible. -->
+                <div class="form-grupo full consentimiento-bloque">
+                  <label class="consentimiento-label">
+                    <input type="checkbox" id="acepta-promos" name="acepta-promos" />
+                    <span id="texto-consentimiento">
+                      Acepto que <span id="consent-clinica">la clínica</span> me contacte
+                      por correo para invitarme a volver a consulta cuando haya pasado
+                      tiempo desde mi última visita. Puedo cancelarlo cuando quiera desde
+                      cualquiera de esos correos.
+                    </span>
+                  </label>
+                  <p class="consentimiento-nota">
+                    Es opcional y no afecta tu cita. Los recordatorios de tus propias citas
+                    se envían de todos modos. Consulta el
+                    <a href="privacidad.html" target="_blank" rel="noopener">aviso de privacidad</a>.
+                  </p>
+                </div>
+
                 <!-- Alerta -->
                 <div id="alerta-form" class="alerta" role="alert" aria-live="assertive"></div>
 
