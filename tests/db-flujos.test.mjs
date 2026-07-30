@@ -34,11 +34,22 @@ const ADMIN = u.id;
 
 const enDias = n => `(current_date + ${n})`;
 
+/* Cada solicitud pide una hora distinta salvo que la prueba pida una
+   concreta. Desde 0012 un médico no puede tener dos citas en el mismo
+   hueco, así que un fixture con la hora fija hacía que la segunda llamada
+   de cada prueba fallara por algo que la prueba no estaba midiendo.
+   Las horas de doble reserva viven en tests/db-doble-reserva.test.mjs. */
+let horaN = 0;
+function horaLibre() {
+  const i = horaN++;
+  return `${String(8 + Math.floor(i / 60)).padStart(2, "0")}:${String(i % 60).padStart(2, "0")}`;
+}
+
 async function pedirCita(extra = {}) {
   const p = {
     nombre: "Ana", apellidos: "Martínez", telefono: "55 8811 2233",
     email: "ana@ejemplo.mx", especialidad: "Cardiología", doctor: "Dr. Vega",
-    dias: 5, hora: "10:00", tipo: "Primera vez", ...extra,
+    dias: 5, hora: horaLibre(), tipo: "Primera vez", ...extra,
   };
   return comoAnonimo(db, async () => {
     const { rows } = await db.query(

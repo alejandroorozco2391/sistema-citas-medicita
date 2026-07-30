@@ -502,6 +502,18 @@ async function cargarHorarios(doctor) {
     horas = horas.filter((h) => delDia.some((b) => h >= b.horaInicio && h < b.horaFin));
   }
 
+  /* Las que ya tienen dueño. Se piden por médico y fecha —no se pueden
+     cachear como el horario— porque cambian cada vez que alguien agenda.
+     Si la consulta falla, se ofrecen todas: la base rechazará el choque de
+     todos modos, y perder la cita de un paciente por un error de red sería
+     mucho peor que mandarlo a elegir otra hora. */
+  let ocupadas = [];
+  try {
+    ocupadas = await API.publico.horasOcupadas(doctor.nombre, fecha);
+  } catch (e) {
+    console.warn("No se pudieron consultar las horas ocupadas:", e);
+  }
+
   contenedor.style.display = "block";
 
   if (!horas.length) {
@@ -511,12 +523,24 @@ async function cargarHorarios(doctor) {
     return;
   }
 
-  aviso.hidden = true;
-  grid.innerHTML = horas.map((h) => `
-    <button type="button" class="btn-horario" data-hora="${h}" aria-label="Seleccionar ${h}">${h}</button>
-  `).join("");
+  const tomada = (h) => ocupadas.includes(h);
 
-  grid.querySelectorAll(".btn-horario").forEach((btn) => {
+  /* Las tomadas se muestran tachadas en vez de esconderse. Un médico con
+     dos huecos visibles de nueve deja claro que está lleno; nueve huecos de
+     los que solo dos responden al clic parece que la página está rota. */
+  const lleno = horas.every(tomada);
+  aviso.hidden = !lleno;
+  if (lleno) {
+    aviso.textContent = "Ese día ya está lleno con este médico. Elige otra fecha, por favor.";
+  }
+
+  grid.innerHTML = horas.map((h) => tomada(h)
+    ? `<button type="button" class="btn-horario ocupado" data-hora="${h}" disabled
+               aria-label="${h}, ya reservada" title="Esta hora ya está reservada">${h}</button>`
+    : `<button type="button" class="btn-horario" data-hora="${h}" aria-label="Seleccionar ${h}">${h}</button>`
+  ).join("");
+
+  grid.querySelectorAll(".btn-horario:not([disabled])").forEach((btn) => {
     btn.addEventListener("click", () => {
       grid.querySelectorAll(".btn-horario").forEach((b) => b.classList.remove("activo"));
       btn.classList.add("activo");
@@ -630,6 +654,17 @@ async function finalizarCita(datos) {
        de abuso topó (5 solicitudes por teléfono cada 24 h). Enseñarle un
        folio a alguien cuya cita no se guardó es la peor salida posible:
        se presentaría al consultorio con un número que no existe. */
+
+    /* El hueco se ocupó entre que se pintó el formulario y que le dio
+       Confirmar: alguien más agendó esa hora en el intervalo. No basta con
+       avisar —hay que volver a pintar las horas—, si no el paciente ve la
+       misma hora disponible, vuelve a intentar y falla otra vez. */
+    if (/hora ya está ocupada|hora se acaba de ocupar/i.test(e.message)) {
+      mostrarAlerta("Alguien acaba de tomar esa hora. Elige otra, por favor.", "error");
+      await cargarHorarios(estado.doctorSeleccionado);
+      return;
+    }
+
     mostrarAlerta(
       /demasiadas solicitudes/i.test(e.message)
         ? "Ya se registraron varias solicitudes con este teléfono hoy. Llámanos y te agendamos de inmediato."

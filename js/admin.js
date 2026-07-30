@@ -343,7 +343,21 @@ async function cargarDatosMuestra(auto = false) {
     { folio:"CIT-260531-6677", nombre:"Sandra",   apellidos:"Sánchez Medina", telefono:"55 2233 4455", email:"",                         especialidad:"Ginecología",      doctor:"Dra. Patricia Leal",     fecha:dias(5),  hora:"16:00", tipo:"Urgencia",         notas:"Acompañada por familiar.",                                estado:"pendiente",  creadaEn:new Date(Date.now()-345600000).toISOString() },
     { folio:"CIT-260531-3390", nombre:"Ernesto",  apellidos:"Fuentes Mora",   telefono:"55 5566 8899", email:"efuentes@correo.com",      especialidad:"Medicina General", doctor:"Dr. Carlos Ruiz",        fecha:dias(-1), hora:"12:00", tipo:"Revisión preventiva", notas:"Chequeo anual. Trae resultados de laboratorio previos.", estado:"cancelada",  creadaEn:new Date(Date.now()-259200000).toISOString() },
   ];
-  for (const c of MUESTRA) await API.citas.crear(c);
+  /* Sin folio repetido, igual que ya hacían los seguimientos y el NPS de
+     muestra unas líneas más abajo. Antes, dos clics en "Cargar muestra"
+     dejaban 18 citas con 9 folios duplicados; ahora, además, la segunda
+     chocaría contra el hueco ocupado y abortaría la siembra a la mitad. */
+  const foliosYa = new Set(estadoAdmin.citas.map(c => c.folio));
+  for (const c of MUESTRA) {
+    if (foliosYa.has(c.folio)) continue;
+    try {
+      await API.citas.crear(c);
+    } catch (e) {
+      /* Un hueco tomado por datos que ya estaban no debe tumbar el resto de
+         la siembra: el resto de la muestra sigue siendo útil. */
+      console.warn(`No se sembró ${c.folio}:`, e.message);
+    }
+  }
   await cargarCitas();
   localStorage.setItem("medicita_demo_seeded", "true");
   await renderStats();
@@ -808,6 +822,17 @@ async function renderSeguimientos() {
   seccion.classList.remove("oculto");
   document.getElementById("seguimientos-badge").textContent = activos.length;
 
+  /* Que la sección diga de quién es el trabajo. Con backend nadie tiene que
+     acordarse de nada, y con la demo el reloj no existe — decir lo contrario
+     dejaría a una asistente esperando correos que nunca van a salir. */
+  const aviso = document.getElementById("seguimientos-aviso");
+  if (aviso) {
+    aviso.textContent = window.MODO_DATOS === "remoto"
+      ? "Estos correos salen solos por la mañana. Esta lista es para saber qué viene, no para mandarlos."
+      : "En la demo no hay servidor que los mande: aquí se envían con el botón.";
+    aviso.className = window.MODO_DATOS === "remoto" ? "seg-aviso seg-aviso-auto" : "seg-aviso";
+  }
+
   tbody.innerHTML = activos.map((s) => {
     const dias      = diasDesde(s.fechaAtendida);
     const tieneEmail = !!s.emailPaciente;
@@ -834,6 +859,18 @@ function buildCeldaSeguimiento(s, tipo, dias, tieneEmail) {
 
   if (enviado) return `<span class="seg-chip seg-enviado">✓ Enviado</span>`;
   if (!tieneEmail) return `<span class="seg-chip seg-sin-email">Sin email</span>`;
+
+  /* Con backend, estos correos los manda pg_cron y el botón desaparece.
+     No es por ahorrar un clic: el productor marca el envío al encolar, así
+     que entre que el panel pintó la tabla y que alguien le da al botón, el
+     correo pudo haber salido ya — y el paciente recibiría dos. Es el mismo
+     motivo por el que la escalera solo la mueve un reloj. */
+  if (window.MODO_DATOS === "remoto") {
+    return vencido
+      ? `<span class="seg-chip seg-programado">📤 Sale hoy</span>`
+      : `<span class="seg-chip seg-programado">📅 En ${diasRequeridos - dias} día${diasRequeridos - dias !== 1 ? "s" : ""}</span>`;
+  }
+
   if (vencido) {
     return `<button class="seg-btn seg-btn-urgente"
               onclick="enviarEmailDiferido('${s.folio}','${tipo}')">⏰ Enviar ahora</button>`;
@@ -1038,6 +1075,8 @@ function bindModalNuevaCita() {
   document.getElementById("btn-guardar-nc").addEventListener("click", guardarNuevaCita);
   document.getElementById("nc-especialidad").addEventListener("change", onEspecialidadCambioNC);
   document.getElementById("nc-doctor").addEventListener("change", onDoctorCambioNC);
+  // Las horas ocupadas dependen también de la fecha, no solo del médico.
+  document.getElementById("nc-fecha").addEventListener("change", onDoctorCambioNC);
   document.getElementById("nc-telefono").addEventListener("blur", onTelefonoBlurNC);
 
   document.getElementById("nc-tiene-seguro")?.addEventListener("change", (e) => {
@@ -1145,9 +1184,19 @@ function onEspecialidadCambioNC() {
   selDoc.disabled = false;
 }
 
-function onDoctorCambioNC() {
+/**
+ * Repuebla el selector de horas.
+ *
+ * Depende de médico Y fecha, así que se llama desde los dos: antes solo
+ * escuchaba el cambio de médico, y elegir la fecha después dejaba el
+ * selector con las horas del día anterior. Eso no importaba mientras
+ * ninguna hora pudiera estar tomada; ahora sí.
+ */
+async function onDoctorCambioNC() {
   const docNombre = document.getElementById("nc-doctor").value;
+  const fecha     = document.getElementById("nc-fecha").value;
   const selHor    = document.getElementById("nc-horario");
+  const previa    = selHor.value;
 
   if (!docNombre) {
     selHor.innerHTML = '<option value="">— Selecciona médico —</option>';
@@ -1162,14 +1211,32 @@ function onDoctorCambioNC() {
     return;
   }
 
+  /* Sin fecha no se puede saber qué está tomado, así que se ofrecen todas
+     y se vuelve a pasar por aquí cuando la elija. */
+  let ocupadas = [];
+  if (fecha) {
+    try {
+      ocupadas = await API.citas.horasOcupadas(docNombre, fecha);
+    } catch (e) {
+      console.warn("No se pudieron consultar las horas ocupadas:", e);
+    }
+  }
+
   selHor.innerHTML = '<option value="">— Seleccionar horario —</option>';
   doctor.horarios.forEach((h) => {
     const opt = document.createElement("option");
     opt.value = h;
-    opt.textContent = `${h} hrs`;
+    const tomada = ocupadas.includes(h);
+    opt.textContent = tomada ? `${h} hrs — ocupada` : `${h} hrs`;
+    opt.disabled = tomada;
     selHor.appendChild(opt);
   });
   selHor.disabled = false;
+
+  /* Conservar la elección al cambiar de fecha, salvo que en la fecha nueva
+     esa hora esté tomada — ahí se suelta, para que nadie guarde una hora
+     que la lista muestra como ocupada. */
+  if (previa && !ocupadas.includes(previa)) selHor.value = previa;
 }
 
 async function onTelefonoBlurNC() {
@@ -1258,6 +1325,15 @@ async function guardarNuevaCita() {
       origenManual: true,
     });
   } catch (e) {
+    /* El hueco se ocupó mientras el modal estaba abierto. Avisar no basta:
+       hay que repintar el selector, si no la hora sigue viéndose libre y el
+       siguiente intento falla igual. */
+    if (/hora ya está ocupada|hora se acaba de ocupar/i.test(e.message)) {
+      errorEl.textContent = "Esa hora ya se ocupó con ese médico. Elige otra.";
+      errorEl.className   = "nc-error-msg";
+      await onDoctorCambioNC();
+      return;
+    }
     errorEl.textContent = `No se pudo guardar la cita: ${e.message}`;
     errorEl.className   = "nc-error-msg";
     return;

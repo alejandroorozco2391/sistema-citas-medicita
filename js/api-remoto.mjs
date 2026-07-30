@@ -340,6 +340,32 @@ function _folioCita() {
   return `CIT-${aa}${mm}${dd}-${Math.floor(Math.random() * 9000) + 1000}`;
 }
 
+/* ─── El hueco ocupado ─────────────────────────────────────────────────
+   `citas_slot_unico` (0012) impide dos citas del mismo médico en la misma
+   fecha y hora. Postgres lo reporta como 23505, igual que el folio
+   repetido, y la diferencia importa: un folio repetido se reintenta en
+   silencio, un hueco ocupado hay que decírselo a quien está agendando.
+
+   El mensaje que sale de aquí es el que va a leer la asistente, así que no
+   menciona índices. */
+const MENSAJE_HUECO = "Esa hora ya está ocupada con ese médico. Elige otra, por favor.";
+
+function _esChoqueDeHueco(error) {
+  const texto = `${error?.message || ""} ${error?.details || ""}`;
+  return error?.code === "23505" && texto.includes("citas_slot_unico");
+}
+
+/** Horas ya tomadas de un médico en una fecha, normalizadas a HH:MM. */
+export async function citasHorasOcupadas(doctor, fecha) {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("horas_ocupadas", {
+    p_doctor: doctor || "",
+    p_fecha: soloFecha(fecha),
+  });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
 /**
  * Crea una cita desde el panel o desde MediBot.
  *
@@ -387,6 +413,11 @@ export async function citasCrear(cita) {
 
     if (!error) return deDbCita(data);
 
+    /* El hueco ocupado se mira antes que nada: reintentar doce folios
+       distintos contra la misma hora tomada termina en "no se pudo generar
+       un folio", que no tiene nada que ver con lo que pasó. */
+    if (_esChoqueDeHueco(error)) throw new Error(MENSAJE_HUECO);
+
     /* 23505 es violación de índice único. Si el folio lo eligió quien
        llama, el choque es suyo y hay que avisarle; si lo generamos aquí,
        se reintenta con otro. */
@@ -418,9 +449,14 @@ export async function citasActualizar(id, cambios) {
 
   if (Object.keys(fila).length === 0) return citasObtener(id);
 
-  return deDbCita(
-    reventar(await cliente.from("citas").update(fila).eq("id", id).select().single())
-  );
+  /* Reagendar es la otra forma de chocar con el hueco, y la más fácil de
+     provocar: cambiar la hora de una cita a una que ya tiene dueño. Sin
+     esta traducción, el panel mostraría el mensaje de Postgres. */
+  const { data, error } = await cliente
+    .from("citas").update(fila).eq("id", id).select().single();
+
+  if (error) throw new Error(_esChoqueDeHueco(error) ? MENSAJE_HUECO : error.message);
+  return deDbCita(data);
 }
 
 export async function citasEliminar(id) {
@@ -906,6 +942,44 @@ export async function publicoHorarioDisponible(desde, hasta) {
   });
   if (error) throw new Error(error.message);
   return (data || []).map(deDbBloqueFecha);
+}
+
+/**
+ * Horas ya tomadas de un médico, sin sesión. La landing las necesita para
+ * no ofrecer un hueco que ya tiene dueño.
+ *
+ * Devuelve horas, nunca de quién son. Es información que cualquier sistema
+ * de citas revela por necesidad —si no, el formulario ofrece huecos que no
+ * existen— y la función frena el rango de fechas para que nadie barra la
+ * agenda de un año consultando día por día.
+ */
+export async function publicoHorasOcupadas(doctor, fecha) {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("horas_ocupadas_publico", {
+    p_doctor: doctor || "",
+    p_fecha: soloFecha(fecha),
+  });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+/* ─── Baja de los correos automáticos ─────────────────────────────────── */
+
+export async function publicoConsultarBaja(token) {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("consultar_baja", { p_token: token || "" });
+  if (error) throw new Error(error.message);
+  return data || { valido: false };
+}
+
+export async function publicoDarseDeBaja(token, alcance = "todo") {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("darse_de_baja", {
+    p_token: token || "",
+    p_alcance: alcance,
+  });
+  if (error) throw new Error(error.message);
+  return data;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

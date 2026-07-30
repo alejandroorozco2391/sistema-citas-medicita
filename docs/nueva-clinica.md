@@ -157,23 +157,35 @@ EMAILJS_PRIVATE_KEY=...         # la privada, no la publishable del navegador
 
 ---
 
-## 6. El reloj de las escalaciones
+## 6. El reloj
 
-Sin esto, la escalación a humano funciona a medias: se crea, se ve en el panel y se puede tomar — pero **la re-alerta no ocurre si nadie tiene el panel abierto**, que es justo el caso que importa. Un paciente que pidió un humano a las 11 de la noche no puede depender de que alguien tenga una pestaña abierta.
+Es la única pieza que trabaja con todos los navegadores cerrados, y de ella dependen dos cosas: que una escalación sin acuse **vuelva a avisar**, y que los recordatorios y seguimientos del paciente **salgan solos**. Sin el reloj las dos funcionan a medias — se ven en el panel, se pueden hacer a mano, y nada ocurre a las 11 de la noche.
 
 1. **Panel de Supabase → Database → Extensions**: habilita `pg_cron` y `pg_net`.
-2. Abre `supabase/cron.sql`, cambia **solo sus dos primeras líneas** (la URL de `/api/avisar` de este despliegue y el mismo `ESCALACIONES_TOKEN` que pusiste en Vercel) y pégalo en el **SQL Editor**.
-3. Al final trae dos consultas de comprobación: la primera debe listar los dos trabajos con `active = true`, y la segunda —tras un minuto— que hayan corrido sin error.
+2. Abre `supabase/cron.sql`, cambia **solo el bloque "DATOS A LLENAR"** (la URL de `/api/avisar` de este despliegue y el mismo `ESCALACIONES_TOKEN` que pusiste en Vercel) y pégalo en el **SQL Editor**. Correrlo dos veces es inocuo: desprograma antes de programar.
+3. Al final trae las consultas de comprobación: la primera debe listar **cuatro** trabajos con `active = true`, y la segunda —tras un minuto— que hayan corrido sin error.
 
-Son tres trabajos, y los dos primeros están separados a propósito:
+Son cuatro trabajos, y los dos primeros están separados a propósito:
 
 - **`medicita-promover-escalaciones`** sube de nivel las escalaciones sin acuse y, al final de la escalera, las marca como *vencidas*. Corre entero dentro de Postgres.
 - **`medicita-vaciar-avisos`** solo toca el timbre: `pg_net` hace un POST a `/api/avisar` con el token, y toda la lógica de armar y mandar el correo vive en `api/avisar.js`, donde se puede leer y arreglar sin migrar la base.
-- **`medicita-barrer-bitacora`** borra de `cron.job_run_details` lo que pase de 7 días.  escribe un renglón por cada corrida y no los borra nunca: dos trabajos cada minuto son 2,880 renglones al día y cerca de un millón al año. El síntoma aparecería meses después sin relación aparente con nada.
+- **`medicita-avisos-automaticos`** encola el recordatorio de la víspera y los seguimientos de día 3 y 30. Corre **cada hora**, no una vez al día: decide por la zona horaria de cada clínica si ya son horas de escribirle a alguien, y lo que impide duplicados es un índice único, no la puntualidad. Así, si a las 8 la base estaba caída, a las 9 se recupera sola.
+- **`medicita-barrer-bitacora`** borra de `cron.job_run_details` lo que pase de 7 días. `pg_cron` escribe un renglón por cada corrida y no los borra nunca: dos trabajos cada minuto son 2,880 renglones al día y cerca de un millón al año. El síntoma aparecería meses después sin relación aparente con nada.
+
+### `sitio_url`: sin ella no sale ningún aviso al paciente
+
+Es el requisito que más fácil se olvida, y falla en silencio. El enlace de baja de cada correo se arma con `clinicas.sitio_url`; si está vacía, el productor **no encola nada** — a propósito, porque un correo automático del que nadie se puede bajar no debe salir.
+
+```sql
+update public.clinicas set sitio_url = 'https://tu-clinica.vercel.app';
+select nombre_clinica, sitio_url, zona_horaria from public.clinicas;
+```
+
+`seed-clinica.sql` ya la pide, así que normalmente esto solo hace falta si la clínica se dio de alta antes.
 
 **Sobre EmailJS**: la función usa la API REST con la **llave privada**, no la publishable del navegador. En el panel de EmailJS hay que permitir el envío desde fuera del navegador (*Account → Security → API requests*); si esa cuenta no lo permite, se cambia el remitente dentro de `mandarCorreo()` en `api/avisar.js` y nada más — por eso hay una bandeja de salida en medio.
 
-Si decides no poner el reloj, dilo en la entrega: el sistema sigue siendo útil, pero la promesa de "si nadie la toma, vuelve a avisar" no se cumple con el panel cerrado.
+Si decides no poner el reloj, dilo en la entrega: el sistema sigue siendo útil, pero la promesa de "si nadie la toma, vuelve a avisar" no se cumple con el panel cerrado, y los seguimientos hay que mandarlos a mano desde el panel como antes.
 
 ---
 
@@ -196,7 +208,7 @@ Los datos locales **no se borran automáticamente**. La opción de limpiarlos ap
 
 ```bash
 npm run db:verificar    # contra el proyecto real, ya desplegado
-npm run test:all        # 206 pruebas contra un Postgres simulado
+npm run test:all        # 253 pruebas contra un Postgres real en WebAssembly
 ```
 
 Las dos comprueban cosas distintas y hacen falta las dos:
@@ -216,6 +228,9 @@ Y a mano, en el navegador:
 - [ ] Cerrar un día quita ese día del formulario de la landing
 - [ ] Pedirle un humano a MediBot crea la escalación y el panel la muestra
 - [ ] Dejarla sin tomar sube su nivel al minuto (`select * from cron.job_run_details`)
+- [ ] Agendar dos veces la misma hora con el mismo médico se rechaza, y la landing muestra esa hora tachada
+- [ ] `select public.encolar_avisos_del_dia();` en el SQL Editor encola los avisos del día, y `avisos_pendientes` queda en `enviado` al minuto
+- [ ] El enlace de baja de ese correo abre `baja.html` y las dos opciones funcionan
 
 ---
 

@@ -8,7 +8,7 @@
 -- Para cambiar el esquema, edita los archivos numerados y vuelve a correr:
 --     npm run db:bundle
 --
--- Generado desde: 0001_utilidades.sql · 0002_clinicas_y_staff.sql · 0003_pacientes.sql · 0004_citas.sql · 0005_conversaciones_y_modulos.sql · 0006_rpc_publicas.sql · 0007_testimonios_publicos.sql · 0008_posts_campos_faltantes.sql · 0009_horarios.sql · 0010_escalaciones.sql · 0011_fecha_en_palabras.sql
+-- Generado desde: 0001_utilidades.sql · 0002_clinicas_y_staff.sql · 0003_pacientes.sql · 0004_citas.sql · 0005_conversaciones_y_modulos.sql · 0006_rpc_publicas.sql · 0007_testimonios_publicos.sql · 0008_posts_campos_faltantes.sql · 0009_horarios.sql · 0010_escalaciones.sql · 0011_fecha_en_palabras.sql · 0012_doble_reserva.sql · 0013_permisos_de_funciones.sql · 0014_avisos_automaticos.sql
 -- ═══════════════════════════════════════════════════════════════════════
 
 
@@ -2334,3 +2334,923 @@ revoke all on function public.escalar_a_humano   from public;
 revoke all on function public.fecha_en_palabras  from public;
 grant execute on function public.escalar_a_humano  to anon, authenticated;
 grant execute on function public.fecha_en_palabras to authenticated;
+
+
+-- ╔═══════════════════════════════════════════════════════════════════╗
+-- ║  0012_doble_reserva.sql                                         ║
+-- ╚═══════════════════════════════════════════════════════════════════╝
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 0012 — Una hora, un paciente
+--
+-- Hasta aquí nada impedía agendar dos pacientes con el mismo médico a la
+-- misma hora. Cuatro puertas de entrada —la landing, "+ Nueva cita" del
+-- panel, MediBot y la RPC pública— y ninguna revisaba. El síntoma no
+-- aparece en el sistema: aparece en la sala de espera, con dos personas
+-- citadas a las 10 y una recepcionista enterándose ahí.
+--
+-- Por eso la pieza central es un ÍNDICE ÚNICO y no una validación en el
+-- JavaScript. Una validación hay que acordarse de escribirla en cada
+-- puerta, y la quinta puerta —un webhook de WhatsApp, Doctoralia— la va a
+-- olvidar. Un índice lo vuelve imposible desde cualquier lado, incluido un
+-- INSERT a mano en el editor de Supabase.
+--
+-- Las funciones que vienen abajo existen para dar un error *legible* antes
+-- de chocar con el índice. El índice es la garantía; ellas son la cortesía.
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- ─── Normalización de la hora ──────────────────────────────────────────
+-- `citas.hora` es texto (formato heredado, y sigue siéndolo: 0009 ya lo
+-- documentó). Eso significa que '9:00' y '09:00' son dos cadenas distintas
+-- para Postgres, y sin normalizar, el índice único las dejaría pasar como
+-- si fueran horas diferentes. El mismo error que ya cometimos con los
+-- teléfonos y que arregló clave_telefono().
+create or replace function public.clave_hora(h text)
+returns text
+language sql
+immutable
+as $$
+  select case
+    when coalesce(btrim(h), '') = '' then ''
+    when position(':' in h) = 0 then lower(btrim(h))
+    else lpad(btrim(split_part(h, ':', 1)), 2, '0') || ':' ||
+         lpad(coalesce(nullif(btrim(split_part(h, ':', 2)), ''), '00'), 2, '0')
+  end;
+$$;
+
+comment on function public.clave_hora is
+  'Hora normalizada a HH:MM. Hermana de clave_telefono(): existe porque citas.hora es texto libre.';
+
+alter table public.citas
+  add column if not exists hora_clave text
+    generated always as (public.clave_hora(hora)) stored;
+
+-- ─── Antes de poner la cerradura, revisar que no haya nadie encerrado ───
+-- Si esta clínica YA tiene dos citas en el mismo hueco, el `create unique
+-- index` de abajo falla con un mensaje que no dice cuáles son. Se prefiere
+-- abortar aquí, diciendo exactamente qué folios hay que arreglar primero.
+do $$
+declare
+  v_lista text;
+begin
+  select string_agg(d.detalle, e'\n           ') into v_lista
+  from (
+    select format('%s · %s · %s — folios: %s',
+                  fecha, min(doctor), hora_clave, string_agg(folio, ', ')) as detalle
+    from public.citas
+    where estado in ('pendiente', 'confirmada') and hora_clave <> ''
+    group by clinica_id, lower(btrim(doctor)), fecha, hora_clave
+    having count(*) > 1
+  ) d;
+
+  if v_lista is not null then
+    raise exception e'Hay citas duplicadas y hay que resolverlas antes de poner el índice:\n           %\n\nCancela o mueve una de cada par y vuelve a correr esta migración.', v_lista;
+  end if;
+end $$;
+
+-- ─── La cerradura ──────────────────────────────────────────────────────
+-- Se excluyen `cancelada` y `atendida` a propósito:
+--   · cancelada libera el hueco, que es justo para lo que se cancela;
+--   · atendida ya pasó, y el pasado no se reserva.
+-- Y se excluye la hora vacía: una cita sin hora es una solicitud sin
+-- horario asignado, y varias pueden convivir.
+create unique index if not exists citas_slot_unico
+  on public.citas (clinica_id, lower(btrim(doctor)), fecha, hora_clave)
+  where estado in ('pendiente', 'confirmada') and hora_clave <> '';
+
+comment on index public.citas_slot_unico is
+  'Un médico, una fecha, una hora, un paciente. Aplica a las cuatro puertas de entrada y a cualquiera que venga después.';
+
+-- ─── ¿Está tomado este hueco? ──────────────────────────────────────────
+-- `p_excluir` es la propia cita cuando se está reagendando: moverla de las
+-- 10 a las 10 no debe decir que las 10 están ocupadas por ella misma.
+create or replace function public.slot_ocupado(
+  p_clinica uuid,
+  p_doctor  text,
+  p_fecha   date,
+  p_hora    text,
+  p_excluir uuid default null
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.citas
+    where clinica_id = p_clinica
+      and lower(btrim(doctor)) = lower(btrim(coalesce(p_doctor, '')))
+      and fecha = p_fecha
+      and hora_clave = public.clave_hora(p_hora)
+      and hora_clave <> ''
+      and estado in ('pendiente', 'confirmada')
+      and (p_excluir is null or id <> p_excluir)
+  );
+$$;
+
+-- ─── Qué horas están tomadas ───────────────────────────────────────────
+-- Para el personal: el panel las marca en el selector de "+ Nueva cita".
+create or replace function public.horas_ocupadas(
+  p_doctor text,
+  p_fecha  date
+)
+returns text[]
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(array_agg(distinct hora_clave order by hora_clave), array[]::text[])
+  from public.citas
+  where clinica_id = public.clinica_actual()
+    and lower(btrim(doctor)) = lower(btrim(coalesce(p_doctor, '')))
+    and fecha = p_fecha
+    and hora_clave <> ''
+    and estado in ('pendiente', 'confirmada');
+$$;
+
+-- Para el visitante sin cuenta: el formulario de la landing tiene que
+-- poder tachar las horas tomadas.
+--
+-- Sí, esto revela qué huecos están ocupados. Es información que cualquier
+-- sistema de citas revela por necesidad —si no, el formulario ofrece horas
+-- que no existen— y no dice de QUIÉN es la cita: solo devuelve las horas.
+-- Se sigue el mismo criterio que `horario_disponible` con el motivo del
+-- cierre: que esté cerrado es público, por qué no lo es.
+create or replace function public.horas_ocupadas_publico(
+  p_doctor     text,
+  p_fecha      date,
+  p_clinica_id uuid default null
+)
+returns text[]
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_clinica uuid;
+begin
+  v_clinica := coalesce(p_clinica_id, public.clinica_unica());
+
+  -- Mismo rango que ofrece el formulario. Sin esto, alguien podría barrer
+  -- la agenda de un año consultando día por día.
+  if p_fecha is null or p_fecha < current_date - 1 or p_fecha > current_date + 60 then
+    return array[]::text[];
+  end if;
+
+  return (
+    select coalesce(array_agg(distinct hora_clave order by hora_clave), array[]::text[])
+    from public.citas
+    where clinica_id = v_clinica
+      and lower(btrim(doctor)) = lower(btrim(coalesce(p_doctor, '')))
+      and fecha = p_fecha
+      and hora_clave <> ''
+      and estado in ('pendiente', 'confirmada')
+  );
+end;
+$$;
+
+comment on function public.horas_ocupadas_publico is
+  'Horas ya tomadas de un médico en una fecha. Devuelve horas, nunca de quién son.';
+
+-- ═══ solicitar_cita: el mismo hueco, error legible ═════════════════════
+-- Se reemplaza completa (no se puede parchear el cuerpo de una función) y
+-- el único cambio es el manejo del hueco ocupado. Lo demás queda idéntico
+-- a 0006, incluido el reintento de folio.
+create or replace function public.solicitar_cita(
+  p_nombre        text,
+  p_apellidos     text,
+  p_telefono      text,
+  p_email         text default '',
+  p_especialidad  text default '',
+  p_doctor        text default '',
+  p_fecha         date default null,
+  p_hora          text default '',
+  p_tipo          text default '',
+  p_notas         text default '',
+  p_tiene_seguro  boolean default false,
+  p_nombre_seguro text default '',
+  p_numero_poliza text default '',
+  p_clinica_id    uuid default null
+)
+returns text
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_clinica    uuid;
+  v_tel_clave  text;
+  v_paciente   uuid;
+  v_folio      text;
+  v_recientes  int;
+  v_intento    int;
+  v_restriccion text;
+begin
+  v_clinica := coalesce(p_clinica_id, public.clinica_unica());
+
+  if not exists (select 1 from public.clinicas where id = v_clinica and activa) then
+    raise exception 'Clínica no válida';
+  end if;
+
+  -- ── Validación de entrada ──
+  if coalesce(trim(p_nombre), '') = '' then
+    raise exception 'El nombre es obligatorio';
+  end if;
+
+  v_tel_clave := public.clave_telefono(p_telefono);
+  if length(v_tel_clave) < 10 then
+    raise exception 'El teléfono debe tener 10 dígitos';
+  end if;
+
+  if p_fecha is null then
+    raise exception 'La fecha es obligatoria';
+  end if;
+
+  -- Mismo rango que ofrece el formulario: de mañana a 60 días.
+  if p_fecha < current_date or p_fecha > current_date + 60 then
+    raise exception 'La fecha debe estar dentro de los próximos 60 días';
+  end if;
+
+  -- ── Freno de abuso ──
+  -- La anon key es pública; sin esto, un script podría llenar la agenda.
+  --
+  -- Va ANTES de revisar el hueco, y el orden importa: a quien lleva veinte
+  -- solicitudes en una hora hay que decirle que se pase de la raya, no
+  -- ponerle a elegir otro horario. Con el orden contrario, un script que
+  -- fuera variando la hora recibiría siempre el mensaje amable.
+  select count(*) into v_recientes
+  from public.citas
+  where clinica_id = v_clinica
+    and telefono_clave = v_tel_clave
+    and creado_en > now() - interval '24 hours';
+
+  if v_recientes >= 5 then
+    raise exception 'Demasiadas solicitudes desde este teléfono. Llámanos por favor.';
+  end if;
+
+  -- ── El hueco ──
+  -- Se revisa aquí para poder decirle al paciente qué pasó. El índice de
+  -- abajo lo frenaría igual, pero con un mensaje de Postgres en inglés
+  -- hablando de restricciones, en la cara de alguien que solo quería una
+  -- cita. La carrera entre dos solicitudes simultáneas la resuelve el
+  -- índice, no esta comprobación.
+  if public.slot_ocupado(v_clinica, p_doctor, p_fecha, p_hora) then
+    raise exception 'Esa hora ya está ocupada. Elige otra, por favor.';
+  end if;
+
+  -- ── Expediente: se reutiliza si existe, se crea si no ──
+  select id into v_paciente
+  from public.pacientes
+  where clinica_id = v_clinica and telefono_clave = v_tel_clave;
+
+  if v_paciente is null then
+    -- El código del paciente lleva 4 dígitos aleatorios y es único. Y aquí
+    -- hay una segunda carrera posible: dos personas pidiendo cita con el
+    -- mismo teléfono al mismo tiempo. Ambas se resuelven igual —
+    -- reintentar, y si resultó que el expediente ya existía, quedarse con
+    -- ese.
+    for v_intento in 1..12 loop
+      begin
+        insert into public.pacientes (
+          clinica_id, codigo, nombre, apellidos, telefono, email,
+          tiene_seguro, nombre_seguro, numero_poliza
+        ) values (
+          v_clinica, public.generar_codigo_paciente(), trim(p_nombre), trim(p_apellidos),
+          trim(p_telefono), trim(p_email), p_tiene_seguro, p_nombre_seguro, p_numero_poliza
+        )
+        returning id into v_paciente;
+        exit;
+      exception when unique_violation then
+        -- ¿Chocó el teléfono? Entonces el expediente ya existe: se usa.
+        select id into v_paciente
+        from public.pacientes
+        where clinica_id = v_clinica and telefono_clave = v_tel_clave;
+
+        if v_paciente is not null then exit; end if;
+        -- Si no, fue el código: se sortea otro en la siguiente vuelta.
+      end;
+    end loop;
+
+    if v_paciente is null then
+      raise exception 'No se pudo crear el expediente. Intenta de nuevo.';
+    end if;
+  end if;
+
+  -- ── La cita ──
+  -- El estado y el origen los fija la función, nunca quien llama.
+  --
+  -- El folio lleva solo 4 dígitos aleatorios (formato heredado, y visible
+  -- para el paciente, así que no se cambia): 10 000 combinaciones por día.
+  -- Ahora que es único en la base, una colisión sería un error en la cara
+  -- del paciente, así que se reintenta.
+  for v_intento in 1..12 loop
+    v_folio := public.generar_folio_cita();
+    begin
+      insert into public.citas (
+        clinica_id, paciente_id, folio, nombre, apellidos, telefono, email,
+        especialidad, doctor, fecha, hora, tipo, notas,
+        tiene_seguro, nombre_seguro, numero_poliza, estado, origen
+      ) values (
+        v_clinica, v_paciente, v_folio, trim(p_nombre), trim(p_apellidos),
+        trim(p_telefono), trim(p_email), p_especialidad, p_doctor, p_fecha, p_hora,
+        p_tipo, p_notas, p_tiene_seguro, p_nombre_seguro, p_numero_poliza,
+        'pendiente', 'web'
+      );
+      return v_folio;
+    exception when unique_violation then
+      -- CUÁL índice chocó importa. Antes solo podía ser el folio, así que
+      -- reintentar era siempre lo correcto. Ahora también puede ser el
+      -- hueco —dos personas pidiendo la misma hora en el mismo segundo— y
+      -- ahí reintentar doce veces solo termina en "no se pudo generar un
+      -- folio", que no tiene nada que ver con lo que pasó.
+      get stacked diagnostics v_restriccion = constraint_name;
+      if v_restriccion = 'citas_slot_unico' then
+        raise exception 'Esa hora se acaba de ocupar. Elige otra, por favor.';
+      end if;
+      -- Fue el folio: se sortea otro.
+    end;
+  end loop;
+
+  raise exception 'No se pudo generar un folio disponible. Intenta de nuevo.';
+end;
+$$;
+
+comment on function public.solicitar_cita is
+  'Única vía por la que un visitante sin sesión crea una cita. Valida, limita abuso, respeta el hueco ocupado y fija estado y origen por su cuenta.';
+
+-- ═══ Permisos ══════════════════════════════════════════════════════════
+revoke all on function public.clave_hora             from public;
+revoke all on function public.slot_ocupado           from public;
+revoke all on function public.horas_ocupadas         from public;
+revoke all on function public.horas_ocupadas_publico from public;
+
+grant execute on function public.clave_hora             to anon, authenticated;
+grant execute on function public.horas_ocupadas_publico to anon, authenticated;
+grant execute on function public.slot_ocupado           to authenticated;
+grant execute on function public.horas_ocupadas         to authenticated;
+
+
+-- ╔═══════════════════════════════════════════════════════════════════╗
+-- ║  0013_permisos_de_funciones.sql                                 ║
+-- ╚═══════════════════════════════════════════════════════════════════╝
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 0013 — Las funciones que nadie debería alcanzar
+--
+-- Desde 0006 los permisos se escribieron así:
+--
+--     revoke all on function public.lo_que_sea from public;
+--     grant execute on function public.lo_que_sea to authenticated;
+--
+-- Y no servía de nada. `revoke ... from public` quita el permiso del
+-- pseudo-rol PUBLIC, pero en Supabase toda función nueva de `public` nace
+-- con EXECUTE concedido DIRECTAMENTE a `anon` y `authenticated`, por las
+-- default privileges del proyecto. Un permiso concedido a `anon` no se
+-- quita revocándoselo a PUBLIC.
+--
+-- Resultado real, medido: `anon` podía ejecutar las 29 funciones del
+-- esquema. La mayoría es inofensiva —son SECURITY INVOKER y RLS las
+-- contiene, o solo devuelven null sin sesión— pero dos no lo eran:
+--
+--   · `encolar_aviso_escalacion(id, motivo)` es SECURITY DEFINER y encola
+--     correo. La anon key va escrita en el HTML de la landing, así que
+--     cualquiera podía llamarla en bucle y vaciar la cuota de EmailJS de
+--     la clínica, mandándole basura a su propio personal.
+--
+--   · `promover_escalaciones()` es SECURITY DEFINER y escribe: sube
+--     niveles, marca `vencida` y toca conversaciones. Es del reloj, y el
+--     reloj es pg_cron.
+--
+-- Esta migración cierra eso y fija la convención. De aquí en adelante:
+-- revocar de PUBLIC, de `anon` y de `authenticated`, y después conceder a
+-- quien de verdad la necesita. tests/db-permisos.test.mjs recorre el
+-- esquema entero y falla si aparece una función nueva sin decidir a qué
+-- lado pertenece.
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- ─── Del reloj, y de nadie más ─────────────────────────────────────────
+-- pg_cron corre como dueño de la base, así que no necesita concesión: por
+-- eso estas dos pueden quedarse sin un solo rol con permiso.
+revoke all on function public.promover_escalaciones()          from public, anon, authenticated;
+revoke all on function public.encolar_aviso_escalacion(uuid, text) from public, anon, authenticated;
+
+-- ─── Del personal con sesión ───────────────────────────────────────────
+-- Ninguna es un agujero por sí sola —son SECURITY INVOKER y RLS decide—
+-- pero ofrecerle al visitante una función para reescribir el horario de la
+-- clínica es exactamente el error que ya cometimos con las herramientas de
+-- MediBot: que la base lo frene no vuelve correcto ofrecerlo.
+revoke all on function public.guardar_horario_base(jsonb)                  from public, anon;
+revoke all on function public.citas_afectadas_por_cierre(date, time, time) from public, anon;
+revoke all on function public.horario_del_dia(uuid, date, uuid)            from public, anon;
+revoke all on function public.en_horario(uuid, timestamptz)                from public, anon;
+revoke all on function public.proxima_apertura(uuid, timestamptz)          from public, anon;
+revoke all on function public.horario_texto(uuid)                          from public, anon;
+revoke all on function public.escalacion_reconocer(uuid)                   from public, anon;
+revoke all on function public.escalacion_resolver(uuid, text)              from public, anon;
+revoke all on function public.rutear_escalacion(uuid, text, text, timestamptz) from public, anon;
+revoke all on function public.horas_ocupadas(text, date)                   from public, anon;
+revoke all on function public.slot_ocupado(uuid, text, date, text, uuid)   from public, anon;
+
+-- 0006 ya decía que estas dos eran "solo para usuarios con sesión". Ahora
+-- lo es de verdad.
+revoke all on function public.clinica_actual() from public, anon;
+revoke all on function public.rol_actual()     from public, anon;
+
+-- Detalle interno de las funciones SECURITY DEFINER que la llaman. Una
+-- función DEFINER corre con los permisos de su dueño, así que quitarle el
+-- acceso a `anon` no rompe a `solicitar_cita` ni a `escalar_a_humano`.
+revoke all on function public.clinica_unica()                     from public, anon;
+revoke all on function public.fecha_en_palabras(timestamptz, text) from public, anon;
+revoke all on function public.generar_folio_cita()                from public, anon;
+revoke all on function public.generar_codigo_paciente()           from public, anon;
+
+-- ─── Funciones de disparador ───────────────────────────────────────────
+-- Llamarlas fuera de un disparador falla de todas formas, pero no tienen
+-- por qué estar ofrecidas.
+revoke all on function public.tocar_actualizado_en()             from public, anon, authenticated;
+revoke all on function public.sincronizar_resumen_conversacion() from public, anon, authenticated;
+
+-- ═══ Lo que el visitante sin cuenta SÍ debe alcanzar ═══════════════════
+-- Se vuelve a conceder explícitamente, para que esta lista quede escrita
+-- en un solo lugar y se pueda leer de corrido. Son seis puertas y cada una
+-- valida por dentro:
+--
+--   solicitar_cita          pedir cita desde la landing
+--   responder_encuesta      contestar el NPS con el folio como credencial
+--   encuesta_ya_respondida  la pantalla previa de la encuesta
+--   horario_disponible      no ofrecer un día en que el consultorio cierra
+--   horas_ocupadas_publico  no ofrecer una hora ya tomada
+--   escalar_a_humano        pedir una persona sin tener cuenta
+grant execute on function public.solicitar_cita(
+  text, text, text, text, text, text, date, text, text, text, boolean, text, text, uuid
+) to anon, authenticated;
+grant execute on function public.responder_encuesta(text, smallint, text) to anon, authenticated;
+grant execute on function public.encuesta_ya_respondida(text)             to anon, authenticated;
+grant execute on function public.horario_disponible(date, date, uuid)     to anon, authenticated;
+grant execute on function public.horas_ocupadas_publico(text, date, uuid) to anon, authenticated;
+grant execute on function public.escalar_a_humano(
+  text, text, text, text, text, text, text, uuid, uuid
+) to anon, authenticated;
+
+-- Normalizadores puros: cero acceso a datos, y los necesita el motor para
+-- evaluar las columnas generadas de citas y pacientes.
+grant execute on function public.clave_telefono(text) to anon, authenticated;
+grant execute on function public.clave_hora(text)     to anon, authenticated;
+
+
+-- ╔═══════════════════════════════════════════════════════════════════╗
+-- ║  0014_avisos_automaticos.sql                                    ║
+-- ╚═══════════════════════════════════════════════════════════════════╝
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 0014 — El reloj puesto a trabajar
+--
+-- 0004 dejó escrito esto sobre la tabla `seguimientos`:
+--
+--     "Hoy los envíos de día 3 y 30 son manuales porque no había dónde
+--      correr un cron; esta tabla es lo que el trabajo programado va a
+--      leer cuando exista."
+--
+-- Ya existe. La Fase E trajo pg_cron, la bandeja de salida y la función
+-- que la vacía. Esta migración le pone un PRODUCTOR: nadie más tiene que
+-- acordarse de mandar nada.
+--
+--   · recordatorio_cita   la víspera de la cita
+--   · seguimiento_3d      tres días después de la consulta
+--   · seguimiento_30d     al mes
+--
+-- Lo que NO es esto: contacto proactivo de mercadotecnia. Todo lo que sale
+-- de aquí cuelga de una cita que ese paciente pidió. La diferencia importa
+-- legalmente —la LFPDPPP trata los datos de salud como sensibles— y es la
+-- razón por la que el consentimiento nace en `true`: un recordatorio de la
+-- cita que acabas de agendar es parte del servicio, no publicidad. Lo que
+-- lo vuelve defendible en la práctica es que la baja sea de un clic, y de
+-- eso se encarga `darse_de_baja`.
+--
+-- Y sigue siendo solo correo. SMS y WhatsApp entran después cambiando el
+-- CHECK de `avisos_pendientes.canal` y agregando un remitente en
+-- api/avisar.js — para eso se separó la escalera del envío.
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- ─── A dónde apunta el enlace ──────────────────────────────────────────
+-- El correo de seguimiento lleva el enlace a la encuesta, y el de baja
+-- lleva el de la baja. Sin esto habría que incrustar el dominio en la
+-- función, y cada clínica vive en su propio despliegue.
+alter table public.clinicas
+  add column if not exists sitio_url text not null default '';
+
+comment on column public.clinicas.sitio_url is
+  'https://… del despliegue de ESTA clínica, sin diagonal final. Sin él no se encolan avisos con enlace.';
+
+-- ─── Consentimiento y salida ───────────────────────────────────────────
+-- Dos interruptores y no uno: alguien puede querer que le recuerden su
+-- cita —le sirve— y no querer el correo de "¿cómo te fue?". Meterlos en la
+-- misma casilla obliga a elegir entre las dos cosas, y casi todos elegirían
+-- apagarlo todo.
+alter table public.pacientes
+  add column if not exists avisa_recordatorios boolean not null default true,
+  add column if not exists avisa_seguimientos  boolean not null default true,
+  add column if not exists baja_en             timestamptz,
+  -- 122 bits al azar, del generador que trae Postgres de fábrica. Se evita
+  -- gen_random_bytes() a propósito: es de pgcrypto, y aunque Supabase la
+  -- tenga, el esquema tiene que aplicarse contra un Postgres pelón — así
+  -- corren las pruebas.
+  add column if not exists baja_token          text not null
+                             default replace(gen_random_uuid()::text, '-', '');
+
+create unique index if not exists pacientes_baja_token_unico
+  on public.pacientes (baja_token);
+
+comment on column public.pacientes.baja_token is
+  'Credencial del enlace de baja. Va en cada correo; con ella se puede dar de baja sin iniciar sesión y sin poder ver nada más.';
+
+-- ═══ La bandeja de salida deja de ser solo de escalaciones ═════════════
+alter table public.avisos_pendientes
+  alter column escalacion_id drop not null;
+
+alter table public.avisos_pendientes
+  add column if not exists tipo text not null default 'escalacion',
+  add column if not exists cita_id     uuid references public.citas(id)     on delete cascade,
+  add column if not exists paciente_id uuid references public.pacientes(id) on delete set null;
+
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'avisos_pendientes_tipo_valido') then
+    alter table public.avisos_pendientes
+      add constraint avisos_pendientes_tipo_valido check (tipo in (
+        'escalacion', 'recordatorio_cita', 'seguimiento_3d', 'seguimiento_30d'
+      ));
+  end if;
+end $$;
+
+-- ─── Idempotencia, y de aquí cuelga todo el diseño ─────────────────────
+-- El productor corre cada hora. Que no duplique NO depende de que el
+-- horario sea exacto ni de que nadie lo llame dos veces: depende de este
+-- índice. Es lo que permite que el trabajo sea "recórrelo otra vez, por si
+-- la vez pasada falló" en lugar de "córrelo exactamente una vez o el
+-- paciente recibe el mismo correo cinco veces".
+create unique index if not exists avisos_unico_por_cita
+  on public.avisos_pendientes (clinica_id, tipo, cita_id)
+  where cita_id is not null;
+
+create index if not exists avisos_paciente_idx
+  on public.avisos_pendientes (clinica_id, paciente_id, creado_en);
+
+-- ═══ Tope de frecuencia ════════════════════════════════════════════════
+-- Aunque cada aviso por separado sea legítimo, tres en una semana ya es
+-- ruido y la siguiente acción del paciente es marcar el correo como spam
+-- — y eso se lo lleva el dominio entero de la clínica, incluidos los
+-- correos que sí quiere.
+create or replace function public.puede_recibir_aviso(p_paciente uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p_paciente is null or (
+    coalesce((select baja_en is null from public.pacientes where id = p_paciente), false)
+    and (
+      select count(*) < 3
+      from public.avisos_pendientes
+      where paciente_id = p_paciente
+        and tipo <> 'escalacion'
+        and creado_en > now() - interval '7 days'
+    )
+  );
+$$;
+
+comment on function public.puede_recibir_aviso is
+  'Tope de 3 avisos automáticos por paciente cada 7 días, y respeta la baja. No aplica a escalaciones: esas van al personal.';
+
+-- ═══ Pie de todos los correos automáticos ══════════════════════════════
+create or replace function public.pie_de_aviso(p_clinica uuid, p_paciente uuid)
+returns text
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_url   text;
+  v_token text;
+  v_nom   text;
+begin
+  select sitio_url, nombre_clinica into v_url, v_nom
+  from public.clinicas where id = p_clinica;
+
+  select baja_token into v_token from public.pacientes where id = p_paciente;
+
+  if coalesce(v_url, '') = '' or v_token is null then
+    /* Sin enlace de baja no se manda un correo automático. Es la línea que
+       separa "seguimiento del servicio" de "correo del que no te puedes
+       bajar", y sin ella lo segundo es lo que sale. */
+    return null;
+  end if;
+
+  return E'\n\n—\n' || coalesce(v_nom, 'Tu clínica') ||
+         E'\nSi no quieres recibir estos correos, cancélalos aquí: ' ||
+         v_url || '/baja.html?t=' || v_token;
+end;
+$$;
+
+-- ═══ Productor 1: recordatorio de la cita ══════════════════════════════
+create or replace function public.encolar_recordatorios(p_clinica uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_tz    text;
+  v_manana date;
+  v_c     record;
+  v_pie   text;
+  v_n     int := 0;
+begin
+  select zona_horaria into v_tz from public.clinicas where id = p_clinica and activa;
+  if v_tz is null then return 0; end if;
+
+  v_manana := ((now() at time zone v_tz)::date) + 1;
+
+  for v_c in
+    select c.*, cl.nombre_clinica, cl.telefono as tel_clinica
+    from public.citas c
+    join public.clinicas cl on cl.id = c.clinica_id
+    where c.clinica_id = p_clinica
+      and c.fecha = v_manana
+      and c.estado in ('pendiente', 'confirmada')
+      and coalesce(c.email, '') <> ''
+      and c.paciente_id is not null
+      -- El interruptor del paciente, no una preferencia global.
+      and exists (select 1 from public.pacientes p
+                  where p.id = c.paciente_id and p.avisa_recordatorios and p.baja_en is null)
+      and public.puede_recibir_aviso(c.paciente_id)
+  loop
+    v_pie := public.pie_de_aviso(p_clinica, v_c.paciente_id);
+    continue when v_pie is null;
+
+    begin
+      insert into public.avisos_pendientes (
+        clinica_id, tipo, cita_id, paciente_id, canal, destinatario, asunto, cuerpo
+      ) values (
+        p_clinica, 'recordatorio_cita', v_c.id, v_c.paciente_id, 'email', v_c.email,
+        'Recordatorio: tu cita es mañana',
+        'Hola ' || coalesce(nullif(v_c.nombre, ''), 'qué tal') || ',' || E'\n\n' ||
+        'Te recordamos tu cita de mañana:' || E'\n\n' ||
+        '  Fecha: '  || to_char(v_c.fecha, 'DD/MM/YYYY') ||
+          case when coalesce(v_c.hora, '') <> '' then ' a las ' || v_c.hora else '' end || E'\n' ||
+        '  Médico: ' || coalesce(nullif(v_c.doctor, ''), 'por asignar') || E'\n' ||
+        '  Folio: '  || v_c.folio || E'\n\n' ||
+        'Si no puedes asistir, avísanos' ||
+          case when coalesce(v_c.tel_clinica, '') <> ''
+               then ' al ' || v_c.tel_clinica else '' end ||
+        ' para dársela a alguien más.' || v_pie
+      );
+      v_n := v_n + 1;
+    exception when unique_violation then
+      -- Ya se encoló en una corrida anterior de hoy. Es lo esperado.
+      null;
+    end;
+  end loop;
+
+  return v_n;
+end;
+$$;
+
+-- ═══ Productor 2: seguimiento post-consulta ════════════════════════════
+create or replace function public.encolar_seguimientos(p_clinica uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_tz   text;
+  v_url  text;
+  v_hoy  date;
+  v_s    record;
+  v_pie  text;
+  v_tipo text;
+  v_n    int := 0;
+begin
+  select zona_horaria, sitio_url into v_tz, v_url
+  from public.clinicas where id = p_clinica and activa;
+  if v_tz is null then return 0; end if;
+
+  v_hoy := (now() at time zone v_tz)::date;
+
+  for v_s in
+    select s.id as seg_id, s.email_enviado_3d, s.email_enviado_30d, s.fecha_atendida,
+           c.id as cita_id, c.paciente_id, c.email, c.nombre, c.folio, c.doctor
+    from public.seguimientos s
+    join public.citas c on c.id = s.cita_id
+    where s.clinica_id = p_clinica
+      and coalesce(c.email, '') <> ''
+      and c.paciente_id is not null
+      and (
+        (s.fecha_atendida = v_hoy - 3  and not s.email_enviado_3d) or
+        (s.fecha_atendida = v_hoy - 30 and not s.email_enviado_30d)
+      )
+      and exists (select 1 from public.pacientes p
+                  where p.id = c.paciente_id and p.avisa_seguimientos and p.baja_en is null)
+      and public.puede_recibir_aviso(c.paciente_id)
+  loop
+    v_tipo := case when v_s.fecha_atendida = v_hoy - 3
+                   then 'seguimiento_3d' else 'seguimiento_30d' end;
+
+    v_pie := public.pie_de_aviso(p_clinica, v_s.paciente_id);
+    continue when v_pie is null;
+
+    begin
+      insert into public.avisos_pendientes (
+        clinica_id, tipo, cita_id, paciente_id, canal, destinatario, asunto, cuerpo
+      ) values (
+        p_clinica, v_tipo, v_s.cita_id, v_s.paciente_id, 'email', v_s.email,
+        case when v_tipo = 'seguimiento_3d'
+             then '¿Cómo te has sentido?'
+             else 'Ya pasó un mes de tu consulta' end,
+        'Hola ' || coalesce(nullif(v_s.nombre, ''), 'qué tal') || ',' || E'\n\n' ||
+        case when v_tipo = 'seguimiento_3d' then
+          'Han pasado unos días desde tu consulta' ||
+          case when coalesce(v_s.doctor, '') <> '' then ' con ' || v_s.doctor else '' end ||
+          '. Queremos saber cómo te has sentido.' || E'\n\n' ||
+          'Si sigues con molestias o tienes dudas sobre tu tratamiento, responde este ' ||
+          'correo o llámanos: no esperes a la siguiente cita.'
+        else
+          'Ya pasó un mes de tu consulta. Si tu tratamiento terminó y todo va bien, ' ||
+          'nos alegra saberlo.' || E'\n\n' ||
+          'Si quedó algo pendiente o quieres una revisión de control, con gusto te agendamos.'
+        end || E'\n\n' ||
+        'Cuéntanos cómo te fue en un minuto: ' || v_url || '/encuesta.html?folio=' || v_s.folio ||
+        v_pie
+      );
+
+      /* Se marca al ENCOLAR, no al entregar. Si el correo falla,
+         avisos_pendientes tiene sus propios cinco reintentos; volver a
+         encolarlo cada hora desde aquí sería una segunda cola, sin tope. */
+      if v_tipo = 'seguimiento_3d'
+        then update public.seguimientos set email_enviado_3d = true, enviado_3d_en = now()
+             where id = v_s.seg_id;
+        else update public.seguimientos set email_enviado_30d = true, enviado_30d_en = now()
+             where id = v_s.seg_id;
+      end if;
+
+      v_n := v_n + 1;
+    exception when unique_violation then
+      null;
+    end;
+  end loop;
+
+  return v_n;
+end;
+$$;
+
+-- ═══ El barrido, que es lo que llama pg_cron ═══════════════════════════
+create or replace function public.encolar_avisos_del_dia()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_cl  record;
+  v_hora int;
+  v_n   int := 0;
+begin
+  for v_cl in select id, zona_horaria from public.clinicas where activa loop
+    /* La hora LOCAL de esa clínica, no la del servidor. Supabase corre en
+       UTC: sin convertir, a un consultorio de Tijuana le saldrían los
+       correos a las 2 de la mañana. */
+    v_hora := extract(hour from (now() at time zone v_cl.zona_horaria))::int;
+
+    -- Ventana amplia a propósito. Lo que evita duplicados es el índice
+    -- único, no la puntualidad, así que el barrido puede correr muchas
+    -- veces: si a las 8 la base estaba caída, a las 9 se recupera solo.
+    continue when v_hora < 8 or v_hora > 20;
+
+    v_n := v_n
+         + public.encolar_recordatorios(v_cl.id)
+         + public.encolar_seguimientos(v_cl.id);
+  end loop;
+
+  return v_n;
+end;
+$$;
+
+comment on function public.encolar_avisos_del_dia is
+  'Productor de avisos automáticos. Lo llama pg_cron cada hora; es idempotente por el índice avisos_unico_por_cita.';
+
+-- ═══ La salida fácil ═══════════════════════════════════════════════════
+-- Sin sesión, con el token del correo como única credencial. No devuelve
+-- nada que sirva para identificar a nadie más allá del nombre de pila —
+-- suficiente para que la página diga a quién está dando de baja, y nada
+-- más. El token es el mismo criterio que el folio en la encuesta: quien lo
+-- tiene es porque recibió el correo.
+create or replace function public.consultar_baja(p_token text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_p record;
+begin
+  select p.nombre, p.avisa_recordatorios, p.avisa_seguimientos, p.baja_en,
+         cl.nombre_clinica
+  into v_p
+  from public.pacientes p
+  join public.clinicas cl on cl.id = p.clinica_id
+  where p.baja_token = trim(p_token);
+
+  if not found then
+    return jsonb_build_object('valido', false);
+  end if;
+
+  return jsonb_build_object(
+    'valido', true,
+    'nombre', v_p.nombre,
+    'clinica', v_p.nombre_clinica,
+    'recordatorios', v_p.avisa_recordatorios and v_p.baja_en is null,
+    'seguimientos',  v_p.avisa_seguimientos  and v_p.baja_en is null,
+    'dadoDeBaja', v_p.baja_en is not null
+  );
+end;
+$$;
+
+create or replace function public.darse_de_baja(
+  p_token   text,
+  p_alcance text default 'todo'
+)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+begin
+  if p_alcance not in ('todo', 'seguimientos', 'reactivar') then
+    raise exception 'Alcance no válido';
+  end if;
+
+  select id into v_id from public.pacientes where baja_token = trim(p_token);
+  if v_id is null then
+    raise exception 'Ese enlace ya no es válido. Escríbenos y lo resolvemos.';
+  end if;
+
+  if p_alcance = 'todo' then
+    update public.pacientes
+      set baja_en = now(), avisa_recordatorios = false, avisa_seguimientos = false
+      where id = v_id;
+
+  elsif p_alcance = 'seguimientos' then
+    -- Solo el "¿cómo te fue?". Conserva el recordatorio de la cita, que es
+    -- lo que la mayoría quiere seguir recibiendo.
+    update public.pacientes
+      set baja_en = null, avisa_seguimientos = false, avisa_recordatorios = true
+      where id = v_id;
+
+  else
+    update public.pacientes
+      set baja_en = null, avisa_seguimientos = true, avisa_recordatorios = true
+      where id = v_id;
+  end if;
+
+  /* Lo que ya estaba encolado y no ha salido, se cancela. Dar de baja y
+     que al minuto llegue un correo más es exactamente lo que hace que la
+     gente deje de creerle al enlace. */
+  update public.avisos_pendientes
+    set estado = 'fallido', ultimo_error = 'cancelado por baja del paciente'
+    where paciente_id = v_id and estado = 'pendiente' and tipo <> 'escalacion';
+
+  return public.consultar_baja(p_token);
+end;
+$$;
+
+comment on function public.darse_de_baja is
+  'Baja sin sesión con el token del correo. Cancela además lo que ya estuviera encolado.';
+
+-- ═══ Permisos ══════════════════════════════════════════════════════════
+-- Convención de 0013: revocar de los tres y conceder a quien la necesita.
+revoke all on function public.encolar_avisos_del_dia()      from public, anon, authenticated;
+revoke all on function public.encolar_recordatorios(uuid)   from public, anon, authenticated;
+revoke all on function public.encolar_seguimientos(uuid)    from public, anon, authenticated;
+revoke all on function public.pie_de_aviso(uuid, uuid)      from public, anon, authenticated;
+revoke all on function public.puede_recibir_aviso(uuid)     from public, anon;
+
+revoke all on function public.consultar_baja(text)       from public, anon, authenticated;
+revoke all on function public.darse_de_baja(text, text)  from public, anon, authenticated;
+
+-- Las dos puertas nuevas del visitante sin cuenta. La baja tiene que
+-- funcionar sin sesión: exigirle una cuenta a alguien para dejar de
+-- escribirle es no dejar que se vaya.
+grant execute on function public.consultar_baja(text)      to anon, authenticated;
+grant execute on function public.darse_de_baja(text, text) to anon, authenticated;
+
+grant execute on function public.puede_recibir_aviso(uuid) to authenticated;

@@ -180,6 +180,9 @@ const SONDAS = [
   // Fase E: la landing consulta el horario y el paciente puede pedir un humano.
   ["horario_disponible",     { p_desde: "2000-01-01", p_hasta: "2099-01-01" },  "0009_horarios.sql"],
   ["escalar_a_humano",       { p_motivo: "", p_resumen: "" },                   "0010_escalaciones.sql"],
+  // Fase F: el formulario no ofrece una hora tomada, y el paciente se puede bajar.
+  ["horas_ocupadas_publico", { p_doctor: "__NADIE__", p_fecha: "2000-01-01" },  "0012_doble_reserva.sql"],
+  ["consultar_baja",         { p_token: "__NO_EXISTE__" },                      "0014_avisos_automaticos.sql"],
 ];
 
 for (const [fn, cuerpo, migracion] of SONDAS) {
@@ -197,16 +200,37 @@ for (const [fn, cuerpo, migracion] of SONDAS) {
   else bien(`${fn}: presente y validando`);
 }
 
+/* ─── Configuración sin la que el reloj no le escribe a nadie ─────────── */
+console.log("\n[5] ¿Está dada de alta la clínica?");
+{
+  /* `clinica_publica` es la vista recortada que la landing ya lee sin
+     sesión, así que esto no necesita credenciales de más. */
+  const { json } = await pedir("/rest/v1/clinica_publica?select=nombre_clinica,zona_horaria&limit=1");
+  const c = Array.isArray(json) ? json[0] : null;
+
+  if (!c) {
+    mal("no se pudo leer clinica_publica — ¿ya la diste de alta con seed-clinica.sql?");
+  } else {
+    bien(`${c.nombre_clinica} · zona horaria ${c.zona_horaria}`);
+    console.log("  · `sitio_url` no sale por la vista pública, y no tiene por qué.");
+    console.log("    Compruébala en el editor SQL:");
+    console.log("      select nombre_clinica, sitio_url from public.clinicas;");
+    console.log("    Vacía = el sistema funciona pero NO salen recordatorios ni");
+    console.log("    seguimientos: el correo llevaría un enlace de baja roto.");
+  }
+}
+
 /* ─── Lo único que este script NO puede comprobar ─────────────────────── */
-console.log("\n[5] El reloj de las escalaciones");
+console.log("\n[6] El reloj");
 console.log("  · No se puede verificar desde aquí: `cron.job` vive fuera del");
 console.log("    esquema público y la llave pública no lo alcanza — que es");
 console.log("    justo como debe ser.");
 console.log("  · Compruébalo en el editor SQL del panel:");
 console.log("      select jobname, schedule, active from cron.job where jobname like 'medicita-%';");
-console.log("    Deben salir DOS renglones con active = true. Si no, la");
+console.log("    Deben salir CUATRO renglones con active = true. Si faltan, la");
 console.log("    escalación funciona pero la re-alerta no ocurre con el panel");
-console.log("    cerrado. Ver supabase/cron.sql.");
+console.log("    cerrado, y los avisos al paciente no salen solos.");
+console.log("    Ver supabase/cron.sql.");
 
 console.log(
   fallas === 0

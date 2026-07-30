@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Backend por clínica; en marcador = modo local. Ver docs/nueva-clinica.md -->
+  <meta name="supabase-url" content="TU_PROYECTO.supabase.co">
+  <meta name="supabase-anon-key" content="TU_PUBLISHABLE_KEY">
+
+  <!-- Un enlace de baja no debe quedar indexado ni precargado por nadie. -->
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+
+  <title>Preferencias de correo — MediCita</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/encuesta.css" />
+  <link rel="stylesheet" href="css/baja.css" />
+</head>
+<body>
+
+  <div class="encuesta-wrap">
+
+    <div class="enc-header">
+      <span aria-hidden="true">🏥</span>
+      <span id="baja-clinica">MediCita</span>
+    </div>
+
+    <!-- ─── Validando ──────────────────────────────────────────────────── -->
+    <div id="baja-validando" class="enc-card" role="status" aria-live="polite">
+      <div class="spinner-enc" aria-hidden="true"></div>
+      <p>Un momento…</p>
+    </div>
+
+    <!-- ─── Enlace inválido ────────────────────────────────────────────── -->
+    <div id="baja-invalido" class="enc-card oculto">
+      <div class="enc-icono-grande" aria-hidden="true">🔗</div>
+      <h2>Enlace no válido</h2>
+      <p>Este enlace ya no funciona.<br>
+         Escríbele a la clínica y con gusto ajustan tus preferencias a mano.</p>
+    </div>
+
+    <!-- ─── Elegir ─────────────────────────────────────────────────────── -->
+    <div id="baja-opciones" class="enc-card oculto">
+      <h2>Tus preferencias de correo</h2>
+      <p id="baja-saludo" class="baja-saludo"></p>
+
+      <div class="baja-lista">
+        <button type="button" class="baja-opcion" data-alcance="seguimientos">
+          <span class="baja-opcion-icono" aria-hidden="true">📅</span>
+          <span class="baja-opcion-texto">
+            <strong>Solo recordatorios de mis citas</strong>
+            <small>Dejas de recibir los correos de seguimiento, pero seguimos
+                   avisándote la víspera de cada cita.</small>
+          </span>
+        </button>
+
+        <button type="button" class="baja-opcion baja-opcion-todo" data-alcance="todo">
+          <span class="baja-opcion-icono" aria-hidden="true">🔕</span>
+          <span class="baja-opcion-texto">
+            <strong>Ningún correo automático</strong>
+            <small>No te escribimos por nada. Tus citas siguen igual —
+                   solo no te llegará el recordatorio.</small>
+          </span>
+        </button>
+      </div>
+
+      <p id="baja-error" class="enc-error" role="alert" aria-live="assertive"></p>
+
+      <p class="baja-nota">
+        Esto no cancela tus citas ni borra tu expediente. Si quieres volver a
+        recibirlos, puedes decírnoslo cuando quieras.
+      </p>
+    </div>
+
+    <!-- ─── Listo ──────────────────────────────────────────────────────── -->
+    <div id="baja-listo" class="enc-card oculto">
+      <div class="enc-icono-grande" aria-hidden="true">✅</div>
+      <h2>Listo</h2>
+      <p id="baja-confirmacion"></p>
+      <button type="button" id="btn-baja-deshacer" class="baja-deshacer">
+        Me equivoqué, quiero volver a recibirlos
+      </button>
+    </div>
+
+    <a href="https://symbiotiq.com.mx" target="_blank" rel="noopener" class="enc-footer-marca" title="Sistema creado por Symbiotiq">
+      Sistema creado por
+      <img src="assets/symbiotiq/logo-icon.png" alt="Symbiotiq">
+    </a>
+
+  </div>
+
+  <!-- Puente a la capa de datos. Script clásico y sin defer: así
+       window.APIListo ya existe cuando los módulos arrancan. -->
+  <script src="js/puente-api.js"></script>
+  <script src="js/baja.js"></script>
+</body>
+</html>

@@ -490,3 +490,92 @@ test("el horario público frena un rango absurdo", async () => {
     /90 días/
   );
 });
+
+/* ═══ El hueco ocupado, en modo local ══════════════════════════════════
+   El índice único de 0012 protege a una clínica con backend. La demo no
+   tiene Postgres, así que la comprobación es de este lado — y estas
+   pruebas existen para que las dos mitades digan lo mismo. Que la demo
+   permita lo que producción rechaza es peor que no tener la función: se
+   enseña en una venta un comportamiento que el producto no cumple. */
+
+const CITA_BASE = {
+  nombre: "Ana", apellidos: "López", telefono: "55 2222 3333",
+  especialidad: "Medicina General", doctor: "Dra. Laura García",
+  fecha: "2026-08-12",
+};
+
+test("en local, dos citas en el mismo hueco tampoco entran", async () => {
+  ls.clear();
+  await local.citasCrear({ ...CITA_BASE, hora: "09:00" });
+
+  await assert.rejects(
+    () => local.citasCrear({ ...CITA_BASE, telefono: "55 4444 5555", hora: "09:00" }),
+    /ya está ocupada/
+  );
+});
+
+test("en local, '9:00' y '09:00' son la misma hora", async () => {
+  ls.clear();
+  await local.citasCrear({ ...CITA_BASE, hora: "09:00" });
+
+  await assert.rejects(
+    () => local.citasCrear({ ...CITA_BASE, telefono: "55 4444 5555", hora: "9:00" }),
+    /ya está ocupada/,
+    "sin normalizar, la demo dejaría pasar lo que Postgres rechaza"
+  );
+});
+
+test("en local, cancelar libera el hueco y otro médico no estorba", async () => {
+  ls.clear();
+  const c = await local.citasCrear({ ...CITA_BASE, hora: "10:00" });
+  await local.citasActualizar(c.folio, { estado: "cancelada" });
+
+  const otra = await local.citasCrear({ ...CITA_BASE, telefono: "55 4444 5555", hora: "10:00" });
+  assert.ok(otra.folio, "una cita cancelada no debe seguir reservando la hora");
+
+  const distinto = await local.citasCrear({
+    ...CITA_BASE, telefono: "55 6666 7777", hora: "10:00", doctor: "Dr. Miguel Ríos",
+  });
+  assert.ok(distinto.folio, "otro médico a la misma hora es otro hueco");
+});
+
+test("en local, reagendar a una hora tomada se rechaza; a la propia no", async () => {
+  ls.clear();
+  await local.citasCrear({ ...CITA_BASE, hora: "09:00" });
+  const mia = await local.citasCrear({ ...CITA_BASE, telefono: "55 4444 5555", hora: "11:00" });
+
+  await assert.rejects(
+    () => local.citasActualizar(mia.folio, { hora: "09:00" }),
+    /ya está ocupada/
+  );
+
+  /* Confirmar una cita sin moverla evalúa su propia hora contra sí misma.
+     Si no se excluyera, ningún botón de "Confirmar" del panel funcionaría. */
+  const igual = await local.citasActualizar(mia.folio, { estado: "confirmada" });
+  assert.equal(igual.estado, "confirmada");
+});
+
+test("en local, una solicitud sin hora no reserva nada", async () => {
+  ls.clear();
+  await local.citasCrear({ ...CITA_BASE, hora: "" });
+  const segunda = await local.citasCrear({ ...CITA_BASE, telefono: "55 4444 5555", hora: "" });
+  assert.ok(segunda.folio, "sin hora asignada no hay hueco que reservar");
+});
+
+test("horasOcupadas devuelve HH:MM normalizado, sin canceladas", async () => {
+  ls.clear();
+  await local.citasCrear({ ...CITA_BASE, hora: "9:00" });
+  await local.citasCrear({ ...CITA_BASE, telefono: "55 4444 5555", hora: "13:30" });
+  const c = await local.citasCrear({ ...CITA_BASE, telefono: "55 6666 7777", hora: "16:00" });
+  await local.citasActualizar(c.folio, { estado: "cancelada" });
+
+  assert.deepStrictEqual(
+    await local.citasHorasOcupadas("Dra. Laura García", "2026-08-12"),
+    ["09:00", "13:30"]
+  );
+  assert.deepStrictEqual(
+    await local.citasHorasOcupadas("  dra. laura garcía ", "2026-08-12"),
+    ["09:00", "13:30"],
+    "el nombre del médico se normaliza igual que en el índice"
+  );
+});

@@ -76,6 +76,7 @@ También tienes acceso al expediente completo:
 
 Y el horario del consultorio:
 • ver_horario_atencion — el horario real, con cierres y cambios ya aplicados
+• ver_horas_libres — qué horas de un médico quedan libres en una fecha
 • cambiar_horario_base — reemplaza la semana habitual COMPLETA (confirma antes)
 • agregar_excepcion_horario — cierra un día suelto o le pone otro horario
 
@@ -92,6 +93,7 @@ HERRAMIENTAS DISPONIBLES:
 • listar_especialidades — Lista todas las especialidades de la clínica con descripción
 • listar_doctores — Lista médicos disponibles con horarios; filtrable por especialidad_id
 • ver_horario_atencion — el horario real del consultorio, con cierres ya aplicados
+• ver_horas_libres — qué horas quedan libres con un médico en una fecha
 • buscar_citas — Busca la cita de ESTA persona. Pide su folio o su teléfono primero.
 • crear_cita — Registra una nueva cita (solo tras confirmar datos con el paciente)
 • enviar_email_paciente — Confirmación por correo tras agendar
@@ -108,6 +110,12 @@ HORARIO — no inventes disponibilidad:
 Antes de proponer una fecha, consulta ver_horario_atencion. Si ese día está
 cerrado, dilo y ofrece el siguiente día abierto. Nunca ofrezcas una hora en
 un día sin horario: el paciente se presentaría a un consultorio cerrado.
+
+Y antes de proponer una HORA, consulta ver_horas_libres. Un médico no puede
+recibir a dos personas a la vez, así que las horas ya tomadas no existen para
+ti: no las menciones ni las ofrezcas "por si se libera". Si crear_cita te
+contesta que la hora se ocupó, discúlpate y ofrece las alternativas que te
+devuelve — no vuelvas a intentar la misma hora.
 
 SEÑALES DE URGENCIA — esta regla está por encima de todas las demás:
 Ante dolor en el pecho, dificultad para respirar, sangrado que no para,
@@ -353,6 +361,18 @@ const TOOLS = [
     },
   },
   {
+    name: "ver_horas_libres",
+    description: "Horas en las que un médico SÍ puede recibir a alguien en una fecha: ya descontadas las que están ocupadas y las que caen fuera del horario del consultorio. Úsala siempre antes de proponer una hora o de llamar a crear_cita — nunca ofrezcas una hora que no venga de aquí.",
+    input_schema: {
+      type: "object",
+      properties: {
+        doctor: { type: "string", description: "Nombre exacto del médico, tal como lo devuelve listar_doctores." },
+        fecha:  { type: "string", description: "YYYY-MM-DD" },
+      },
+      required: ["doctor", "fecha"],
+    },
+  },
+  {
     name: "cambiar_horario_base",
     description: "Reemplaza el horario semanal habitual del consultorio. Solo para cambios permanentes; para un día suelto usa agregar_excepcion_horario. Confirma con la persona antes de llamarla: reemplaza la semana COMPLETA.",
     input_schema: {
@@ -426,7 +446,7 @@ const TOOLS = [
    Se resuelve por sesión, no por parámetro de URL: un ?perfil=personal
    sería una reja que se abre escribiéndola.                             */
 const TOOLS_PACIENTE = [
-  "listar_especialidades", "listar_doctores", "ver_horario_atencion",
+  "listar_especialidades", "listar_doctores", "ver_horario_atencion", "ver_horas_libres",
   "buscar_citas", "crear_cita", "enviar_email_paciente",
 ];
 
@@ -531,16 +551,87 @@ async function ejecutarHerramienta(nombre, p) {
         }));
       }
 
+      case "ver_horas_libres": {
+        /* La resta la hace la herramienta, no el modelo. Es la lección del
+           bug de la zona horaria: cuando el dato ya viene calculado, el
+           modelo solo puede leerlo mal en voz alta; cuando le pasamos los
+           insumos, puede equivocarse en la aritmética y sonar convincente.
+
+           Aquí se cruzan tres cosas: las horas que ese médico atiende
+           (data.js), el horario real del consultorio ese día (que puede
+           estar cerrado), y las horas ya tomadas. */
+        const doctor = DOCTORES.find(d => d.nombre === p.doctor);
+        if (!doctor) {
+          return JSON.stringify({ exito: false, error: `No existe el médico "${p.doctor}". Usa listar_doctores.` });
+        }
+
+        /* Se pregunta por una VENTANA de dos semanas, no por la fecha suelta.
+           Para un solo día, una respuesta vacía significa dos cosas
+           distintas —ese día está cerrado, o esta clínica nunca cargó su
+           horario— y confundirlas hace que una clínica sin horario salga
+           "cerrada" todos los días. Con la ventana se distinguen: si en
+           catorce días no hay un solo bloque, es que no hay horario cargado,
+           y entonces valen los horarios del médico como hasta antes. */
+        const hasta = new Date(`${p.fecha}T00:00:00`);
+        hasta.setDate(hasta.getDate() + 13);
+        const ventana = (await API.publico.horarioDisponible(
+          p.fecha, hasta.toISOString().slice(0, 10)
+        )) || [];
+
+        const hayHorarioCargado = ventana.length > 0;
+        const delDia = ventana.filter(b => b.fecha === p.fecha);
+
+        let horas = doctor.horarios || [];
+        if (hayHorarioCargado) {
+          horas = horas.filter(h => delDia.some(b => h >= b.horaInicio && h < b.horaFin));
+        }
+
+        const cerrado = hayHorarioCargado && delDia.length === 0;
+        const ocupadas = await API.publico.horasOcupadas(p.doctor, p.fecha);
+        const libres = horas.filter(h => !ocupadas.includes(h));
+
+        return JSON.stringify({
+          exito: true, doctor: p.doctor, fecha: p.fecha,
+          horas_libres: libres,
+          horas_ocupadas: ocupadas,
+          consultorio_cerrado: cerrado,
+          nota: cerrado
+            ? "Ese día el consultorio no atiende. Ofrece otra fecha."
+            : libres.length
+              ? "Ofrece SOLO estas horas."
+              : "Ese día ya está lleno con ese médico. Propón otra fecha u otro médico; no inventes horarios.",
+        });
+      }
+
       case "crear_cita": {
         /* El folio y el vínculo con el expediente los pone la capa de
            datos: en Postgres el folio lleva índice único y hay reintento
-           por si dos solicitudes chocan el mismo día. */
-        const cita = await API.citas.crear({
-          estado: "pendiente",
-          nombre: p.nombre, apellidos: p.apellidos, telefono: p.telefono,
-          email: p.email ?? "", especialidad: p.especialidad, doctor: p.doctor,
-          fecha: p.fecha, hora: p.hora, tipo: p.tipo, notas: p.notas ?? "",
-        });
+           por si dos solicitudes chocan el mismo día.
+
+           El hueco ocupado se devuelve como resultado, no como excepción:
+           así el modelo lo lee, se disculpa y ofrece otra hora en el mismo
+           turno. Si lo dejáramos reventar, la conversación se cortaría con
+           un error genérico y el paciente se quedaría sin cita. */
+        let cita;
+        try {
+          cita = await API.citas.crear({
+            estado: "pendiente",
+            nombre: p.nombre, apellidos: p.apellidos, telefono: p.telefono,
+            email: p.email ?? "", especialidad: p.especialidad, doctor: p.doctor,
+            fecha: p.fecha, hora: p.hora, tipo: p.tipo, notas: p.notas ?? "",
+          });
+        } catch (e) {
+          if (/hora ya está ocupada|hora se acaba de ocupar/i.test(e.message)) {
+            const libres = await ejecutarHerramienta("ver_horas_libres", { doctor: p.doctor, fecha: p.fecha });
+            return JSON.stringify({
+              exito: false,
+              error: "Esa hora ya está ocupada con ese médico.",
+              instruccion: "Discúlpate, dile qué horas SÍ quedan y pídele que elija una.",
+              alternativas: JSON.parse(libres).horas_libres ?? [],
+            });
+          }
+          throw e;
+        }
         const folio = cita.folio;
 
         // En cuanto sabemos quién es, la conversación deja de ser anónima:
@@ -1010,6 +1101,7 @@ function labelHerramienta(nombre) {
     ver_notas_paciente:       "Buscando en expediente…",
     ver_nps_paciente:         "Buscando en expediente…",
     ver_horario_atencion:     "Consultando el horario del consultorio…",
+    ver_horas_libres:         "Revisando qué horas quedan libres…",
     cambiar_horario_base:     "Actualizando el horario semanal…",
     agregar_excepcion_horario: "Programando el cambio de horario…",
     escalar_a_humano:         "Avisando a una persona de la clínica…",

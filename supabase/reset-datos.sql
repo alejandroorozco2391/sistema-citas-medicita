@@ -42,6 +42,7 @@ declare
   v_clinica_id  uuid;
   n_pac  int; n_cit  int; n_con  int; n_msg int;
   n_doc  int; n_post int; n_nps  int; n_seg int; n_not int;
+  n_esc  int; n_avi  int; n_hor  int; n_hex int;
 begin
 
   select id into v_clinica_id
@@ -62,6 +63,12 @@ begin
   -- `on delete cascade`. Se hace explícito para que el script sirva
   -- también de inventario de qué guarda el sistema por clínica.
 
+  -- La bandeja de avisos va PRIMERO, y no solo por las llaves foráneas: si
+  -- quedara con renglones pendientes, /api/avisar seguiría mandando correos
+  -- sobre escalaciones de pacientes que ya no existen.
+  delete from public.avisos_pendientes where clinica_id = v_clinica_id;  get diagnostics n_avi  = row_count;
+  delete from public.escalaciones     where clinica_id = v_clinica_id;  get diagnostics n_esc  = row_count;
+
   delete from public.mensajes        where clinica_id = v_clinica_id;  get diagnostics n_msg  = row_count;
   delete from public.conversaciones  where clinica_id = v_clinica_id;  get diagnostics n_con  = row_count;
   delete from public.notas_paciente  where clinica_id = v_clinica_id;  get diagnostics n_not  = row_count;
@@ -72,8 +79,19 @@ begin
   delete from public.pacientes       where clinica_id = v_clinica_id;  get diagnostics n_pac  = row_count;
   delete from public.posts           where clinica_id = v_clinica_id;  get diagnostics n_post = row_count;
 
+  -- El horario se borra solo si además se borra la clínica: es
+  -- configuración, no datos de pacientes, y quien vacía para volver a
+  -- empezar casi nunca quiere volver a capturar la semana entera.
+  if v_borrar_clinica then
+    delete from public.horarios_excepciones where clinica_id = v_clinica_id;  get diagnostics n_hex = row_count;
+    delete from public.horarios_base        where clinica_id = v_clinica_id;  get diagnostics n_hor = row_count;
+  else
+    n_hex := 0; n_hor := 0;
+  end if;
+
   raise notice 'Borrados — pacientes: %, citas: %, conversaciones: %, mensajes: %', n_pac, n_cit, n_con, n_msg;
   raise notice '           notas: %, documentos: %, posts: %, NPS: %, seguimientos: %', n_not, n_doc, n_post, n_nps, n_seg;
+  raise notice '           escalaciones: %, avisos en cola: %, horario: % bloques y % excepciones', n_esc, n_avi, n_hor, n_hex;
 
   -- ─── La clínica misma ────────────────────────────────────────────────
   if v_borrar_clinica then
@@ -98,5 +116,7 @@ union all select 'posts',          count(*) from public.posts
 union all select 'nps_respuestas', count(*) from public.nps_respuestas
 union all select 'seguimientos',   count(*) from public.seguimientos
 union all select 'notas_paciente', count(*) from public.notas_paciente
+union all select 'escalaciones',     count(*) from public.escalaciones
+union all select 'avisos_pendientes',count(*) from public.avisos_pendientes
 union all select 'clinicas',       count(*) from public.clinicas
 union all select 'perfiles_staff', count(*) from public.perfiles_staff;

@@ -651,6 +651,18 @@ textarea.form-control { resize: vertical; min-height: 90px; }
 }
 .btn-horario:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .btn-horario.activo { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+
+/* Hora ya reservada. Se muestra tachada en vez de esconderse: dos huecos
+   visibles de nueve dicen "está lleno"; nueve huecos de los que solo dos
+   responden al clic parecen una página rota. */
+.btn-horario.ocupado {
+  background: var(--color-bg-alt, #f3f4f6);
+  border-color: var(--color-border);
+  color: #9ca3af;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+.btn-horario.ocupado:hover { border-color: var(--color-border); color: #9ca3af; }
 .horarios-cerrado {
   font-size: .86rem;
   color: #92400e;

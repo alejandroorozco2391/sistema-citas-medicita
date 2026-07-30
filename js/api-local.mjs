@@ -273,6 +273,7 @@ export async function pacientesGuardar(pac) {
     ciudad: "", comoNosEncontro: "", ocupacion: "",
     calificacion: 1, notas: "", historialNotas: [],
     foliosCitas: [], foliosDocs: [], respuestasNPS: [],
+    ...preferenciasDeAviso(),
     ...pac,
     creadoEn: pac.creadoEn || ahora,
     actualizadoEn: ahora,
@@ -356,11 +357,32 @@ function _asegurarPacientePorCita(cita) {
     calificacion: 1, notas: "", historialNotas: [],
     foliosCitas: cita.folio ? [cita.folio] : [],
     foliosDocs: [], respuestasNPS: [],
+    ...preferenciasDeAviso(),
     creadoEn: ahora, actualizadoEn: ahora,
   };
   pacientes.unshift(nuevo);
   _guardar(CLAVE_PACIENTES, pacientes);
   return nuevo;
+}
+
+/**
+ * Consentimiento y token de baja, espejo de las columnas que 0014 agregó a
+ * `pacientes`.
+ *
+ * En modo local no hay reloj y por lo tanto no sale ningún correo
+ * automático, así que esto no se usa para nada… salvo que la página de baja
+ * exista en los dos modos. Y tiene que existir: si solo funcionara contra
+ * el backend, `baja.html` quedaría escrita contra un contrato que se cumple
+ * a medias, que es exactamente el error que ya cometimos con los
+ * testimonios.
+ */
+function preferenciasDeAviso() {
+  return {
+    avisaRecordatorios: true,
+    avisaSeguimientos: true,
+    bajaEn: null,
+    bajaToken: (crypto?.randomUUID?.() || `${Date.now()}${Math.random()}`).replace(/-/g, ""),
+  };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -395,6 +417,52 @@ export async function citasPorFolio(folio) {
   return _leer(CLAVE_CITAS).find((c) => c.folio === folio) || null;
 }
 
+/* ─── El hueco ocupado ─────────────────────────────────────────────────
+   Espejo del índice `citas_slot_unico` de 0012. Aquí no hay Postgres que
+   lo garantice, así que se comprueba a mano — y por eso la comprobación
+   vive en UN solo lugar, no en cada módulo que agenda.
+
+   `_claveHora` es la versión en JS de clave_hora(): si una cambia, cambia
+   la otra. Sin normalizar, '9:00' y '09:00' pasarían como huecos distintos
+   en la demo y no en producción, que es la peor de las dos opciones. */
+const OCUPA_EL_HUECO = new Set(["pendiente", "confirmada"]);
+
+function _claveHora(h) {
+  const t = String(h ?? "").trim();
+  if (!t) return "";
+  if (!t.includes(":")) return t.toLowerCase();
+  const [hh, mm = ""] = t.split(":");
+  return `${hh.trim().padStart(2, "0")}:${(mm.trim() || "00").padStart(2, "0")}`;
+}
+
+const _claveDoctor = d => String(d ?? "").trim().toLowerCase();
+
+function _huecoTomadoPor(citas, { doctor, fecha, hora }, excluirFolio = null) {
+  const clave = _claveHora(hora);
+  if (!clave) return null;   // una solicitud sin hora no reserva nada
+  return citas.find(c =>
+    c.folio !== excluirFolio &&
+    OCUPA_EL_HUECO.has(c.estado) &&
+    c.fecha === fecha &&
+    _claveDoctor(c.doctor) === _claveDoctor(doctor) &&
+    _claveHora(c.hora) === clave
+  ) || null;
+}
+
+const MENSAJE_HUECO = "Esa hora ya está ocupada con ese médico. Elige otra, por favor.";
+
+/** Horas ya tomadas de un médico en una fecha, normalizadas a HH:MM. */
+export async function citasHorasOcupadas(doctor, fecha) {
+  return [...new Set(
+    _leer(CLAVE_CITAS)
+      .filter(c => OCUPA_EL_HUECO.has(c.estado) &&
+                   c.fecha === fecha &&
+                   _claveDoctor(c.doctor) === _claveDoctor(doctor) &&
+                   _claveHora(c.hora))
+      .map(c => _claveHora(c.hora))
+  )].sort();
+}
+
 /**
  * Crea una cita. Si no trae folio, genera uno con el mismo formato que
  * usan app.js y admin.js (CIT-AAMMDD-XXXX). Vincula automáticamente el
@@ -404,6 +472,11 @@ export async function citasPorFolio(folio) {
 export async function citasCrear(cita) {
   const citas = _leer(CLAVE_CITAS);
   const folio = cita.folio || _folioCitaLibre(citas);
+
+  if (OCUPA_EL_HUECO.has(cita.estado || "pendiente") &&
+      _huecoTomadoPor(citas, cita)) {
+    throw new Error(MENSAJE_HUECO);
+  }
   const nueva = {
     folio,
     nombre: cita.nombre || "",
@@ -435,7 +508,16 @@ export async function citasActualizar(id, cambios) {
   const idx = citas.findIndex((c) => c.folio === id);
   if (idx === -1) return null;
 
-  citas[idx] = { ...citas[idx], ...cambios };
+  /* Reagendar es la otra forma de chocar con el hueco. Se evalúa la cita
+     RESULTANTE, no los cambios: mover solo la hora deja fecha y médico como
+     estaban, y hay que revisar la combinación completa. */
+  const resultante = { ...citas[idx], ...cambios };
+  if (OCUPA_EL_HUECO.has(resultante.estado) &&
+      _huecoTomadoPor(citas, resultante, citas[idx].folio)) {
+    throw new Error(MENSAJE_HUECO);
+  }
+
+  citas[idx] = resultante;
   _guardar(CLAVE_CITAS, citas);
   _asegurarPacientePorCita(citas[idx]);
   return citas[idx];
@@ -1151,6 +1233,79 @@ export async function publicoHorarioDisponible(desde, hasta) {
     d.setDate(d.getDate() + 1);
   }
   return salida;
+}
+
+/**
+ * Superficie pública: las horas ya tomadas de un médico, para que la
+ * landing no ofrezca un hueco que ya tiene dueño.
+ *
+ * Aplica el mismo tope de fechas que la función SQL, aunque aquí no haya
+ * nada que proteger. Es a propósito: si el recorte solo existiera en uno de
+ * los dos modos, la página quedaría escrita contra un contrato que se
+ * cumple a medias — el mismo criterio que se siguió con los testimonios.
+ */
+export async function publicoHorasOcupadas(doctor, fecha) {
+  const dia = String(fecha || "").slice(0, 10);
+  if (!dia) return [];
+
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const pedida = new Date(`${dia}T00:00:00`);
+  if (isNaN(pedida)) return [];
+
+  const dias = Math.round((pedida - hoy) / 86400000);
+  if (dias < -1 || dias > 60) return [];
+
+  return citasHorasOcupadas(doctor, dia);
+}
+
+/* ─── Baja de los correos automáticos ─────────────────────────────────────
+   Espejo de consultar_baja() y darse_de_baja() de 0014.
+
+   Los perfiles creados en este navegador ANTES de esto no traen token, y no
+   se les rellena: en modo local no hay reloj, así que nunca recibieron un
+   correo del que bajarse y no existe ningún enlace suyo dando vueltas. Los
+   nuevos sí lo traen, y con eso la página se comporta igual en los dos
+   modos — que es lo único que se necesita de este lado. */
+
+function _pacientePorToken(token) {
+  const t = String(token || "").trim();
+  if (!t) return null;
+  return _leer(CLAVE_PACIENTES).find(p => p.bajaToken === t) || null;
+}
+
+export async function publicoConsultarBaja(token) {
+  const p = _pacientePorToken(token);
+  if (!p) return { valido: false };
+
+  return {
+    valido: true,
+    nombre: p.nombre || "",
+    clinica: (await publicoClinica())?.nombreClinica || "",
+    recordatorios: p.avisaRecordatorios !== false && !p.bajaEn,
+    seguimientos:  p.avisaSeguimientos  !== false && !p.bajaEn,
+    dadoDeBaja: Boolean(p.bajaEn),
+  };
+}
+
+export async function publicoDarseDeBaja(token, alcance = "todo") {
+  if (!["todo", "seguimientos", "reactivar"].includes(alcance)) {
+    throw new Error("Alcance no válido");
+  }
+
+  const pacientes = _leer(CLAVE_PACIENTES);
+  const idx = pacientes.findIndex(p => p.bajaToken === String(token || "").trim());
+  if (idx === -1) throw new Error("Ese enlace ya no es válido. Escríbenos y lo resolvemos.");
+
+  const cambio = alcance === "todo"
+    ? { bajaEn: new Date().toISOString(), avisaRecordatorios: false, avisaSeguimientos: false }
+    : alcance === "seguimientos"
+      ? { bajaEn: null, avisaRecordatorios: true, avisaSeguimientos: false }
+      : { bajaEn: null, avisaRecordatorios: true, avisaSeguimientos: true };
+
+  pacientes[idx] = { ...pacientes[idx], ...cambio, actualizadoEn: new Date().toISOString() };
+  _guardar(CLAVE_PACIENTES, pacientes);
+
+  return publicoConsultarBaja(token);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

@@ -108,6 +108,15 @@ export const citas = {
   async crear(cita)        { return (await impl()).citasCrear(cita); },
   async actualizar(id, cambios) { return (await impl()).citasActualizar(id, cambios); },
   async eliminar(id)       { return (await impl()).citasEliminar(id); },
+
+  /* Horas ya tomadas de un médico en una fecha, en HH:MM.
+     `crear` y `actualizar` rechazan un hueco ocupado por su cuenta —eso lo
+     garantiza un índice único en Postgres, no la buena voluntad de quien
+     llame— pero un formulario que ofrece una hora y luego la rechaza es un
+     formulario que hace perder el tiempo. Esto es para no ofrecerla. */
+  async horasOcupadas(doctor, fecha) {
+    return (await impl()).citasHorasOcupadas(doctor, fecha);
+  },
 };
 
 export const conversaciones = {
@@ -227,6 +236,21 @@ export const publico = {
      motivo del cierre: que esté cerrado es público, por qué no lo es. */
   async horarioDisponible(desde, hasta) {
     return (await implPublica()).publicoHorarioDisponible(desde, hasta);
+  },
+
+  /* Ni una hora que ya tiene dueño. Devuelve horas, nunca de quién son. */
+  async horasOcupadas(doctor, fecha) {
+    return (await implPublica()).publicoHorasOcupadas(doctor, fecha);
+  },
+
+  /* Bajarse de los correos automáticos. La credencial es el token que viaja
+     en el propio correo; exigirle una cuenta a alguien para dejar de
+     escribirle sería no dejarlo irse. */
+  async consultarBaja(token) {
+    return (await implPublica()).publicoConsultarBaja(token);
+  },
+  async darseDeBaja(token, alcance) {
+    return (await implPublica()).publicoDarseDeBaja(token, alcance);
   },
 
   /* Pedir un humano tampoco requiere cuenta: quien lo necesita casi nunca

@@ -163,3 +163,61 @@ test("el script no queda con datos de una clínica real dentro", async () => {
   const bandera = sql.match(/v_borrar_clinica\s+boolean\s+:=\s+(\w+)/)?.[1];
   assert.equal(bandera, "false", "la opción destructiva no debe venir activada por omisión");
 });
+
+/* ═══ Lo que la Fase E agregó y el reset no borraba ════════════════════ */
+
+test("borra las escalaciones y VACÍA la bandeja de avisos", async () => {
+  const { db, a, b } = await baseConDosClinicas();
+
+  /* Una escalación con su aviso encolado, en cada clínica. */
+  const sembrar = async (clinicaId) => {
+    const { rows: [e] } = await db.query(
+      `insert into escalaciones (clinica_id, motivo, urgencia, resumen, destino_rol, vence_en)
+       values ($1, 'queja', 'normal', 'Reclamo de prueba', 'admin', now() + interval '10 minutes')
+       returning id`, [clinicaId]);
+    await db.query(
+      `insert into avisos_pendientes (clinica_id, escalacion_id, destinatario, asunto, cuerpo)
+       values ($1, $2, 'staff@ejemplo.mx', 'Escalación', 'cuerpo')`, [clinicaId, e.id]);
+  };
+  await sembrar(a.clinicaId);
+  await sembrar(b.clinicaId);
+
+  await db.exec(guionReset({ clinica: "Clínica Norte" }));
+
+  const cuantos = async (tabla, clinicaId) => (await db.query(
+    `select count(*)::int as n from ${tabla} where clinica_id = $1`, [clinicaId])).rows[0].n;
+
+  assert.equal(await cuantos("escalaciones", a.clinicaId), 0);
+
+  /* Este es el que importa: un aviso pendiente que sobreviviera al reset
+     haría que /api/avisar mande un correo sobre el paciente de una clínica
+     que acaba de vaciarse. */
+  assert.equal(await cuantos("avisos_pendientes", a.clinicaId), 0,
+    "la bandeja tiene que quedar vacía, o el reloj sigue mandando correos");
+
+  assert.equal(await cuantos("escalaciones", b.clinicaId), 1, "la otra clínica no se toca");
+  assert.equal(await cuantos("avisos_pendientes", b.clinicaId), 1);
+
+  await db.close();
+});
+
+test("el horario sobrevive al vaciado, y se va con la clínica", async () => {
+  const { db, a } = await baseConDosClinicas();
+  await db.query(
+    `insert into horarios_base (clinica_id, dia_semana, hora_inicio, hora_fin)
+     values ($1, 1, '09:00', '14:00')`, [a.clinicaId]);
+
+  await db.exec(guionReset({ clinica: "Clínica Norte" }));
+
+  const bloques = async () => (await db.query(
+    "select count(*)::int as n from horarios_base where clinica_id = $1", [a.clinicaId])).rows[0].n;
+
+  /* Es configuración, no expedientes. Quien vacía para empezar de nuevo casi
+     nunca quiere volver a capturar la semana entera a mano. */
+  assert.equal(await bloques(), 1, "vaciar los datos no debe borrar el horario");
+
+  await db.exec(guionReset({ clinica: "Clínica Norte", borrarClinica: true }));
+  assert.equal(await bloques(), 0, "borrando la clínica sí se va todo");
+
+  await db.close();
+});

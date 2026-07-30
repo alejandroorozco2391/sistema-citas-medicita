@@ -1071,6 +1071,21 @@ td {
   line-height: 1.4;
 }
 
+/* Quién manda estos correos: el reloj del servidor, o la asistente con el
+   botón. Es la diferencia entre poder olvidarse del asunto y tener que
+   revisar la lista todos los días, así que se dice en la sección misma. */
+.seg-aviso {
+  font-size: .78rem;
+  margin: 6px 0 0;
+  line-height: 1.4;
+  color: var(--gris-suave);
+}
+.seg-aviso-auto {
+  color: #047857;
+  font-weight: 500;
+}
+.seg-aviso-auto::before { content: "⚙ "; }
+
 /* ─── Chips y botones de seguimiento ──────────────────────────────────── */
 .seg-chip {
   display: inline-flex;

@@ -1,0 +1,87 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Preferencias de correo — se monta encima de css/encuesta.css
+
+   Reutiliza el envoltorio, la tarjeta y el spinner de la encuesta: las dos
+   páginas son lo mismo desde el punto de vista del paciente —un enlace de
+   un correo, abierto en el celular— y darles dos identidades visuales solo
+   haría que una de las dos pareciera falsa.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.baja-saludo {
+  color: #64748b;
+  margin-bottom: 22px;
+}
+
+.baja-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+
+.baja-opcion {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 18px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .18s, background .18s, transform .18s;
+  font: inherit;
+  text-align: left;
+}
+
+.baja-opcion:hover:not(:disabled) {
+  border-color: #2563eb;
+  background: #f8fafc;
+}
+.baja-opcion:active:not(:disabled) { transform: scale(.99); }
+.baja-opcion:disabled { opacity: .6; cursor: progress; }
+
+/* La opción radical se ve distinta, no escondida. Dificultar la salida es
+   justo lo que vuelve indefendible el correo automático; lo honesto es que
+   se vea qué implica cada una. */
+.baja-opcion-todo:hover:not(:disabled) {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
+.baja-opcion-icono {
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.baja-opcion-texto { display: flex; flex-direction: column; gap: 4px; }
+.baja-opcion-texto strong { font-size: .95rem; color: #0f172a; font-weight: 600; }
+.baja-opcion-texto small  { font-size: .82rem; color: #64748b; line-height: 1.45; }
+
+.baja-nota {
+  margin-top: 20px;
+  font-size: .8rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.baja-deshacer {
+  margin-top: 18px;
+  padding: 10px 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  font-size: .86rem;
+  cursor: pointer;
+  transition: border-color .18s, color .18s;
+}
+.baja-deshacer:hover { border-color: #2563eb; color: #2563eb; }
+.baja-deshacer:disabled { opacity: .6; cursor: progress; }
+
+@media (max-width: 420px) {
+  .baja-opcion { padding: 14px; }
+  .baja-opcion-icono { font-size: 1.25rem; }
+}

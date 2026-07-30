@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════
--- El reloj de las escalaciones
+-- El reloj: escalaciones y avisos automáticos
 --
 -- Esto es lo que hace que la re-alerta signifique algo: la única pieza
 -- del sistema que trabaja con todos los navegadores cerrados. Un paciente
@@ -22,6 +22,11 @@
 --       EMAILJS_TEMPLATE_ID_ESCALACION
 --       EMAILJS_PUBLIC_KEY
 --       EMAILJS_PRIVATE_KEY
+--
+-- 3. Llena `clinicas.sitio_url` con la URL de este despliegue. Sin ella no
+--    sale ningún aviso automático al paciente: el correo llevaría un enlace
+--    de baja roto, y un correo del que no se puede bajar nadie no se manda.
+--        update public.clinicas set sitio_url = 'https://tu-clinica.vercel.app';
 --
 -- SOLO SE EDITA EL BLOQUE "DATOS A LLENAR". Correrlo dos veces es inocuo:
 -- desprograma antes de programar.
@@ -86,7 +91,24 @@ begin
     )
   );
 
-  -- ─── 3. Barrer la bitácora del propio cron ───────────────────────────
+  -- ─── 3. Avisos automáticos al paciente ───────────────────────────────
+  -- Recordatorio la víspera de la cita, y los seguimientos de día 3 y 30
+  -- que hasta ahora la asistente mandaba a mano uno por uno.
+  --
+  -- Cada hora, no una vez al día: la función decide si en la zona horaria
+  -- de esa clínica ya son horas de escribirle a alguien, y lo que evita
+  -- duplicados es un índice único, no la puntualidad. Así, si a las 8 la
+  -- base estaba caída, a las 9 se recupera sola.
+  perform cron.unschedule('medicita-avisos-automaticos')
+    where exists (select 1 from cron.job where jobname = 'medicita-avisos-automaticos');
+
+  perform cron.schedule(
+    'medicita-avisos-automaticos',
+    '7 * * * *',   -- al minuto 7 de cada hora, para no coincidir con los otros
+    'select public.encolar_avisos_del_dia();'
+  );
+
+  -- ─── 4. Barrer la bitácora del propio cron ───────────────────────────
   -- pg_cron escribe un renglón en cron.job_run_details por CADA corrida y
   -- no los borra nunca. Dos trabajos cada minuto son 2,880 renglones al
   -- día y cerca de un millón al año. En un proyecto chico eso se nota, y
@@ -106,12 +128,12 @@ begin
     $limpia$
   );
 
-  raise notice 'Listo. Los tres trabajos quedaron programados.';
+  raise notice 'Listo. Los cuatro trabajos quedaron programados.';
 end $$;
 
 
 -- ─── Comprobación 1: ¿están programados? ───────────────────────────────
--- Deben salir TRES renglones, todos con active = true.
+-- Deben salir CUATRO renglones, todos con active = true.
 select jobname, schedule, active
 from cron.job
 where jobname like 'medicita-%';
@@ -136,4 +158,5 @@ select count(*) as renglones_de_bitacora from cron.job_run_details;
 -- ─── Para desactivarlos ────────────────────────────────────────────────
 -- select cron.unschedule('medicita-promover-escalaciones');
 -- select cron.unschedule('medicita-vaciar-avisos');
+-- select cron.unschedule('medicita-avisos-automaticos');
 -- select cron.unschedule('medicita-barrer-bitacora');

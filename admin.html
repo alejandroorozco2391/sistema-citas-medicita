@@ -270,8 +270,10 @@
               <span id="seguimientos-badge" class="seguimientos-badge">0</span>
             </div>
             <p class="seguimientos-desc">
-              Emails de seguimiento post-consulta. Envíalos manualmente cuando corresponda (día 3 y día 30 tras la consulta).
+              Correos de seguimiento post-consulta: día 3 y día 30 tras la visita.
             </p>
+            <!-- Quién los manda depende del modo; lo escribe renderSeguimientos(). -->
+            <p id="seguimientos-aviso" class="seg-aviso"></p>
           </div>
           <div class="tabla-scroll" role="region" aria-label="Tabla de seguimientos" tabindex="0">
             <table aria-label="Seguimientos pendientes">

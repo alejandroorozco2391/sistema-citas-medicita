@@ -31,6 +31,13 @@ declare
   v_telefono        text := '55 1234 5678';
   v_email           text := 'contacto@ejemplo.mx';
   v_plan            text := 'profesional';   -- esencial | profesional | premium
+  v_zona            text := 'America/Mexico_City';  -- Tijuana, Hermosillo, Cancun…
+
+  -- La URL de ESTE despliegue, sin diagonal al final. Va en el enlace de la
+  -- encuesta y en el de baja de los correos automáticos. Si la dejas vacía,
+  -- el sistema funciona pero NO manda avisos automáticos: un correo del que
+  -- nadie se puede bajar no sale.
+  v_sitio_url       text := '';
 
   -- ── Persona 1 (correo TAL CUAL está en Authentication → Users) ──
   v1_email          text := 'doctor@ejemplo.mx';
@@ -59,16 +66,28 @@ begin
   if v_clinica_id is null then
     insert into public.clinicas (
       nombre_clinica, nombre_medico, especialidad_principal,
-      ciudad, telefono, email, plan
+      ciudad, telefono, email, plan, zona_horaria, sitio_url
     ) values (
       v_nombre_clinica, v_nombre_medico, v_especialidad,
-      v_ciudad, v_telefono, v_email, v_plan
+      v_ciudad, v_telefono, v_email, v_plan, v_zona,
+      rtrim(v_sitio_url, '/')
     )
     returning id into v_clinica_id;
 
     raise notice 'Clínica creada: % (%)', v_nombre_clinica, v_clinica_id;
   else
+    -- Volver a correrlo actualiza estos dos: son los que se olvidan al dar
+    -- de alta y los que hacen falta para que el reloj trabaje.
+    update public.clinicas
+      set zona_horaria = v_zona,
+          sitio_url    = coalesce(nullif(rtrim(v_sitio_url, '/'), ''), sitio_url)
+      where id = v_clinica_id;
+
     raise notice 'La clínica % ya existía, se reutiliza (%)', v_nombre_clinica, v_clinica_id;
+  end if;
+
+  if coalesce(rtrim(v_sitio_url, '/'), '') = '' then
+    raise notice 'OJO: sitio_url quedó vacía. No saldrán recordatorios ni seguimientos automáticos.';
   end if;
 
   -- ─── 2. El personal ──────────────────────────────────────────────────
