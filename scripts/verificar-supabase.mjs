@@ -202,26 +202,80 @@ for (const [fn, cuerpo, migracion] of SONDAS) {
 
 /* ─── Configuración sin la que el reloj no le escribe a nadie ─────────── */
 console.log("\n[5] ¿Está dada de alta la clínica?");
+
+let sitioUrl = "";
 {
   /* `clinica_publica` es la vista recortada que la landing ya lee sin
      sesión, así que esto no necesita credenciales de más. */
-  const { json } = await pedir("/rest/v1/clinica_publica?select=nombre_clinica,zona_horaria&limit=1");
+  const { json } = await pedir(
+    "/rest/v1/clinica_publica?select=nombre_clinica,zona_horaria,sitio_url&limit=1"
+  );
   const c = Array.isArray(json) ? json[0] : null;
 
   if (!c) {
     mal("no se pudo leer clinica_publica — ¿ya la diste de alta con seed-clinica.sql?");
   } else {
     bien(`${c.nombre_clinica} · zona horaria ${c.zona_horaria}`);
-    console.log("  · `sitio_url` no sale por la vista pública, y no tiene por qué.");
-    console.log("    Compruébala en el editor SQL:");
-    console.log("      select nombre_clinica, sitio_url from public.clinicas;");
-    console.log("    Vacía = el sistema funciona pero NO salen recordatorios ni");
-    console.log("    seguimientos: el correo llevaría un enlace de baja roto.");
+    sitioUrl = (c.sitio_url || "").replace(/\/+$/, "");
+  }
+}
+
+/* ─── A dónde llevan los enlaces de los correos ───────────────────────── */
+/* Esta comprobación existe por un error real que no se ve en ninguna
+   parte: `sitio_url` estaba bien escrita, el despliegue existía y
+   respondía, y los correos automáticos salieron con un enlace de baja
+   muerto — porque ese despliegue tenía las etiquetas <meta> en marcador y
+   por lo tanto corre en modo local.
+
+   Ni el SQL ni el HTML lo delatan por separado. Hay que ir a leer la
+   página a la que apunta la base, que es lo que se hace aquí. */
+console.log("\n[6] ¿Los enlaces de los correos llevan a este proyecto?");
+if (!sitioUrl) {
+  mal("`sitio_url` está vacía: NO saldrán recordatorios ni seguimientos automáticos");
+  console.log("     Ponla y vuelve a correr esto:");
+  console.log("       update public.clinicas set sitio_url = 'https://tu-clinica.vercel.app';");
+  console.log("     Es a propósito que sin ella no salga nada: el correo llevaría un");
+  console.log("     enlace de baja roto, y de un correo así nadie puede salirse.");
+} else {
+  /* baja.html es la página más nueva del sistema, así que pedirla verifica
+     dos cosas de una: que las credenciales estén puestas y que lo
+     desplegado no sea una versión anterior al productor de avisos. */
+  let html = null;
+  try {
+    const r = await fetch(`${sitioUrl}/baja.html`, { redirect: "follow" });
+    if (r.ok) html = await r.text();
+    else mal(`${sitioUrl}/baja.html contestó HTTP ${r.status} — ¿está desplegada esa página?`);
+  } catch (e) {
+    mal(`no se pudo abrir ${sitioUrl}/baja.html: ${e.message}`);
+  }
+
+  if (html !== null) {
+    const meta = html.match(/name="supabase-url"\s+content="([^"]*)"/)?.[1] || "";
+    const host = URL_BASE.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+    const suyo = meta.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+
+    if (!meta || meta.startsWith("TU_")) {
+      mal(`${sitioUrl} corre en MODO LOCAL: sus etiquetas <meta> están en marcador`);
+      console.log("     El enlace de baja de cada correo busca al paciente en el");
+      console.log("     localStorage del visitante y contesta \"enlace no válido\".");
+      console.log("     Y lo mismo el enlace a la encuesta.");
+      console.log("     Cada clínica necesita SU despliegue con sus credenciales.");
+      console.log("     Mientras pruebas, apunta sitio_url a tu localhost:");
+      console.log("       update public.clinicas set sitio_url = 'http://localhost:5173';");
+    } else if (suyo !== host) {
+      /* El caso peor, y el que no da error en ninguna parte: los pacientes
+         de esta clínica se darían de baja en la base de otra. */
+      mal(`${sitioUrl} apunta a OTRO proyecto de Supabase (${suyo}), no a ${host}`);
+      console.log("     Los enlaces de los correos de esta clínica llevarían a los");
+      console.log("     expedientes de otra. Es un cruce de clínicas, y silencioso.");
+    } else {
+      bien(`${sitioUrl} apunta a este proyecto`);
+    }
   }
 }
 
 /* ─── Lo único que este script NO puede comprobar ─────────────────────── */
-console.log("\n[6] El reloj");
+console.log("\n[7] El reloj");
 console.log("  · No se puede verificar desde aquí: `cron.job` vive fuera del");
 console.log("    esquema público y la llave pública no lo alcanza — que es");
 console.log("    justo como debe ser.");

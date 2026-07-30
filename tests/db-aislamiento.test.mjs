@@ -166,6 +166,20 @@ test("la vista pública no expone el plan contratado", async () => {
   });
 });
 
+test("la vista pública sí expone sitio_url, de la que depende db:verificar", async () => {
+  /* Es la dirección del sitio público: quien la lee con la llave pública
+     está justamente ahí, así que no filtra nada. Sale por la vista para que
+     `npm run db:verificar` pueda ir a leer esa página y comprobar que no
+     está en modo local ni apunta al despliegue de otra clínica — dos
+     errores que no dan error en ninguna parte y que solo se descubren
+     cuando un paciente hace clic en el enlace de baja. */
+  await comoAnonimo(db, async () => {
+    const { rows } = await db.query("select sitio_url from clinica_publica limit 1");
+    assert.ok(rows.length === 1 && "sitio_url" in rows[0],
+      "si esta columna desaparece, db:verificar deja de poder comprobar los enlaces");
+  });
+});
+
 test("una clínica desactivada desaparece de la vista pública", async () => {
   await db.query("update clinicas set activa = false where id = $1", [B.clinicaId]);
   const n = await comoAnonimo(db, async () => {
