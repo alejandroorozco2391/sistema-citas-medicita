@@ -27,6 +27,7 @@
         <li><a href="#hero"      class="nav-link">Inicio</a></li>
         <li><a href="#medico"    class="nav-link">Médico</a></li>
         <li><a href="#servicios" class="nav-link">Servicios</a></li>
+        <li><a href="#mis-citas" class="nav-link">Mi cita</a></li>
         <li><a href="#opiniones" class="nav-link">Opiniones</a></li>
         <li><a href="#agendar"   class="nav-link">Contacto</a></li>
         <li><a href="#agendar"   class="nav-btn">Agendar cita</a></li>
@@ -335,6 +336,54 @@
         </a>
       </div>
 
+    </div>
+  </section>
+
+  <!-- ─── Mis citas ─────────────────────────────────────────────────────────
+       Un paciente que no puede ir tenía dos salidas: llamar en horario de
+       oficina, o no avisar. La segunda es gratis, y es exactamente un
+       no-show. Cancelar con un clic devuelve ese hueco a la agenda a tiempo
+       de dárselo a alguien más.
+
+       La credencial son los DOS factores: folio y teléfono. -->
+  <section id="mis-citas" class="seccion-reveal" aria-labelledby="titulo-mis-citas">
+    <div class="container">
+      <div class="seccion-header">
+        <span class="seccion-badge">Tu cita</span>
+        <h2 class="seccion-titulo" id="titulo-mis-citas">Consulta o cancela tu cita</h2>
+        <p class="seccion-sub">
+          Con el folio que te llegó por correo y el teléfono con el que agendaste.
+        </p>
+      </div>
+
+      <div class="mc-caja">
+        <form id="form-mis-citas" class="mc-form" novalidate>
+          <div class="mc-campo">
+            <label for="mc-folio">Folio de tu cita</label>
+            <input type="text" id="mc-folio" name="mc-folio" placeholder="CIT-260805-1234"
+                   autocomplete="off" spellcheck="false" required>
+          </div>
+          <div class="mc-campo">
+            <label for="mc-telefono">Teléfono con el que agendaste</label>
+            <input type="tel" id="mc-telefono" name="mc-telefono" placeholder="55 1234 5678"
+                   autocomplete="tel" inputmode="tel" required>
+          </div>
+          <button type="submit" id="btn-mis-citas" class="btn-primario mc-btn">
+            Ver mi cita
+          </button>
+        </form>
+
+        <p id="mc-error" class="mc-error" role="alert" aria-live="assertive" hidden></p>
+
+        <div id="mc-resultado" class="mc-resultado" aria-live="polite" hidden>
+          <p id="mc-saludo" class="mc-saludo"></p>
+          <div id="mc-lista" class="mc-lista" role="list"></div>
+          <p class="mc-nota">
+            ¿Necesitas cambiar la hora? Cancela y vuelve a agendar
+            <a href="#agendar">aquí arriba</a>, o llámanos.
+          </p>
+        </div>
+      </div>
     </div>
   </section>
 

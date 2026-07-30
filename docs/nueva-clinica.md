@@ -212,7 +212,7 @@ Los datos locales **no se borran automáticamente**. La opción de limpiarlos ap
 
 ```bash
 npm run db:verificar    # contra el proyecto real, ya desplegado
-npm run test:all        # 264 pruebas contra un Postgres real en WebAssembly
+npm run test:all        # 300 pruebas contra un Postgres real en WebAssembly
 ```
 
 Las dos comprueban cosas distintas y hacen falta las dos:
@@ -235,6 +235,8 @@ Y a mano, en el navegador:
 - [ ] Agendar dos veces la misma hora con el mismo médico se rechaza, y la landing muestra esa hora tachada
 - [ ] `select public.encolar_avisos_del_dia();` en el SQL Editor encola los avisos del día, y `avisos_pendientes` queda en `enviado` al minuto
 - [ ] El enlace de baja de ese correo abre `baja.html` y las dos opciones funcionan
+- [ ] La pestaña 📅 Agenda muestra el día con sus huecos libres, y un día cerrado sale rayado
+- [ ] En la landing, "Mi cita" con folio + teléfono muestra la cita, y cancelarla libera ese hueco
 
 ---
 

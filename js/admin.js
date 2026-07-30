@@ -51,6 +51,13 @@ document.addEventListener("DOMContentLoaded", async () => {
    luego recarga, para que el panel nunca muestre algo que no se guardó. */
 async function cargarCitas() {
   estadoAdmin.citas = await API.citas.listar();
+
+  /* Aviso para quien más comparta la pantalla. El evento `storage` no se
+     dispara en el documento que escribió, así que sin esto la Agenda se
+     quedaría enseñando el día de antes de confirmar una cita — y es la
+     pestaña que alguien deja abierta mientras contesta el teléfono.
+     Va aquí porque `cargarCitas()` es el paso obligado de toda mutación. */
+  document.dispatchEvent(new CustomEvent("medicita:citas-cambiaron"));
 }
 
 /* ─── Filtros ─────────────────────────────────────────────────────────── */

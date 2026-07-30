@@ -186,6 +186,10 @@
                 id="tab-btn-citas" aria-controls="tab-citas" aria-selected="false">
           📋 Citas
         </button>
+        <button class="tabs-nav-btn" data-tab="agenda" role="tab"
+                id="tab-btn-agenda" aria-controls="tab-agenda" aria-selected="false">
+          📅 Agenda
+        </button>
         <button class="tabs-nav-btn" data-tab="seguimientos" role="tab"
                 id="tab-btn-seguimientos" aria-controls="tab-seguimientos" aria-selected="false">
           ⏰ Seguimientos
@@ -258,6 +262,45 @@
               🧪 Cargar datos de muestra
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- ─── Pestaña: Agenda ────────────────────────────────────────────── -->
+      <!-- La tabla de Citas responde "¿qué hay de Fulano?"; esto responde
+           "¿cómo viene mi día?", que es lo que alguien mira al llegar. Los
+           huecos vacíos se ven, y por eso también sirve para saber qué
+           ofrecer al teléfono. -->
+      <div id="tab-agenda" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-agenda">
+        <div class="agenda-card">
+
+          <div class="agenda-barra">
+            <div class="agenda-nav">
+              <button type="button" id="ag-anterior" class="ag-btn-nav" aria-label="Anterior">‹</button>
+              <button type="button" id="ag-hoy" class="ag-btn-hoy">Hoy</button>
+              <button type="button" id="ag-siguiente" class="ag-btn-nav" aria-label="Siguiente">›</button>
+              <h3 id="ag-titulo" class="agenda-titulo">—</h3>
+            </div>
+
+            <div class="agenda-controles">
+              <label class="ag-campo">
+                <span class="ag-campo-etq">Médico</span>
+                <select id="ag-medico" aria-label="Filtrar por médico">
+                  <option value="">Todos</option>
+                </select>
+              </label>
+              <div class="ag-vista" role="group" aria-label="Vista">
+                <button type="button" class="ag-btn-vista activa" data-vista="dia">Día</button>
+                <button type="button" class="ag-btn-vista" data-vista="semana">Semana</button>
+              </div>
+            </div>
+          </div>
+
+          <p id="ag-resumen" class="agenda-resumen"></p>
+
+          <div id="ag-cuerpo" class="agenda-cuerpo" role="region" aria-live="polite" tabindex="0">
+            <p class="agenda-cargando">Cargando agenda…</p>
+          </div>
+
         </div>
       </div>
 
@@ -1334,6 +1377,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="js/analytics.js"></script>
   <script src="js/pacientes.js"></script>
+  <script src="js/agenda-rejilla.js"></script>
+  <script src="js/agenda.js"></script>
   <script src="js/horarios.js"></script>
   <script src="js/escalaciones.js"></script>
 </body>

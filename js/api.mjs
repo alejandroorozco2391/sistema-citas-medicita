@@ -243,6 +243,23 @@ export const publico = {
     return (await implPublica()).publicoHorasOcupadas(doctor, fecha);
   },
 
+  /* "Mis citas": el paciente ve y cancela lo suyo sin cuenta.
+
+     La credencial son DOS factores, folio y teléfono. El folio viaja en
+     cada correo y el teléfono lo sabe cualquiera que conozca al paciente;
+     juntos, quien cancela es quien recibió el correo Y sabe con qué número
+     se agendó.
+
+     Devuelven `{ok:false, error}` en vez de lanzar. No es estilo: el freno
+     de abuso registra los intentos fallidos, y una excepción desharía ese
+     registro en la misma transacción. */
+  async misCitas(folio, telefono) {
+    return (await implPublica()).publicoMisCitas(folio, telefono);
+  },
+  async cancelarMiCita(folio, telefono, motivo) {
+    return (await implPublica()).publicoCancelarMiCita(folio, telefono, motivo);
+  },
+
   /* Bajarse de los correos automáticos. La credencial es el token que viaja
      en el propio correo; exigirle una cuenta a alguien para dejar de
      escribirle sería no dejarlo irse. */

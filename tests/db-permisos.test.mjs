@@ -44,6 +44,14 @@ const ANON_PUEDE = [
   "consultar_baja",
   "darse_de_baja",
 
+  /* "Mis citas" (0016). Son las primeras funciones públicas que MODIFICAN
+     la agenda, así que la credencial es de dos factores —folio Y teléfono—
+     y llevan su propio freno de abuso. El resolvedor interno que usan,
+     `paciente_de_folio`, NO se ofrece: sería un comprobador de parejas
+     folio+teléfono sin ese freno. */
+  "mis_citas",
+  "cancelar_mi_cita",
+
   // Normalizadores puros: sin acceso a datos, y el motor los necesita para
   // evaluar las columnas generadas de citas y pacientes.
   "clave_telefono",

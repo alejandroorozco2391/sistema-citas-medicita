@@ -53,6 +53,8 @@ sistema-citas-medicas/
 │   ├── escalaciones.js # [NUEVO E] Panel de escalaciones + sondeo y aviso sonoro
 │   ├── medipost.js     # [NUEVO M1] Lógica del generador de posts
 │   ├── analytics.js    # [NUEVO M3] Cálculo de métricas + integración Chart.js
+│   ├── agenda.js       # [NUEVO G] Vista de agenda día/semana del panel
+│   ├── agenda-rejilla.js # [NUEVO G] Aritmética pura de fechas y franjas (probada en node)
 │   ├── medidocs.js     # [NUEVO M4] Lógica del generador de documentos
 │   ├── encuesta.js     # [NUEVO M2] Lógica de la encuesta NPS
 │   └── baja.js         # [NUEVO F] Lógica de la página de baja
@@ -92,9 +94,9 @@ mv js/config-local.mjs.off js/config-local.mjs   # clínica real
 No hay linter ni build step. La verificación corre con el runner nativo de node:
 
 ```bash
-npm test           # 65 pruebas del frontend, cero dependencias
-npm run test:db    # 199 del esquema y la capa de datos (pglite, Postgres en WebAssembly)
-npm run test:all   # las 264
+npm test           # 80 pruebas del frontend, cero dependencias
+npm run test:db    # 220 del esquema y la capa de datos (pglite, Postgres en WebAssembly)
+npm run test:all   # las 300
 npm run db:verificar  # contra el proyecto de Supabase real, ya desplegado
 ```
 
@@ -159,6 +161,8 @@ Las pruebas de base de datos no necesitan Docker ni la CLI de Supabase: `tests/d
 - **Ningún módulo toca `localStorage` de datos.** Todo pasa por `js/api.mjs`, que decide si los datos viven en este navegador o en Postgres. Los scripts clásicos lo alcanzan por `window.API`, que publica `js/puente-api.js`. Las únicas claves que quedan sueltas son las dos de estado de interfaz listadas arriba
 - **El horario es dato, no texto.** `clinicas.horario_atencion` sigue existiendo porque lo imprime el membrete, pero **se regenera** desde `horarios_base`; nadie lo escribe a mano. Toda pregunta sobre si hay alguien pasa por `en_horario()` / `proxima_apertura()`, que convierten con la zona horaria de la clínica — el servidor está en UTC
 - **Nadie promete una hora que el horario no sostenga.** `escalar_a_humano` devuelve `atencionEn` e `instruccion`, y quien redacta (MediBot) solo puede decir lo que esos datos permiten. "En breve te contactamos" un domingo a las 11 de la noche es mentira, y el paciente se queda junto al teléfono
+- **Una función que necesite dejar rastro de sus fallos devuelve el error, no lo lanza.** `raise exception` aborta la transacción y con ella cualquier `INSERT` de bitácora que la función haya hecho. Es lo que dejó el freno de abuso de "Mis citas" escrito y sin poder contar nada
+- **La agenda se dibuja desde el horario, no desde las citas.** Los huecos libres son el dato que una tabla no puede dar, y de ellos depende qué se ofrece por teléfono. Un día cerrado y un día vacío tienen que verse distinto: vacío invita a ofrecer esa hora
 - **Un médico no puede recibir a dos personas a la vez, y eso lo garantiza un índice.** `citas_slot_unico` (0012), no una validación en cada puerta de entrada. Las funciones `slot_ocupado()` y `horas_ocupadas_publico()` existen para dar un error legible antes de chocar y para no *ofrecer* una hora tomada — pero la garantía es el índice, y por eso también protege al webhook que todavía no existe
 - **`hora` y `doctor` se comparan normalizados.** `clave_hora()` es la hermana de `clave_telefono()`: `citas.hora` es texto libre y sin normalizar `'9:00'` y `'09:00'` son dos huecos distintos. Es literalmente el error de los teléfonos con guiones, otra vez
 - **Los permisos de una función se revocan de `public`, `anon` Y `authenticated`, y luego se conceden.** En Supabase toda función nueva de `public` nace con `EXECUTE` concedido *directamente* a `anon`, así que `revoke ... from public` no le quita nada. Durante cinco migraciones creímos lo contrario y `anon` podía ejecutar las 29 funciones del esquema. `tests/db-permisos.test.mjs` recorre el esquema entero y falla si aparece una función nueva sin clasificar
@@ -527,6 +531,7 @@ supabase/migrations/     0001 utilidades · 0002 clínicas y staff · 0003 pacie
                          0009 horarios · 0010 escalaciones · 0011 fecha en palabras
                          0012 doble reserva · 0013 permisos de funciones
                          0014 avisos automáticos · 0015 sitio_url en la vista pública
+                         0016 mis citas
 supabase/seed-clinica.sql  Alta de una clínica nueva (se pega en el panel)
 supabase/reset-datos.sql   Vaciar los datos de una clínica (se pega en el panel)
 supabase/cron.sql          El reloj de las escalaciones (pg_cron + pg_net)
@@ -879,6 +884,51 @@ De ahí salieron dos cosas que valen más que el arreglo:
 
 ---
 
+## Fase G — La agenda que se ve, y la cita que el paciente puede cancelar
+
+**Estado:** ✅ Completo (29 julio 2026)
+
+Dos piezas del backlog original de la Fase 1 que llevaban dos meses ahí. Las dos existen porque la información ya estaba en el sistema y no se podía usar.
+
+### Vista de agenda día/semana
+
+La tabla de Citas responde *"¿qué hay de Fulano?"*. Esto responde *"¿cómo viene mi día?"*, que es la pregunta con la que alguien abre el panel por la mañana.
+
+**La diferencia de fondo es que aquí los huecos vacíos se ven.** Una tabla solo puede mostrar lo que existe; una agenda muestra también lo que falta, y eso es lo que hace falta cuando suena el teléfono y preguntan *"¿me puede dar algo el jueves?"*. El resumen lo dice con números: `4 citas · 7 huecos libres`.
+
+- **La rejilla se dibuja desde el HORARIO, no desde las citas.** Un día cerrado no tiene huecos que ofrecer, y se pinta rayado para que no se confunda con un día vacío — vacío invita a ofrecer esa hora por teléfono.
+- **Franjas de media hora, no de una.** Una consulta de las 9:30 no puede caer en el renglón de las 9:00 sin mentir sobre a qué hora tiene que llegar el paciente.
+- **Una respuesta vacía significa dos cosas distintas** y hay que distinguirlas: "ese día está cerrado" o "esta clínica nunca cargó su horario". Lo segundo se dibuja con las horas de los médicos, como antes de MediHorario. Confundirlas dejaría la agenda en blanco sin decir por qué — es el mismo cuidado que ya estaba documentado en `app.js`.
+- **Las citas sin hora se listan aparte**, no desaparecen. Si cayeran en una franja, taparían un hueco que sí está libre.
+- **La aritmética vive en `js/agenda-rejilla.js`, aparte y probada en node.** Es todo cuenta de fechas y de horas, o sea el lugar exacto donde este proyecto ya se equivocó dos veces sin que se viera en el código. Quince pruebas, y la que importa es la del **domingo**: con `getDay()` a secas el cálculo salta a la semana siguiente, así que quien abriera el panel un domingo vería la semana que viene.
+- **No duplica el cambio de estado ni el borrado.** Clic en una cita lleva a la pestaña de Citas con ese folio filtrado. Tener dos caminos para lo mismo es tener dos sitios donde arreglar el siguiente error.
+
+`cargarCitas()` dispara `medicita:citas-cambiaron`, porque el evento `storage` **no se dispara en el documento que escribió** y la Agenda es la pestaña que alguien deja abierta mientras contesta el teléfono.
+
+### "Mis citas" (0016)
+
+Un paciente que no podía ir tenía dos salidas: llamar en horario de oficina, o no avisar. **La segunda es gratis y es la que casi todos eligen** — y eso es exactamente un no-show, que Analytics ya medía sin poder hacer nada. Cancelar con un clic es la única forma de que ese hueco vuelva a la agenda a tiempo de dárselo a alguien más; el índice `citas_slot_unico` de la Fase F lo libera solo.
+
+**La credencial son dos factores: folio Y teléfono.** Ninguno alcanza — el folio viaja en cada correo, y el teléfono lo sabe cualquiera que conozca al paciente. Es el criterio de `responder_encuesta` subido un escalón, porque esto sí modifica la agenda.
+
+| Decisión | Por qué |
+|---|---|
+| Un folio malo y un teléfono que no corresponde dan el **mismo mensaje** | Distinguirlos convertiría esto en un oráculo para adivinar folios |
+| Diez fallos por teléfono en una hora cortan | Los aciertos no gastan intentos: consultar su propia cita quince veces no es abuso |
+| La cita **de hoy** no se cancela desde aquí | A esa hora el consultorio ya organizó el día alrededor de ese hueco. Se le pide que llame |
+| Se registra `cancelada_por` | Un paciente que avisa no es lo mismo que una cancelación del consultorio, y en la tabla se veían idénticas |
+| Cancelar anula el recordatorio encolado | Recibir "tu cita es mañana" después de cancelarla es lo que hace que nadie crea en esos correos |
+| Cancelar dos veces **no** es un error | Es alguien que le dio dos veces al botón. Reventar lo dejaría creyendo que no funcionó |
+| Devuelve las citas del paciente, no solo la del folio | Ya demostró ser esa persona, y lo que quiere ver es su próxima cita. Ventana de 30 días atrás, no el historial de años |
+
+### El bug que solo podía cazar una prueba
+
+El freno de abuso estaba escrito, se leía correcto, y **no podía contar nada**: `raise exception` aborta la transacción y con ella el `INSERT` en la bitácora de intentos. Cada fallo se registraba y se deshacía en el mismo suspiro.
+
+Por eso `mis_citas` y `cancelar_mi_cita` devuelven `{ ok: false, error: "…" }` en vez de lanzar, y las excepciones quedan solo para lo que no necesita dejar rastro. Es la primera vez en el proyecto que una función pública usa ese contrato, y la razón es esa y no el estilo.
+
+---
+
 ## Historial de construcción
 
 - **2 junio 2026** — index.html, styles.css, data.js, app.js (formulario + persistencia localStorage)
@@ -914,6 +964,7 @@ De ahí salieron dos cosas que valen más que el arreglo:
 - **28 julio 2026** — **B2 verificado en el navegador, en los dos modos.** Ocho hallazgos, cuatro míos de B2 y cuatro heredados. (1) **El puente cargaba tarde**: era `puente-api.mjs` con `<script type="module">`, dando por hecho que los módulos corren antes de `DOMContentLoaded`. Eso solo vale sin `await` de nivel superior, y `supabase-client.mjs` tiene uno — así que cada módulo arrancaba con `window.API` sin definir y moría antes de registrar un solo manejador: ningún botón respondía. La guardia `await window.APIListo` tampoco servía, porque `await undefined` resuelve de inmediato. Ahora son scripts clásicos (`puente-api.js`, `puente-sesion.js`) que definen la promesa de forma síncrona y cargan el módulo con `import()` dinámico. (2) `actualizarBadgeSeguimientos` hacía `.filter` sobre una Promise y tumbaba el arranque del panel tres líneas antes de la siembra. (3) La siembra de demo usaba `nps.responder()`, que vive en la superficie pública, así que mandaba las opiniones de muestra al Supabase real mientras las citas se quedaban en localStorage — se separó `nps.registrar()`. (4) `api-remoto.citasCrear` no generaba folio (la columna es NOT NULL) ni vinculaba el expediente: toda cita creada desde MediBot o desde "+ Nueva cita" moría contra Postgres, mientras la landing seguía funcionando porque va por la RPC. (5) El botón "Confirmar" de la landing leía `e.currentTarget` después de un `await`, cuando ya es `null`: quedaba deshabilitado para siempre y el paciente solo podía agendar una cita por carga de página. **Heredados:** (6) los ids internos llevaban 4 dígitos aleatorios, y como el store descarta ids repetidos por idempotencia, dos mensajes creados en el mismo milisegundo hacían desaparecer uno del hilo sin ningún error — lo cazó una prueba intermitente; ahora usan UUID, y folio y código de paciente conservan su formato con reintento. (7) El panel sin sesión corría en modo local en silencio aunque hubiera backend. (8) `/api/chat` daba 404 en local desde B1. 142 pruebas.
 - **28 julio 2026** — **Fase E — Horarios reales y escalación a humano.** Las dos funciones que motivaron el backend, y que hasta B2 eran imposibles: una pestaña del navegador no puede despertarse a las 11 de la noche. **MediHorario primero, porque la escalación lee de ahí**: `horario_atencion` era texto libre y ninguna máquina puede responder con eso si el consultorio está abierto. Nuevos: `0009_horarios.sql` (zona horaria, `horarios_base`, `horarios_excepciones`, `en_horario`, `proxima_apertura`, `horario_texto`), `0010_escalaciones.sql` (escalaciones, bandeja de salida, ruteo, escalera, acuse), `supabase/cron.sql`, `js/horarios.js`, `js/escalaciones.js`, `api/avisar.js`, y dos archivos de pruebas. La landing dejó de ofrecer días cerrados y MediBot consulta y edita el horario. **MediBot se dividió en perfil paciente y personal**: su prompt le hablaba al paciente y el inbox lo registra como canal de paciente, pero tenía `eliminar_cita` y `ver_notas_paciente`. **La escalera vive en `pg_cron`** y `pg_net` solo toca el timbre de `/api/avisar`, que manda por la API REST de EmailJS con la cuenta que ya usa MediFollow. Tres invariantes con prueba propia: una `vencida` **no se cierra sola jamás**, acusarla **detiene la escalera en seco**, y `proxima_apertura` devuelve **NULL** en vez de inventar una fecha. Dos cosas que las pruebas corrigieron: `citas.hora` es texto y no `time` (la comparación de citas afectadas por un cierre no compilaba), y `SELECT INTO` no acepta un elemento de arreglo como destino. 206 pruebas (56 nuevas).
 - **29 julio 2026** — **Fase F — Una hora un paciente, y el reloj trabajando.** Nuevos: `0012_doble_reserva.sql`, `0013_permisos_de_funciones.sql`, `0014_avisos_automaticos.sql`, `baja.html` + `css/baja.css` + `js/baja.js`, y tres archivos de pruebas (`db-doble-reserva`, `db-permisos`, `db-avisos`). **El bug:** nada impedía agendar dos pacientes con el mismo médico a la misma hora, desde ninguna de las cuatro puertas de entrada; se cierra con un índice único parcial y no con una validación, para que también cubra al webhook que todavía no existe. `hora_clave` normaliza el texto libre de `citas.hora` — sin eso, `'9:00'` y `'09:00'` pasaban como huecos distintos, exactamente el error de los teléfonos con guiones. **Y el reloj se puso a trabajar:** recordatorio la víspera y seguimientos de día 3 y 30 salen solos, lo que 0004 había dejado escrito como pendiente "cuando exista el cron". El bloqueador del contacto proactivo resultó ser WhatsApp y no el contacto proactivo — por correo no hay ventana de 24 h ni plantillas de Meta. La idempotencia la da un índice y no el horario, así que el barrido corre cada hora y se recupera solo. **El hallazgo grande:** `revoke ... from public` nunca sirvió de nada, porque Supabase concede `EXECUTE` directamente a `anon` en toda función nueva de `public`; `anon` podía ejecutar las 29 funciones del esquema, incluida `encolar_aviso_escalacion`, que manda correo con la cuenta de la clínica y era llamable en bucle con la llave que va escrita en el HTML. Se corrige y se agrega una prueba que recorre el esquema entero, porque el error fue de omisión y no de criterio. **Tres huecos heredados de paso:** `reset-datos.sql` no borraba escalaciones ni la bandeja de avisos (escrito antes de la Fase E), dos clics en "Cargar muestra" creaban 18 citas con 9 folios duplicados, y el fixture de `db-flujos` daba por hecha la doble reserva. 253 pruebas (43 nuevas). **En la puesta en marcha** apareció el error que la migración no puede ver desde dentro: `sitio_url` bien escrita apuntando a un despliegue que existe y responde, pero con las etiquetas `<meta>` en marcador — o sea, en modo local—, así que los dos correos salieron con el enlace de baja muerto. `0015` la expone por la vista pública y `db:verificar` ahora va a leer esa página y compara su `supabase-url` contra el proyecto que verifica; de paso caza el caso peor, que es apuntar al despliegue de otra clínica. Su primera versión, además, daba un ✖ por algo correcto —en localhost las etiquetas van en marcador a propósito, porque las credenciales salen de `config-local.mjs` en tiempo de ejecución—, así que la decisión salió a una función pura (`scripts/evaluar-sitio.mjs`) con diez pruebas, y el script aprendió un tercer nivel de resultado: `⚠` para lo que es correcto al desarrollar y equivocado al entregar. 264 pruebas.
+- **29 julio 2026** — **Fase G — La agenda que se ve, y la cita que el paciente puede cancelar.** Dos pendientes del backlog de la Fase 1. Nuevos: `js/agenda.js`, `js/agenda-rejilla.js` (aritmética pura), `0016_mis_citas.sql`, `tests/agenda-rejilla.test.js` y `tests/db-mis-citas.test.mjs`. **La agenda se dibuja desde el horario y no desde las citas**, porque lo que hace falta ver son los HUECOS: una tabla solo muestra lo que existe, y la pregunta que llega por teléfono es "¿me puede dar algo el jueves?". Franjas de media hora, porque una consulta de las 9:30 en el renglón de las 9:00 le diría al paciente que llegue media hora antes. La cuenta de fechas salió a su propio archivo y se probó en node: quince pruebas, y la que importa es la del domingo, que con `getDay()` a secas salta a la semana siguiente. **"Mis citas"** le da al paciente lo que hasta ahora requería llamar en horario de oficina — y no avisar era gratis, o sea un no-show. Credencial de dos factores, folio Y teléfono; el folio viaja en cada correo y el teléfono lo sabe cualquiera. Un folio malo y un teléfono que no corresponde dan el mismo mensaje, para no volverlo un oráculo de folios. **El bug que solo podía cazar una prueba:** el freno de abuso registraba los intentos fallidos y `raise exception` deshacía ese registro en la misma transacción, así que no podía contar nada; por eso esas dos funciones devuelven `{ok:false,error}` en vez de lanzar. 300 pruebas (36 nuevas).
 - **26 julio 2026** — **B1 puesto en marcha contra un proyecto real.** Esquema aplicado, clínica dada de alta y `npm run db:verificar` en verde: 11 tablas, la vista pública, las 3 funciones anónimas, y RLS negándole a la llave pública un solo renglón de cada tabla. Nuevos: `scripts/servidor.mjs` (+ `npm run dev`), `scripts/bundle-migraciones.mjs`, `scripts/verificar-supabase.mjs`, `js/config-local.ejemplo.mjs`. Cuatro cosas que salieron mal y se corrigieron: (1) el flujo de recuperación de contraseña estaba a medias — el correo salía pero al volver no había pantalla donde escribir la nueva; se agregó, junto con `sesionCambiarContrasena()` y el aviso de enlace vencido; (2) los errores de Supabase se traducían adivinando sobre el texto en inglés, así que `email_not_confirmed` caía en el mensaje genérico — ahora se traducen por código, lo que importa porque ese caso no se arregla cambiando la contraseña; (3) `db:verificar` sondeaba las funciones con cuerpo vacío y PostgREST devuelve 404 tanto si faltan como si los argumentos no cuadran — daba tres falsas alarmas por clínica; (4) `seed-clinica.sql` obligaba a cambiar el nombre de la clínica en tres lugares, y olvidar uno dejaba al personal sin clínica — se reescribió como bloque `DO` con un solo lugar editable, probado contra pglite en cuatro escenarios. Las credenciales salieron del repositorio: los `<meta>` quedan en marcador y el desarrollo usa `js/config-local.mjs` (ignorado por git). No es por ocultar la publishable key, que es pública por diseño, sino porque el repo es la plantilla de la siguiente clínica y no debe venir apuntando a la base de la anterior.
 
 ---
@@ -976,6 +1027,11 @@ De ahí salieron dos cosas que valen más que el arreglo:
 - [x] **0013 — permisos de funciones:** `anon` podía ejecutar las 29 del esquema; se cierra y se agrega `tests/db-permisos.test.mjs`, que recorre el esquema entero
 - [x] 264 pruebas en verde
 
+### Fase G — Agenda y "Mis citas" ✅ Completo
+- [x] **Vista de agenda** día/semana dibujada desde el horario, con los huecos libres a la vista + aritmética pura probada en node
+- [x] **"Mis citas":** el paciente consulta y cancela con folio + teléfono, y el hueco vuelve a la agenda
+- [x] 300 pruebas en verde
+
 ### ← SIGUIENTE PASO
 - [ ] **Aviso al celular de quien le toca la escalación (SMS y WhatsApp).** Hoy el aviso fuera del panel es solo correo. El pitido y la notificación del navegador cubren a quien está trabajando; no cubren al doctor un domingo. Decidido: **SMS para los planes Esencial y Profesional, WhatsApp Business para Premium** — SMS llega a cualquier celular sin trámite ni opt-in y sirve como fase de prueba; WhatsApp es más barato y donde vive la gente, pero exige plantilla aprobada por Meta y verificación de negocio, así que se justifica cuando el plan lo paga.
   **No hay que rediseñar nada:** `avisos_pendientes.canal` ya existe y `api/avisar.js` ya decide cómo manda cada aviso. Es ampliar el `check (canal in ('email'))`, agregar un remitente en esa función y usar `perfiles_staff.telefono`, que ya está. Fue el punto de separar la escalera del envío.
@@ -991,10 +1047,10 @@ De ahí salieron dos cosas que valen más que el arreglo:
 - [ ] **Bloqueador conocido:** la ingesta real necesita backend que reciba el webhook — un webhook no puede escribir en el localStorage del navegador
 
 ### Backlog core (pendiente de Fase 1)
-- [ ] Sección "Mis citas" en `index.html` para que el paciente vea y cancele sus citas
+- [x] ~~Sección "Mis citas" en `index.html`~~ — Fase G, migración 0016 con folio + teléfono como credencial
 - [x] ~~Validación de conflictos de horario~~ — Fase F, y no es una validación: es un índice único (`citas_slot_unico`)
 - [ ] Gestión de médicos y horarios (CRUD) — `staff_id` ya está en `horarios_base` para que esto sea agregar, no migrar
-- [ ] Vista de agenda por día/semana (calendario) en admin.html
+- [x] ~~Vista de agenda por día/semana en admin.html~~ — Fase G, pestaña 📅 Agenda
 
 ### Fase futura — Backend
 - [ ] API REST (Node.js + Express) para persistir citas en base de datos real

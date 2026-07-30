@@ -1060,3 +1060,151 @@ body:has(#modal-confirmacion.activo) #modal-overlay { opacity: 1; visibility: vi
 @media (max-width: 479px) {
   #hero { padding: 100px 0 60px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Mis citas — consultar y cancelar sin cuenta
+
+   Deliberadamente sobria y estrecha: no compite con el formulario de
+   agendar, que es la acción que la clínica quiere. Esto está para que
+   cancelar sea más fácil que no avisar, no para invitar a cancelar.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.mc-caja {
+  max-width: 620px;
+  margin: 0 auto;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 26px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+}
+
+.mc-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.mc-campo { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.mc-campo label {
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--color-text-soft, #64748b);
+}
+.mc-campo input {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  font: inherit;
+  font-size: .9rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  transition: border-color .15s;
+}
+.mc-campo input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(26,110,181,.1);
+}
+
+.mc-btn { height: 42px; white-space: nowrap; }
+
+.mc-error {
+  margin: 14px 0 0;
+  padding: 10px 13px;
+  font-size: .84rem;
+  color: #991b1b;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+}
+
+.mc-resultado { margin-top: 22px; }
+.mc-saludo {
+  margin: 0 0 14px;
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.mc-lista { display: flex; flex-direction: column; gap: 10px; }
+.mc-vacio { margin: 0; font-size: .88rem; color: var(--color-text-soft, #64748b); }
+
+.mc-cita {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-left-width: 3px;
+  border-radius: 11px;
+  background: var(--color-bg);
+}
+.mc-estado-pendiente  { border-left-color: #f59e0b; }
+.mc-estado-confirmada { border-left-color: var(--color-primary); }
+.mc-estado-atendida   { border-left-color: #10b981; }
+/* Una cancelada se atenúa pero NO se esconde: el paciente tiene que poder
+   comprobar que su cancelación quedó registrada. */
+.mc-estado-cancelada  { border-left-color: #cbd5e1; opacity: .62; }
+
+.mc-cita-datos { min-width: 0; }
+.mc-cita-fecha {
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--color-text);
+  text-transform: capitalize;
+}
+.mc-cita-med { font-size: .82rem; color: var(--color-text-soft, #64748b); margin-top: 2px; }
+.mc-cita-pie { display: flex; align-items: center; gap: 8px; margin-top: 7px; flex-wrap: wrap; }
+
+.mc-chip {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 700;
+}
+.mc-chip-pendiente  { background: #fef3c7; color: #92400e; }
+.mc-chip-confirmada { background: #dbeafe; color: #1e40af; }
+.mc-chip-atendida   { background: #d1fae5; color: #065f46; }
+.mc-chip-cancelada  { background: #f1f5f9; color: #64748b; }
+
+.mc-folio {
+  font-size: .7rem;
+  color: #94a3b8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Discreto a propósito: la acción principal de esta página es agendar. */
+.mc-btn-cancelar {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: #64748b;
+  font: inherit;
+  font-size: .82rem;
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.mc-btn-cancelar:hover:not(:disabled) { border-color: #dc2626; color: #dc2626; background: #fef2f2; }
+.mc-btn-cancelar:disabled { opacity: .6; cursor: progress; }
+
+.mc-nota {
+  margin: 16px 0 0;
+  font-size: .78rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+.mc-nota a { color: var(--color-primary); }
+
+@media (max-width: 640px) {
+  .mc-caja { padding: 20px 16px; }
+  .mc-form { grid-template-columns: 1fr; }
+  .mc-btn { width: 100%; }
+  .mc-cita { flex-direction: column; align-items: stretch; }
+  .mc-btn-cancelar { width: 100%; }
+}

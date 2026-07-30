@@ -963,6 +963,32 @@ export async function publicoHorasOcupadas(doctor, fecha) {
   return data || [];
 }
 
+/* ─── "Mis citas" ─────────────────────────────────────────────────────────
+   Las dos RPC devuelven `{ok, …}` en vez de lanzar, así que aquí solo se
+   traduce el fallo de RED a excepción. El `ok:false` se deja pasar tal cual
+   para que la vista lo muestre como mensaje y no como error de sistema. */
+
+export async function publicoMisCitas(folio, telefono) {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("mis_citas", {
+    p_folio: folio || "",
+    p_telefono: telefono || "",
+  });
+  if (error) throw new Error(error.message);
+  return data || { ok: false, error: "No se pudo consultar. Intenta de nuevo." };
+}
+
+export async function publicoCancelarMiCita(folio, telefono, motivo = "") {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("cancelar_mi_cita", {
+    p_folio: folio || "",
+    p_telefono: telefono || "",
+    p_motivo: motivo || "",
+  });
+  if (error) throw new Error(error.message);
+  return data || { ok: false, error: "No se pudo cancelar. Intenta de nuevo." };
+}
+
 /* ─── Baja de los correos automáticos ─────────────────────────────────── */
 
 export async function publicoConsultarBaja(token) {

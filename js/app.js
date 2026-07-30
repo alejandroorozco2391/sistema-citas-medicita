@@ -3,6 +3,12 @@ const estado = {
   especialidadSeleccionada: null,
   doctorSeleccionado: null,
   paso: 1,
+
+  /* Los dos factores con que el paciente entró a "Mis citas". Se guardan
+     para poder cancelar y volver a consultar sin pedírselos otra vez —y
+     solo en memoria: nunca en localStorage, donde quedarían para el
+     siguiente que use esa computadora. */
+  misCitas: { folio: "", telefono: "" },
 };
 
 /* ─── Inicialización ──────────────────────────────────────────────────── */
@@ -21,6 +27,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   inicializarFormulario();
   inicializarNav();
   inicializarFechaMin();
+  inicializarMisCitas();
 
   // En la demo, admin.html siembra los datos de muestra (incluido el NPS)
   // dentro de un iframe hermano. Refresca las opiniones cuando eso ocurra.
@@ -701,4 +708,175 @@ function mostrarAlerta(mensaje, tipo = "info") {
   alerta.className = `alerta alerta-${tipo}`;
   alerta.style.display = "block";
   setTimeout(() => { alerta.style.display = "none"; }, 5000);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   "Mis citas" — el paciente consulta y cancela lo suyo
+
+   La credencial son DOS factores: folio y teléfono. El folio viaja en cada
+   correo, así que quien intercepte uno lo tiene; el teléfono lo sabe
+   cualquiera que conozca al paciente. Juntos, quien cancela es quien
+   recibió el correo Y sabe con qué número se agendó.
+
+   La capa de datos devuelve `{ok:false, error}` en vez de lanzar. No es
+   estilo: el freno de abuso registra los intentos fallidos, y en Postgres
+   una excepción desharía ese registro en la misma transacción.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function inicializarMisCitas() {
+  const form = document.getElementById("form-mis-citas");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await consultarMisCitas();
+  });
+
+  /* El folio suele venir pegado del correo, a veces con espacios. Se limpia
+     al salir del campo en vez de rechazarlo: no es culpa de nadie. */
+  const folio = document.getElementById("mc-folio");
+  folio.addEventListener("blur", () => { folio.value = folio.value.trim(); });
+
+  /* Si llegó desde el correo con el folio en la URL, se precarga y se le
+     lleva a la sección. Solo falta el teléfono. */
+  const enURL = new URLSearchParams(location.search).get("folio");
+  if (enURL) {
+    folio.value = enURL.trim();
+    document.getElementById("mis-citas")?.scrollIntoView({ behavior: "smooth" });
+    document.getElementById("mc-telefono")?.focus();
+  }
+}
+
+function mcError(mensaje) {
+  const el = document.getElementById("mc-error");
+  el.textContent = mensaje || "";
+  el.hidden = !mensaje;
+  if (mensaje) document.getElementById("mc-resultado").hidden = true;
+}
+
+async function consultarMisCitas() {
+  const btn = document.getElementById("btn-mis-citas");
+  const folio = document.getElementById("mc-folio").value.trim();
+  const telefono = document.getElementById("mc-telefono").value.trim();
+
+  if (!folio || !telefono) {
+    mcError("Necesitamos el folio y el teléfono con el que agendaste.");
+    return;
+  }
+
+  /* El botón se captura ANTES del await. Después, `e.currentTarget` ya es
+     null — ese descuido dejó una vez el botón de Confirmar deshabilitado
+     para siempre, y el paciente solo podía agendar una cita por carga. */
+  const etiqueta = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Buscando…";
+  mcError("");
+
+  let r;
+  try {
+    r = await API.publico.misCitas(folio, telefono);
+  } catch (err) {
+    console.warn("Mis citas:", err);
+    r = { ok: false, error: "No pudimos consultar ahora. Revisa tu conexión." };
+  } finally {
+    btn.disabled = false;
+    btn.textContent = etiqueta;
+  }
+
+  if (!r.ok) { mcError(r.error); return; }
+
+  estado.misCitas = { folio, telefono };
+  renderMisCitas(r);
+}
+
+function renderMisCitas(r) {
+  const caja = document.getElementById("mc-resultado");
+  const lista = document.getElementById("mc-lista");
+
+  document.getElementById("mc-saludo").textContent = r.nombre
+    ? `${r.nombre}, esto es lo que tenemos registrado:`
+    : "Esto es lo que tenemos registrado:";
+
+  if (!r.citas.length) {
+    lista.innerHTML = `<p class="mc-vacio">No tienes citas próximas.</p>`;
+    caja.hidden = false;
+    return;
+  }
+
+  lista.innerHTML = r.citas.map((c) => `
+    <div class="mc-cita mc-estado-${escaparHtml(c.estado)}" role="listitem">
+      <div class="mc-cita-datos">
+        <div class="mc-cita-fecha">${escaparHtml(fechaLargaMC(c.fecha))}${c.hora ? ` · ${escaparHtml(c.hora)}` : ""}</div>
+        <div class="mc-cita-med">${escaparHtml(c.doctor || "")}${c.especialidad ? ` · ${escaparHtml(c.especialidad)}` : ""}</div>
+        <div class="mc-cita-pie">
+          <span class="mc-chip mc-chip-${escaparHtml(c.estado)}">${escaparHtml(etiquetaEstadoMC(c.estado))}</span>
+          <span class="mc-folio">${escaparHtml(c.folio)}</span>
+        </div>
+      </div>
+      ${c.cancelable
+        ? `<button type="button" class="mc-btn-cancelar" data-folio="${escaparHtml(c.folio)}">Cancelar</button>`
+        : ""}
+    </div>`).join("");
+
+  lista.querySelectorAll(".mc-btn-cancelar").forEach((b) => {
+    b.addEventListener("click", () => cancelarMiCita(b.dataset.folio, b));
+  });
+
+  caja.hidden = false;
+}
+
+async function cancelarMiCita(folio, boton) {
+  /* Se pregunta antes: es irreversible desde aquí —volver a agendar es otro
+     trámite— y el hueco se le puede dar a alguien más en minutos. */
+  if (!confirm("¿Seguro que quieres cancelar esta cita?\n\nSi luego la necesitas, tendrás que agendar de nuevo.")) {
+    return;
+  }
+
+  const motivo = (prompt("¿Nos dices por qué? (opcional)") || "").trim();
+
+  const etiqueta = boton.textContent;
+  boton.disabled = true;
+  boton.textContent = "Cancelando…";
+  mcError("");
+
+  let r;
+  try {
+    r = await API.publico.cancelarMiCita(folio, estado.misCitas.telefono, motivo);
+  } catch (err) {
+    console.warn("Cancelar mi cita:", err);
+    r = { ok: false, error: "No pudimos cancelar ahora. Revisa tu conexión." };
+  } finally {
+    boton.disabled = false;
+    boton.textContent = etiqueta;
+  }
+
+  if (!r.ok) { mcError(r.error); return; }
+
+  mostrarAlerta("Tu cita quedó cancelada. Gracias por avisarnos.", "exito");
+
+  /* Se vuelve a consultar en vez de tachar la fila a mano: así lo que se ve
+     es lo que la clínica tiene, no lo que este navegador cree. */
+  const vuelta = await API.publico.misCitas(estado.misCitas.folio, estado.misCitas.telefono);
+  if (vuelta.ok) renderMisCitas(vuelta);
+}
+
+const ETIQUETAS_MC = {
+  pendiente: "Por confirmar",
+  confirmada: "Confirmada",
+  atendida: "Atendida",
+  cancelada: "Cancelada",
+};
+const etiquetaEstadoMC = (e) => ETIQUETAS_MC[e] || e;
+
+/** "2026-08-04" → "martes 4 de agosto". Con hora explícita: sin ella se
+    interpreta como UTC y en México cae un día antes. */
+function fechaLargaMC(iso) {
+  const d = new Date(`${String(iso).slice(0, 10)}T00:00:00`);
+  if (isNaN(d)) return String(iso);
+  return d.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
+}
+
+function escaparHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }

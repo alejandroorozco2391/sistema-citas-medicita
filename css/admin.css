@@ -2530,3 +2530,238 @@ input[type="color"]::-webkit-color-swatch { border-radius: 4px; border: none; }
   .esc-tiempo { margin-left: 0; }
   .esc-lista { padding: 14px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Agenda — pestaña "Agenda"
+
+   La rejilla se dibuja desde el horario de la clínica, no desde las citas,
+   así que lo que hay que poder ver de un vistazo son los HUECOS. De ahí
+   que la fila libre no sea "una fila sin nada": tiene su propia etiqueta y
+   su propio fondo, para que se lea como espacio disponible y no como algo
+   que falta cargar.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.agenda-card {
+  background: var(--blanco);
+  border: 1px solid var(--gris-borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra-sm);
+  overflow: hidden;
+}
+
+.agenda-barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--gris-borde);
+}
+
+.agenda-nav { display: flex; align-items: center; gap: 8px; }
+
+.ag-btn-nav, .ag-btn-hoy {
+  height: 32px;
+  border: 1px solid var(--gris-borde);
+  border-radius: 8px;
+  background: var(--blanco);
+  color: var(--gris-texto);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.ag-btn-nav { width: 32px; font-size: 1.1rem; line-height: 1; }
+.ag-btn-hoy { padding: 0 12px; font-size: .84rem; font-weight: 600; }
+.ag-btn-nav:hover, .ag-btn-hoy:hover { border-color: var(--azul-principal); color: var(--azul-principal); }
+
+.agenda-titulo {
+  margin: 0 0 0 8px;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--gris-texto);
+  text-transform: capitalize;
+}
+
+.agenda-controles { display: flex; align-items: center; gap: 14px; }
+
+.ag-campo { display: flex; align-items: center; gap: 7px; }
+.ag-campo-etq { font-size: .78rem; color: var(--gris-suave); font-weight: 600; }
+.ag-campo select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--gris-borde);
+  border-radius: 8px;
+  font: inherit;
+  font-size: .84rem;
+  color: var(--gris-texto);
+  background: var(--blanco);
+}
+
+.ag-vista { display: flex; border: 1px solid var(--gris-borde); border-radius: 8px; overflow: hidden; }
+.ag-btn-vista {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  background: var(--blanco);
+  color: var(--gris-suave);
+  font: inherit;
+  font-size: .84rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ag-btn-vista + .ag-btn-vista { border-left: 1px solid var(--gris-borde); }
+.ag-btn-vista.activa { background: var(--azul-principal); color: #fff; }
+
+.agenda-resumen {
+  margin: 0;
+  padding: 10px 18px;
+  font-size: .82rem;
+  color: var(--gris-suave);
+  background: var(--fondo);
+  border-bottom: 1px solid var(--gris-borde);
+}
+
+.agenda-cuerpo { padding: 4px 0 10px; overflow-x: auto; }
+.agenda-cargando, .agenda-vacia {
+  margin: 0;
+  padding: 34px 18px;
+  text-align: center;
+  color: var(--gris-suave);
+  font-size: .88rem;
+}
+
+/* ─── Vista de día ─────────────────────────────────────────────────────── */
+
+.ag-dia { display: flex; flex-direction: column; }
+
+.ag-fila {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  align-items: stretch;
+  border-bottom: 1px solid var(--gris-borde);
+  min-height: 44px;
+}
+.ag-fila:last-child { border-bottom: 0; }
+.ag-fila-libre { background: repeating-linear-gradient(
+  45deg, transparent, transparent 7px, rgba(148,163,184,.055) 7px, rgba(148,163,184,.055) 14px); }
+
+.ag-hora {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 10px;
+  font-size: .74rem;
+  font-weight: 600;
+  color: var(--gris-suave);
+  font-variant-numeric: tabular-nums;
+  border-right: 1px solid var(--gris-borde);
+}
+
+.ag-slot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 10px; }
+.ag-libre { font-size: .76rem; color: #94a3b8; font-style: italic; }
+
+/* ─── La cita ──────────────────────────────────────────────────────────── */
+
+.ag-cita {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-left-width: 3px;
+  border-radius: 7px;
+  background: var(--azul-claro);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform .12s, box-shadow .12s;
+  max-width: 100%;
+}
+.ag-cita:hover { transform: translateY(-1px); box-shadow: var(--sombra-sm); }
+.ag-cita-hora   { font-size: .7rem; font-weight: 700; color: var(--gris-suave); font-variant-numeric: tabular-nums; }
+.ag-cita-nombre { font-size: .8rem; font-weight: 600; color: var(--gris-texto); }
+.ag-cita-medico { font-size: .69rem; color: var(--gris-suave); }
+
+/* El color dice el estado. Es el mismo código que la tabla de Citas: un
+   ámbar aquí y un ámbar allá tienen que significar lo mismo. */
+.ag-estado-pendiente  { background: var(--ambar-claro); border-left-color: var(--ambar); }
+.ag-estado-confirmada { background: var(--azul-claro);  border-left-color: var(--azul-principal); }
+.ag-estado-atendida   { background: var(--verde-claro); border-left-color: var(--verde-salud); }
+
+/* ─── Vista de semana ──────────────────────────────────────────────────── */
+
+.ag-semana { min-width: 720px; }
+
+.ag-sem-fila {
+  display: grid;
+  grid-template-columns: 62px repeat(7, minmax(88px, 1fr));
+  border-bottom: 1px solid var(--gris-borde);
+  min-height: 42px;
+}
+.ag-sem-fila:last-child { border-bottom: 0; }
+
+.ag-sem-cabeza { position: sticky; top: 0; z-index: 2; background: var(--blanco); }
+
+.ag-col-cabeza {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 8px 4px;
+  font-size: .76rem;
+  font-weight: 700;
+  color: var(--gris-texto);
+  text-transform: capitalize;
+  border-right: 1px solid var(--gris-borde);
+}
+.ag-col-cabeza:last-child { border-right: 0; }
+.ag-hoy-col { background: var(--azul-claro); color: var(--azul-oscuro); }
+.ag-col-cerrada { color: #94a3b8; font-weight: 600; }
+.ag-cerrado-etq { font-size: .62rem; font-weight: 600; color: #94a3b8; text-transform: none; }
+
+.ag-celda {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border-right: 1px solid var(--gris-borde);
+  min-width: 0;
+}
+.ag-celda:last-child { border-right: 0; }
+.ag-celda-libre { background: rgba(148,163,184,.045); }
+
+/* Un día cerrado no es un día vacío, y tiene que verse distinto: vacío
+   invita a ofrecer esa hora por teléfono. */
+.ag-celda-cerrada {
+  background: repeating-linear-gradient(
+    45deg, #f8fafc, #f8fafc 5px, #eef2f7 5px, #eef2f7 10px);
+}
+
+.ag-semana .ag-cita { padding: 4px 6px; }
+.ag-semana .ag-cita-medico { display: none; }
+
+/* ─── Citas sin hora ──────────────────────────────────────────────────── */
+
+.ag-sinhora {
+  margin: 14px 18px 4px;
+  padding: 12px 14px;
+  background: var(--ambar-claro);
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+}
+.ag-sinhora h4 { margin: 0 0 2px; font-size: .86rem; color: #92400e; }
+.ag-sinhora-nota { margin: 0 0 8px; font-size: .76rem; color: #a16207; }
+.ag-sinhora-lista { display: flex; flex-wrap: wrap; gap: 6px; }
+.ag-sinhora .ag-cita { background: #fff; border-left-color: var(--ambar); }
+
+/* ─── Móvil ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .agenda-barra { flex-direction: column; align-items: stretch; }
+  .agenda-controles { justify-content: space-between; }
+  .agenda-titulo { margin-left: 0; font-size: .94rem; }
+  .ag-fila { grid-template-columns: 52px 1fr; }
+  .ag-hora { font-size: .7rem; padding: 0 6px; }
+}

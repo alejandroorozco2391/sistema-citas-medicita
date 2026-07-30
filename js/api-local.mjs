@@ -1258,6 +1258,82 @@ export async function publicoHorasOcupadas(doctor, fecha) {
   return citasHorasOcupadas(doctor, dia);
 }
 
+/* ─── "Mis citas" ─────────────────────────────────────────────────────────
+   Espejo de mis_citas() y cancelar_mi_cita() de 0016, incluido el contrato
+   `{ok, error}` y el hecho de que un folio inexistente y un teléfono que no
+   corresponde den el MISMO mensaje.
+
+   Lo que NO se replica es el freno de abuso: aquí los datos son de este
+   navegador, así que no hay nada que barrer probando folios. Se dice en voz
+   alta para que nadie lea la ausencia como un descuido. */
+
+const MISMO_ERROR_MIS_CITAS =
+  "No encontramos ninguna cita con esos datos. Revísalos, por favor.";
+
+function _citaDeFolioYTel(folio, telefono) {
+  const f = String(folio || "").trim().toUpperCase();
+  const t = claveTel(telefono);
+  if (!f || t.length < 10) return null;
+  return _leer(CLAVE_CITAS).find(
+    (c) => String(c.folio || "").trim().toUpperCase() === f && claveTel(c.telefono) === t
+  ) || null;
+}
+
+export async function publicoMisCitas(folio, telefono) {
+  if (claveTel(telefono).length < 10) {
+    return { ok: false, error: "El teléfono debe tener 10 dígitos." };
+  }
+
+  const cita = _citaDeFolioYTel(folio, telefono);
+  if (!cita) return { ok: false, error: MISMO_ERROR_MIS_CITAS };
+
+  const tel = claveTel(cita.telefono);
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const limite = new Date(hoy); limite.setDate(limite.getDate() - 30);
+
+  const suyas = _leer(CLAVE_CITAS)
+    .filter((c) => claveTel(c.telefono) === tel)
+    .filter((c) => {
+      const d = new Date(`${String(c.fecha).slice(0, 10)}T00:00:00`);
+      return !isNaN(d) && d >= limite;
+    })
+    .sort((a, b) => `${a.fecha} ${a.hora}`.localeCompare(`${b.fecha} ${b.hora}`))
+    .map((c) => ({
+      folio: c.folio, fecha: c.fecha, hora: c.hora,
+      especialidad: c.especialidad, doctor: c.doctor, tipo: c.tipo,
+      estado: c.estado,
+      cancelable: ["pendiente", "confirmada"].includes(c.estado) &&
+                  new Date(`${String(c.fecha).slice(0, 10)}T00:00:00`) > hoy,
+    }));
+
+  return { ok: true, nombre: cita.nombre || "", citas: suyas };
+}
+
+export async function publicoCancelarMiCita(folio, telefono, motivo = "") {
+  const cita = _citaDeFolioYTel(folio, telefono);
+  if (!cita) return { ok: false, error: MISMO_ERROR_MIS_CITAS };
+
+  if (cita.estado === "cancelada") {
+    return { ok: true, folio: cita.folio, yaEstaba: true };
+  }
+  if (cita.estado === "atendida") {
+    return { ok: false, error: "Esa consulta ya se realizó, no se puede cancelar." };
+  }
+
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  if (new Date(`${String(cita.fecha).slice(0, 10)}T00:00:00`) <= hoy) {
+    return { ok: false, error: "Tu cita es hoy o ya pasó. Llámanos para cancelarla, por favor." };
+  }
+
+  await citasActualizar(cita.folio, {
+    estado: "cancelada",
+    canceladaPor: "paciente",
+    motivoCancelacion: String(motivo || "").slice(0, 300),
+  });
+
+  return { ok: true, folio: cita.folio, fecha: cita.fecha, hora: cita.hora };
+}
+
 /* ─── Baja de los correos automáticos ─────────────────────────────────────
    Espejo de consultar_baja() y darse_de_baja() de 0014.
 
