@@ -185,7 +185,7 @@ select nombre_clinica, sitio_url, zona_horaria from public.clinicas;
 
 **Y tiene que apuntar al despliegue de ESTA clínica, con sus credenciales puestas.** Es el error que ya cometimos: la URL estaba bien y el despliegue respondía, pero con las etiquetas `<meta>` en marcador — o sea, corriendo en modo local— así que el enlace de baja de cada correo abría una página que buscaba al paciente en el `localStorage` del visitante. `npm run db:verificar` ahora lo comprueba solo: va a leer `${sitio_url}/baja.html` y compara su `supabase-url` contra el proyecto. Si apunta al despliegue de otra clínica, también lo dice — ese caso no da error en ninguna parte y termina con los pacientes de una dándose de baja en la base de la otra.
 
-Mientras pruebas desde tu máquina, `http://localhost:5173` es la respuesta correcta: el enlace solo tiene que funcionar en el navegador donde existe `js/config-local.mjs`.
+Mientras pruebas desde tu máquina, `http://localhost:5173` es la respuesta correcta: el enlace solo tiene que funcionar en el navegador donde existe `js/config-local.mjs`. El script lo distingue y lo marca con `⚠` en vez de `✖` — es correcto para desarrollar y equivocado para entregar, y hay que verlo sin que parezca un error.
 
 **Sobre EmailJS**: la función usa la API REST con la **llave privada**, no la publishable del navegador. En el panel de EmailJS hay que permitir el envío desde fuera del navegador (*Account → Security → API requests*); si esa cuenta no lo permite, se cambia el remitente dentro de `mandarCorreo()` en `api/avisar.js` y nada más — por eso hay una bandeja de salida en medio.
 
@@ -212,7 +212,7 @@ Los datos locales **no se borran automáticamente**. La opción de limpiarlos ap
 
 ```bash
 npm run db:verificar    # contra el proyecto real, ya desplegado
-npm run test:all        # 254 pruebas contra un Postgres real en WebAssembly
+npm run test:all        # 264 pruebas contra un Postgres real en WebAssembly
 ```
 
 Las dos comprueban cosas distintas y hacen falta las dos:

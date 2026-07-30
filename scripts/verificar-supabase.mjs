@@ -19,6 +19,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { evaluarSitio } from "./evaluar-sitio.mjs";
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -52,8 +53,15 @@ if (!URL_BASE || !LLAVE || URL_BASE.includes("TU_") || LLAVE.includes("TU_")) {
 
 const cabeceras = { apikey: LLAVE, Authorization: `Bearer ${LLAVE}` };
 let fallas = 0;
+let avisos = 0;
 const mal = m => { console.log("  ✖ " + m); fallas++; };
 const bien = m => console.log("  ✓ " + m);
+
+/* Ni bien ni mal: correcto para desarrollar y equivocado para entregar.
+   Que un `sitio_url` en localhost contara como falla obligaba a elegir
+   entre probar en la máquina y ver el script en verde — y lo que pasa
+   entonces es que se aprende a ignorar el ✖. */
+const aviso = m => { console.log("  ⚠ " + m); avisos++; };
 
 async function pedir(ruta) {
   const r = await fetch(URL_BASE + ruta, { headers: cabeceras });
@@ -237,39 +245,41 @@ if (!sitioUrl) {
   console.log("     Es a propósito que sin ella no salga nada: el correo llevaría un");
   console.log("     enlace de baja roto, y de un correo así nadie puede salirse.");
 } else {
+  /* En localhost las etiquetas <meta> están en marcador A PROPÓSITO: las
+     credenciales salen de js/config-local.mjs, que `supabase-client.mjs`
+     carga en tiempo de ejecución y solo en localhost. O sea que leer el
+     HTML estático no puede decir nada de ese caso — así que ahí se
+     comprueba lo que sí importa: que ese archivo exista y apunte aquí. */
+  const esLocal = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(sitioUrl);
+  const host = URL_BASE.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+
   /* baja.html es la página más nueva del sistema, así que pedirla verifica
-     dos cosas de una: que las credenciales estén puestas y que lo
-     desplegado no sea una versión anterior al productor de avisos. */
+     dos cosas de una: que responda y que lo desplegado no sea una versión
+     anterior al productor de avisos. */
   let html = null;
   try {
     const r = await fetch(`${sitioUrl}/baja.html`, { redirect: "follow" });
     if (r.ok) html = await r.text();
     else mal(`${sitioUrl}/baja.html contestó HTTP ${r.status} — ¿está desplegada esa página?`);
   } catch (e) {
-    mal(`no se pudo abrir ${sitioUrl}/baja.html: ${e.message}`);
+    if (esLocal) mal(`no responde ${sitioUrl} — ¿está corriendo \`npm run dev\`?`);
+    else mal(`no se pudo abrir ${sitioUrl}/baja.html: ${e.message}`);
   }
 
   if (html !== null) {
-    const meta = html.match(/name="supabase-url"\s+content="([^"]*)"/)?.[1] || "";
-    const host = URL_BASE.replace(/^https?:\/\//, "").replace(/\/+$/, "");
-    const suyo = meta.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+    /* En localhost se lee el archivo SERVIDO, no el del disco: lo que
+       importa es lo que el navegador va a recibir en esa URL. */
+    let configServido = null;
+    if (esLocal) {
+      try {
+        const r = await fetch(`${sitioUrl}/js/config-local.mjs`);
+        if (r.ok) configServido = await r.text();
+      } catch { /* se trata igual que ausente */ }
+    }
 
-    if (!meta || meta.startsWith("TU_")) {
-      mal(`${sitioUrl} corre en MODO LOCAL: sus etiquetas <meta> están en marcador`);
-      console.log("     El enlace de baja de cada correo busca al paciente en el");
-      console.log("     localStorage del visitante y contesta \"enlace no válido\".");
-      console.log("     Y lo mismo el enlace a la encuesta.");
-      console.log("     Cada clínica necesita SU despliegue con sus credenciales.");
-      console.log("     Mientras pruebas, apunta sitio_url a tu localhost:");
-      console.log("       update public.clinicas set sitio_url = 'http://localhost:5173';");
-    } else if (suyo !== host) {
-      /* El caso peor, y el que no da error en ninguna parte: los pacientes
-         de esta clínica se darían de baja en la base de otra. */
-      mal(`${sitioUrl} apunta a OTRO proyecto de Supabase (${suyo}), no a ${host}`);
-      console.log("     Los enlaces de los correos de esta clínica llevarían a los");
-      console.log("     expedientes de otra. Es un cruce de clínicas, y silencioso.");
-    } else {
-      bien(`${sitioUrl} apunta a este proyecto`);
+    for (const r of evaluarSitio({ sitioUrl, host, html, configServido })) {
+      ({ ok: bien, aviso, mal })[r.nivel](r.mensaje);
+      for (const linea of r.detalle || []) console.log("     " + linea);
     }
   }
 }
@@ -286,9 +296,11 @@ console.log("    escalación funciona pero la re-alerta no ocurre con el panel")
 console.log("    cerrado, y los avisos al paciente no salen solos.");
 console.log("    Ver supabase/cron.sql.");
 
-console.log(
-  fallas === 0
-    ? "\n✅ El proyecto está listo\n"
-    : `\n❌ ${fallas} problema(s). No pongas esta clínica en producción todavía.\n`
-);
+if (fallas > 0) {
+  console.log(`\n❌ ${fallas} problema(s). No pongas esta clínica en producción todavía.\n`);
+} else if (avisos > 0) {
+  console.log(`\n✅ El proyecto funciona · ⚠ ${avisos} cosa(s) por cambiar antes de entregar\n`);
+} else {
+  console.log("\n✅ El proyecto está listo\n");
+}
 process.exit(fallas ? 1 : 0);
