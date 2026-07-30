@@ -54,6 +54,7 @@ sistema-citas-medicas/
 │   ├── medipost.js     # [NUEVO M1] Lógica del generador de posts
 │   ├── analytics.js    # [NUEVO M3] Cálculo de métricas + integración Chart.js
 │   ├── agenda.js       # [NUEVO G] Vista de agenda día/semana del panel
+│   ├── reactivacion.js # [NUEVO H] Pacientes por reactivar (contacto proactivo)
 │   ├── agenda-rejilla.js # [NUEVO G] Aritmética pura de fechas y franjas (probada en node)
 │   ├── medidocs.js     # [NUEVO M4] Lógica del generador de documentos
 │   ├── encuesta.js     # [NUEVO M2] Lógica de la encuesta NPS
@@ -95,8 +96,8 @@ No hay linter ni build step. La verificación corre con el runner nativo de node
 
 ```bash
 npm test           # 80 pruebas del frontend, cero dependencias
-npm run test:db    # 220 del esquema y la capa de datos (pglite, Postgres en WebAssembly)
-npm run test:all   # las 300
+npm run test:db    # 238 del esquema y la capa de datos (pglite, Postgres en WebAssembly)
+npm run test:all   # las 318
 npm run db:verificar  # contra el proyecto de Supabase real, ya desplegado
 ```
 
@@ -161,6 +162,8 @@ Las pruebas de base de datos no necesitan Docker ni la CLI de Supabase: `tests/d
 - **Ningún módulo toca `localStorage` de datos.** Todo pasa por `js/api.mjs`, que decide si los datos viven en este navegador o en Postgres. Los scripts clásicos lo alcanzan por `window.API`, que publica `js/puente-api.js`. Las únicas claves que quedan sueltas son las dos de estado de interfaz listadas arriba
 - **El horario es dato, no texto.** `clinicas.horario_atencion` sigue existiendo porque lo imprime el membrete, pero **se regenera** desde `horarios_base`; nadie lo escribe a mano. Toda pregunta sobre si hay alguien pasa por `en_horario()` / `proxima_apertura()`, que convierten con la zona horaria de la clínica — el servidor está en UTC
 - **Nadie promete una hora que el horario no sostenga.** `escalar_a_humano` devuelve `atencionEn` e `instruccion`, y quien redacta (MediBot) solo puede decir lo que esos datos permiten. "En breve te contactamos" un domingo a las 11 de la noche es mentira, y el paciente se queda junto al teléfono
+- **El panel tiene que enterarse de lo que no hizo él.** `storage` solo existe en modo local; con backend hay que sondear. Se refresca al volver a la pestaña y cada minuto mientras está a la vista, nunca con un modal abierto y nunca si nada cambió
+- **Contacto que no cuelga de una cita del paciente exige opt-in explícito, y mandarlo lo decide una persona.** `acepta_promociones` nace en `false` —al revés que los avisos de 0014— y no hay cron que invite a nadie. Automatizar eso sería una decisión de producto, no un detalle de implementación
 - **Una función que necesite dejar rastro de sus fallos devuelve el error, no lo lanza.** `raise exception` aborta la transacción y con ella cualquier `INSERT` de bitácora que la función haya hecho. Es lo que dejó el freno de abuso de "Mis citas" escrito y sin poder contar nada
 - **La agenda se dibuja desde el horario, no desde las citas.** Los huecos libres son el dato que una tabla no puede dar, y de ellos depende qué se ofrece por teléfono. Un día cerrado y un día vacío tienen que verse distinto: vacío invita a ofrecer esa hora
 - **Un médico no puede recibir a dos personas a la vez, y eso lo garantiza un índice.** `citas_slot_unico` (0012), no una validación en cada puerta de entrada. Las funciones `slot_ocupado()` y `horas_ocupadas_publico()` existen para dar un error legible antes de chocar y para no *ofrecer* una hora tomada — pero la garantía es el índice, y por eso también protege al webhook que todavía no existe
@@ -531,7 +534,7 @@ supabase/migrations/     0001 utilidades · 0002 clínicas y staff · 0003 pacie
                          0009 horarios · 0010 escalaciones · 0011 fecha en palabras
                          0012 doble reserva · 0013 permisos de funciones
                          0014 avisos automáticos · 0015 sitio_url en la vista pública
-                         0016 mis citas
+                         0016 mis citas · 0017 reactivación
 supabase/seed-clinica.sql  Alta de una clínica nueva (se pega en el panel)
 supabase/reset-datos.sql   Vaciar los datos de una clínica (se pega en el panel)
 supabase/cron.sql          El reloj de las escalaciones (pg_cron + pg_net)
@@ -929,6 +932,45 @@ Por eso `mis_citas` y `cancelar_mi_cita` devuelven `{ ok: false, error: "…" }`
 
 ---
 
+## Fase H — Contacto proactivo, y el panel que se entera de lo que no hizo
+
+**Estado:** ✅ Completo (30 julio 2026)
+
+### El bug que destapó la Fase G
+
+Se cancelaba una cita desde la landing, quedaba bien guardada en Postgres, y **en el panel seguía viéndose en pie**. El hueco no volvía a ofrecerse porque nadie se enteraba de que estaba libre.
+
+`admin.js` solo escuchaba el evento `storage`, que es un mecanismo de `localStorage` y no sabe nada de Postgres. Con backend, el panel no tenía forma de notar un cambio que no hizo él — y ahora los datos cambian en más partes que nunca: recepción, el consultorio, el reloj de los avisos, y desde la Fase G el propio paciente desde su celular. **Es exactamente el escenario para el que existe el backend, y era el único que el panel no cubría.**
+
+Dos señales, y ninguna es Realtime todavía —son pocas filas y el sondeo se comporta igual en los dos modos—:
+
+- **Al volver a la pestaña** (`visibilitychange`). Es la que más importa porque coincide con lo que hace una persona: se cambia a la pestaña para mirar.
+- **Cada minuto mientras está a la vista.** El panel abierto en el escritorio de recepción tiene que notar una cancelación sin que nadie lo toque. Oculto no consulta nada.
+
+Con dos cuidados que no son opcionales: **no se repinta si un modal está abierto** —hay una decisión en curso y repintar debajo pierde lo escrito o cambia el renglón que iban a tocar— y **no se repinta si nada cambió**, comparando una huella barata de la tabla. Sin eso, la tabla parpadearía cada minuto para nada.
+
+De paso, la Agenda cachea el horario por fecha: mirar una semana costaba siete consultas por minuto para saber siempre lo mismo. El caché se vacía cuando el horario cambia (evento `medicita:horario-cambio`), no por tiempo — inventar un vencimiento haría que a veces se viera el de antes.
+
+### Contacto proactivo (0017)
+
+Es lo último de la lista original, y es **distinto de todo lo anterior**. Los recordatorios y seguimientos de 0014 cuelgan de una cita que el paciente pidió: son parte del servicio. Esto es escribirle a alguien que no pidió nada porque hace medio año que no viene.
+
+Analytics ya sabía decirlo desde el Módulo 3 —*"15 pacientes no han regresado en más de 90 días"*— y no había forma de hacer nada. Esta migración da la forma.
+
+**Tres decisiones que cambian lo que es:**
+
+1. **El consentimiento nace en `false`.** Al revés que en 0014, y a propósito. Ahí el argumento era que recordarte tu propia cita es parte del servicio; aquí no existe ese argumento. La LFPDPPP trata los datos de salud como sensibles, y *"hace seis meses que no vienes"* es una comunicación comercial hecha con un dato de salud. El interruptor vive en el perfil del paciente, no en el modal de edición: no es un campo más, es un permiso, y se registra **cuándo** se dio.
+
+2. **Encontrar es automático; mandar es una decisión.** `pacientes_por_reactivar()` devuelve candidatos con su motivo; `invitar_a_volver()` es del personal con sesión y **no hay productor en `pg_cron` que la llame**. No es un olvido: un correo de "vuelve" que sale solo, en lote, a gente que no lo pidió, es lo que termina marcando el dominio de una clínica como spam — y eso se lleva también los correos que sus pacientes sí querían recibir. Hay un botón por renglón y ninguno de "enviar a todos". Hay una prueba que falla si algún día el barrido automático empieza a encolar reactivaciones, para que automatizarlo sea una decisión escrita y no un efecto colateral.
+
+3. **Una invitación por paciente cada 90 días**, sostenida por un índice único parcial sobre el trimestre y no por la buena voluntad de quien le dé al botón.
+
+Quien ya fue invitado **no desaparece de la lista**: se marca. Esconderlo haría creer que se pasó por alto.
+
+Y la comprobación del consentimiento vive **dentro de la función**, no solo en la interfaz: un botón se puede quedar pintado con datos viejos, y esto es el permiso.
+
+---
+
 ## Historial de construcción
 
 - **2 junio 2026** — index.html, styles.css, data.js, app.js (formulario + persistencia localStorage)
@@ -965,6 +1007,7 @@ Por eso `mis_citas` y `cancelar_mi_cita` devuelven `{ ok: false, error: "…" }`
 - **28 julio 2026** — **Fase E — Horarios reales y escalación a humano.** Las dos funciones que motivaron el backend, y que hasta B2 eran imposibles: una pestaña del navegador no puede despertarse a las 11 de la noche. **MediHorario primero, porque la escalación lee de ahí**: `horario_atencion` era texto libre y ninguna máquina puede responder con eso si el consultorio está abierto. Nuevos: `0009_horarios.sql` (zona horaria, `horarios_base`, `horarios_excepciones`, `en_horario`, `proxima_apertura`, `horario_texto`), `0010_escalaciones.sql` (escalaciones, bandeja de salida, ruteo, escalera, acuse), `supabase/cron.sql`, `js/horarios.js`, `js/escalaciones.js`, `api/avisar.js`, y dos archivos de pruebas. La landing dejó de ofrecer días cerrados y MediBot consulta y edita el horario. **MediBot se dividió en perfil paciente y personal**: su prompt le hablaba al paciente y el inbox lo registra como canal de paciente, pero tenía `eliminar_cita` y `ver_notas_paciente`. **La escalera vive en `pg_cron`** y `pg_net` solo toca el timbre de `/api/avisar`, que manda por la API REST de EmailJS con la cuenta que ya usa MediFollow. Tres invariantes con prueba propia: una `vencida` **no se cierra sola jamás**, acusarla **detiene la escalera en seco**, y `proxima_apertura` devuelve **NULL** en vez de inventar una fecha. Dos cosas que las pruebas corrigieron: `citas.hora` es texto y no `time` (la comparación de citas afectadas por un cierre no compilaba), y `SELECT INTO` no acepta un elemento de arreglo como destino. 206 pruebas (56 nuevas).
 - **29 julio 2026** — **Fase F — Una hora un paciente, y el reloj trabajando.** Nuevos: `0012_doble_reserva.sql`, `0013_permisos_de_funciones.sql`, `0014_avisos_automaticos.sql`, `baja.html` + `css/baja.css` + `js/baja.js`, y tres archivos de pruebas (`db-doble-reserva`, `db-permisos`, `db-avisos`). **El bug:** nada impedía agendar dos pacientes con el mismo médico a la misma hora, desde ninguna de las cuatro puertas de entrada; se cierra con un índice único parcial y no con una validación, para que también cubra al webhook que todavía no existe. `hora_clave` normaliza el texto libre de `citas.hora` — sin eso, `'9:00'` y `'09:00'` pasaban como huecos distintos, exactamente el error de los teléfonos con guiones. **Y el reloj se puso a trabajar:** recordatorio la víspera y seguimientos de día 3 y 30 salen solos, lo que 0004 había dejado escrito como pendiente "cuando exista el cron". El bloqueador del contacto proactivo resultó ser WhatsApp y no el contacto proactivo — por correo no hay ventana de 24 h ni plantillas de Meta. La idempotencia la da un índice y no el horario, así que el barrido corre cada hora y se recupera solo. **El hallazgo grande:** `revoke ... from public` nunca sirvió de nada, porque Supabase concede `EXECUTE` directamente a `anon` en toda función nueva de `public`; `anon` podía ejecutar las 29 funciones del esquema, incluida `encolar_aviso_escalacion`, que manda correo con la cuenta de la clínica y era llamable en bucle con la llave que va escrita en el HTML. Se corrige y se agrega una prueba que recorre el esquema entero, porque el error fue de omisión y no de criterio. **Tres huecos heredados de paso:** `reset-datos.sql` no borraba escalaciones ni la bandeja de avisos (escrito antes de la Fase E), dos clics en "Cargar muestra" creaban 18 citas con 9 folios duplicados, y el fixture de `db-flujos` daba por hecha la doble reserva. 253 pruebas (43 nuevas). **En la puesta en marcha** apareció el error que la migración no puede ver desde dentro: `sitio_url` bien escrita apuntando a un despliegue que existe y responde, pero con las etiquetas `<meta>` en marcador — o sea, en modo local—, así que los dos correos salieron con el enlace de baja muerto. `0015` la expone por la vista pública y `db:verificar` ahora va a leer esa página y compara su `supabase-url` contra el proyecto que verifica; de paso caza el caso peor, que es apuntar al despliegue de otra clínica. Su primera versión, además, daba un ✖ por algo correcto —en localhost las etiquetas van en marcador a propósito, porque las credenciales salen de `config-local.mjs` en tiempo de ejecución—, así que la decisión salió a una función pura (`scripts/evaluar-sitio.mjs`) con diez pruebas, y el script aprendió un tercer nivel de resultado: `⚠` para lo que es correcto al desarrollar y equivocado al entregar. 264 pruebas.
 - **29 julio 2026** — **Fase G — La agenda que se ve, y la cita que el paciente puede cancelar.** Dos pendientes del backlog de la Fase 1. Nuevos: `js/agenda.js`, `js/agenda-rejilla.js` (aritmética pura), `0016_mis_citas.sql`, `tests/agenda-rejilla.test.js` y `tests/db-mis-citas.test.mjs`. **La agenda se dibuja desde el horario y no desde las citas**, porque lo que hace falta ver son los HUECOS: una tabla solo muestra lo que existe, y la pregunta que llega por teléfono es "¿me puede dar algo el jueves?". Franjas de media hora, porque una consulta de las 9:30 en el renglón de las 9:00 le diría al paciente que llegue media hora antes. La cuenta de fechas salió a su propio archivo y se probó en node: quince pruebas, y la que importa es la del domingo, que con `getDay()` a secas salta a la semana siguiente. **"Mis citas"** le da al paciente lo que hasta ahora requería llamar en horario de oficina — y no avisar era gratis, o sea un no-show. Credencial de dos factores, folio Y teléfono; el folio viaja en cada correo y el teléfono lo sabe cualquiera. Un folio malo y un teléfono que no corresponde dan el mismo mensaje, para no volverlo un oráculo de folios. **El bug que solo podía cazar una prueba:** el freno de abuso registraba los intentos fallidos y `raise exception` deshacía ese registro en la misma transacción, así que no podía contar nada; por eso esas dos funciones devuelven `{ok:false,error}` en vez de lanzar. 300 pruebas (36 nuevas).
+- **30 julio 2026** — **Fase H — Contacto proactivo, y el panel que se entera de lo que no hizo.** Nuevos: `0017_reactivacion.sql`, `js/reactivacion.js`, `tests/db-reactivacion.test.mjs`. **El bug que destapó la Fase G:** se cancelaba una cita desde la landing, quedaba bien guardada, y en el panel seguía viéndose en pie — `admin.js` solo escuchaba `storage`, que es de localStorage y no sabe nada de Postgres. Con backend el panel no tenía forma de notar un cambio que no hizo él, que es justo el escenario para el que existe el backend. Ahora se refresca al volver a la pestaña y cada minuto mientras está a la vista, nunca con un modal abierto ni si nada cambió. **Y el contacto proactivo**, que resultó ser otra cosa de lo que parecía: los avisos que cuelgan de una cita ya salían solos desde 0014, así que lo que faltaba era escribirle a quien NO pidió nada. Eso es publicidad hecha con un dato de salud, así que el consentimiento nace apagado —al revés que todo lo demás—, encontrar candidatos es automático y mandar es una decisión de una persona: hay un botón por renglón y ninguno de "enviar a todos". No hay productor en pg_cron llamando a `invitar_a_volver`, y hay una prueba que se cae si algún día lo hay, para que automatizarlo sea una decisión escrita y no un efecto colateral. 318 pruebas (18 nuevas).
 - **26 julio 2026** — **B1 puesto en marcha contra un proyecto real.** Esquema aplicado, clínica dada de alta y `npm run db:verificar` en verde: 11 tablas, la vista pública, las 3 funciones anónimas, y RLS negándole a la llave pública un solo renglón de cada tabla. Nuevos: `scripts/servidor.mjs` (+ `npm run dev`), `scripts/bundle-migraciones.mjs`, `scripts/verificar-supabase.mjs`, `js/config-local.ejemplo.mjs`. Cuatro cosas que salieron mal y se corrigieron: (1) el flujo de recuperación de contraseña estaba a medias — el correo salía pero al volver no había pantalla donde escribir la nueva; se agregó, junto con `sesionCambiarContrasena()` y el aviso de enlace vencido; (2) los errores de Supabase se traducían adivinando sobre el texto en inglés, así que `email_not_confirmed` caía en el mensaje genérico — ahora se traducen por código, lo que importa porque ese caso no se arregla cambiando la contraseña; (3) `db:verificar` sondeaba las funciones con cuerpo vacío y PostgREST devuelve 404 tanto si faltan como si los argumentos no cuadran — daba tres falsas alarmas por clínica; (4) `seed-clinica.sql` obligaba a cambiar el nombre de la clínica en tres lugares, y olvidar uno dejaba al personal sin clínica — se reescribió como bloque `DO` con un solo lugar editable, probado contra pglite en cuatro escenarios. Las credenciales salieron del repositorio: los `<meta>` quedan en marcador y el desarrollo usa `js/config-local.mjs` (ignorado por git). No es por ocultar la publishable key, que es pública por diseño, sino porque el repo es la plantilla de la siguiente clínica y no debe venir apuntando a la base de la anterior.
 
 ---
@@ -1032,10 +1075,15 @@ Por eso `mis_citas` y `cancelar_mi_cita` devuelven `{ ok: false, error: "…" }`
 - [x] **"Mis citas":** el paciente consulta y cancela con folio + teléfono, y el hueco vuelve a la agenda
 - [x] 300 pruebas en verde
 
+### Fase H — Contacto proactivo ✅ Completo
+- [x] **El panel se entera de los cambios que no hizo** — el bug que destapó "Mis citas"
+- [x] **Pacientes por reactivar:** opt-in explícito, candidatos por regla, y el envío por renglón lo decide una persona
+- [x] 318 pruebas en verde
+
 ### ← SIGUIENTE PASO
 - [ ] **Aviso al celular de quien le toca la escalación (SMS y WhatsApp).** Hoy el aviso fuera del panel es solo correo. El pitido y la notificación del navegador cubren a quien está trabajando; no cubren al doctor un domingo. Decidido: **SMS para los planes Esencial y Profesional, WhatsApp Business para Premium** — SMS llega a cualquier celular sin trámite ni opt-in y sirve como fase de prueba; WhatsApp es más barato y donde vive la gente, pero exige plantilla aprobada por Meta y verificación de negocio, así que se justifica cuando el plan lo paga.
   **No hay que rediseñar nada:** `avisos_pendientes.canal` ya existe y `api/avisar.js` ya decide cómo manda cada aviso. Es ampliar el `check (canal in ('email'))`, agregar un remitente en esa función y usar `perfiles_staff.telefono`, que ya está. Fue el punto de separar la escalera del envío.
-- [ ] **Contacto proactivo:** cron + tabla de tareas programadas + consentimiento por canal + tope de frecuencia + salida fácil. El reloj (`pg_cron`) y la bandeja de salida (`avisos_pendientes`) ya existen desde la Fase E: esto es agregarle un productor, no construir la infraestructura.
+- [x] ~~**Contacto proactivo**~~ — Fases F y H. Los avisos que cuelgan de una cita (recordatorio, seguimientos) salen solos desde 0014; las invitaciones a volver, que no cuelgan de nada, exigen opt-in explícito y las manda una persona (0017). **La restricción de WhatsApp resultó ser de WhatsApp y no del contacto proactivo:** por correo no hay ventana de 24 h ni plantillas de Meta.
   **Restricción que condiciona el diseño, no un detalle:** WhatsApp no permite texto libre fuera de las 24 h posteriores al último mensaje del paciente — solo plantillas pre-aprobadas por Meta y con opt-in registrado. Mandar texto libre proactivo tumba el número. Texto generado por Claude funciona por correo y SMS; en WhatsApp, solo dentro de la ventana o con plantillas. Súmale la LFPDPPP: contacto proactivo con datos de salud exige consentimiento registrado.
 
 ### Integración con Doctoralia

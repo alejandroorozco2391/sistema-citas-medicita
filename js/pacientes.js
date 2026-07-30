@@ -641,10 +641,79 @@ function buildHtmlPerfilDatos(pac) {
         : `<div class="perfil-dato"><span class="perfil-dato-label">Estado</span><span class="perfil-dato-val" style="color:var(--gris-suave)">Sin seguro médico</span></div>`
       }
     </div>
+    ${buildHtmlConsentimiento(pac)}
     <div class="perfil-acciones">
       <button class="btn-perfil-secundario"
               onclick="abrirModalEditarPac('${escaparAttrPac(pac.id)}')">✏️ Editar datos</button>
     </div>`;
+}
+
+/**
+ * Consentimiento para contacto que NO cuelga de una cita suya.
+ *
+ * Vive en el perfil y no en el modal de edición a propósito: no es un campo
+ * más del expediente, es un permiso, y la LFPDPPP pide poder mostrar cuándo
+ * se dio. Por eso se registra la fecha y se enseña.
+ *
+ * Nace apagado. Los recordatorios de 0014 nacen encendidos porque recordarle
+ * su propia cita es parte del servicio; invitarlo a volver es publicidad, y
+ * eso se pide.
+ */
+function buildHtmlConsentimiento(pac) {
+  const acepta = Boolean(pac.aceptaPromociones) && !pac.bajaEn;
+  const desde = pac.promocionesEn
+    ? new Date(pac.promocionesEn).toLocaleDateString("es-MX",
+        { day: "numeric", month: "long", year: "numeric" })
+    : "";
+
+  if (pac.bajaEn) {
+    return `
+      <div class="perfil-seccion">
+        <div class="perfil-seccion-titulo">Contacto</div>
+        <div class="consent-baja">
+          🔕 Se dio de baja de todos los correos automáticos.
+          No se le puede escribir hasta que él mismo lo reactive.
+        </div>
+      </div>`;
+  }
+
+  return `
+    <div class="perfil-seccion">
+      <div class="perfil-seccion-titulo">Contacto</div>
+      <label class="consent-fila">
+        <input type="checkbox" id="consent-promos" ${acepta ? "checked" : ""}
+               onchange="cambiarConsentimientoPac('${escaparAttrPac(pac.id)}', this.checked)">
+        <span class="consent-texto">
+          <strong>Acepta invitaciones para volver</strong>
+          <small>
+            Correos que no cuelgan de una cita suya. Márcalo solo si te lo dijo:
+            es un permiso, no una preferencia.
+            ${acepta && desde ? `<br>Aceptado el ${escHtmlPac(desde)}.` : ""}
+          </small>
+        </span>
+      </label>
+    </div>`;
+}
+
+async function cambiarConsentimientoPac(id, acepta) {
+  try {
+    const previo = await API.pacientes.obtener(id);
+    await API.pacientes.guardar({
+      ...previo,
+      aceptaPromociones: Boolean(acepta),
+      /* La fecha solo se pone al aceptar, y no se borra al desmarcar: es el
+         registro de que alguna vez lo dijo, que es lo que hay que poder
+         mostrar si alguien pregunta por qué se le escribió. */
+      promocionesEn: acepta ? (previo.promocionesEn || new Date().toISOString()) : previo.promocionesEn,
+    });
+    mostrarToast(acepta
+      ? "Consentimiento registrado."
+      : "Ya no se le enviarán invitaciones.", "ok");
+
+    if (typeof refrescarReactivar === "function") await refrescarReactivar();
+  } catch (e) {
+    mostrarToast(`No se pudo guardar: ${e.message}`, "error");
+  }
 }
 
 /* ─── Tab: Citas ─────────────────────────────────────────────────── */

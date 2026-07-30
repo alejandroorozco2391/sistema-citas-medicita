@@ -2765,3 +2765,131 @@ input[type="color"]::-webkit-color-swatch { border-radius: 4px; border: none; }
   .ag-fila { grid-template-columns: 52px 1fr; }
   .ag-hora { font-size: .7rem; padding: 0 6px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Pacientes por reactivar
+
+   Sobria a propósito. Es la única pantalla del sistema que le escribe a
+   alguien que no pidió nada, y no debe invitar a barrer la lista: hay un
+   botón por renglón y ninguno de "enviar a todos".
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.reac-card {
+  background: var(--blanco);
+  border: 1px solid var(--gris-borde);
+  border-left: 3px solid var(--morado);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra-sm);
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+
+.reac-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.reac-header-izq { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.reac-header-izq h3 { margin: 0; font-size: .98rem; color: var(--gris-texto); }
+.reac-resumen { font-size: .8rem; color: var(--gris-suave); }
+
+.reac-header-der { display: flex; align-items: center; gap: 12px; }
+.reac-campo { display: flex; align-items: center; gap: 7px; font-size: .78rem; color: var(--gris-suave); }
+.reac-campo select {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--gris-borde);
+  border-radius: 7px;
+  font: inherit;
+  font-size: .8rem;
+  color: var(--gris-texto);
+  background: var(--blanco);
+}
+.reac-btn-ghost {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--gris-borde);
+  border-radius: 7px;
+  background: var(--blanco);
+  color: var(--gris-suave);
+  font: inherit;
+  font-size: .78rem;
+  cursor: pointer;
+}
+.reac-btn-ghost:hover { border-color: var(--gris-suave); color: var(--gris-texto); }
+
+.reac-nota {
+  margin: 10px 0 14px;
+  font-size: .78rem;
+  color: var(--gris-suave);
+  line-height: 1.5;
+}
+
+.reac-lista { display: flex; flex-direction: column; gap: 8px; }
+
+.reac-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 14px;
+  background: var(--fondo);
+  border-radius: 9px;
+}
+.reac-fila-hecha { opacity: .62; }
+
+.reac-nombre { font-size: .88rem; font-weight: 600; color: var(--gris-texto); }
+.reac-detalle { font-size: .76rem; color: var(--gris-suave); margin-top: 2px; }
+
+.reac-btn {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--morado);
+  border-radius: 8px;
+  background: var(--blanco);
+  color: var(--morado);
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.reac-btn:hover:not(:disabled) { background: var(--morado); color: #fff; }
+.reac-btn:disabled { opacity: .6; cursor: progress; }
+
+.reac-hecha { flex-shrink: 0; font-size: .76rem; color: var(--verde-salud); font-weight: 600; }
+
+/* ─── Consentimiento en el perfil ──────────────────────────────────────── */
+
+.consent-fila {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--fondo);
+  border-radius: 9px;
+  cursor: pointer;
+}
+.consent-fila input { margin-top: 3px; flex-shrink: 0; }
+.consent-texto { display: flex; flex-direction: column; gap: 3px; }
+.consent-texto strong { font-size: .84rem; color: var(--gris-texto); font-weight: 600; }
+.consent-texto small { font-size: .74rem; color: var(--gris-suave); line-height: 1.45; }
+
+.consent-baja {
+  padding: 10px 12px;
+  background: var(--fondo);
+  border-radius: 9px;
+  font-size: .78rem;
+  color: var(--gris-suave);
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .reac-header { flex-direction: column; align-items: stretch; }
+  .reac-header-der { justify-content: space-between; }
+  .reac-fila { flex-direction: column; align-items: stretch; }
+  .reac-btn { width: 100%; }
+}

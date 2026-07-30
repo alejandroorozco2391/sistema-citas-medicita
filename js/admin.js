@@ -43,7 +43,72 @@ document.addEventListener("DOMContentLoaded", async () => {
       await renderOpinionesRecientes();
     }
   });
+
+  vigilarCambiosDeFuera();
 });
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Cambios que el panel no hizo
+
+   El evento `storage` de arriba solo existe en modo local: es un mecanismo
+   de localStorage y no sabe nada de Postgres. Con backend, el panel se
+   quedaba enseñando el día de antes cuando la cita cambiaba en otra parte
+   — y ahora cambia en más partes que nunca: recepción, el consultorio, el
+   reloj de los avisos, y desde la Fase G el propio paciente cancelando
+   desde su celular.
+
+   Eso último es lo que lo destapó: se cancelaba una cita desde la landing,
+   quedaba bien guardada, y en el panel seguía viéndose en pie. El hueco no
+   volvía a ofrecerse porque nadie se enteraba de que estaba libre.
+
+   Dos señales, y ninguna es Realtime todavía: son pocas filas, y el
+   sondeo se comporta igual en los dos modos.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const CADA_CUANTO_REVISAR = 60000;
+
+function vigilarCambiosDeFuera() {
+  /* 1. Al volver a la pestaña. Es la señal que más importa porque coincide
+        con lo que hace una persona: se cambia a la pestaña para mirar. */
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") refrescarDesdeFuera();
+  });
+
+  /* 2. Y mientras está a la vista, cada minuto: el panel abierto en el
+        escritorio de recepción tiene que notar una cancelación sin que
+        nadie lo toque. Oculto no se consulta nada. */
+  setInterval(() => {
+    if (document.visibilityState === "visible") refrescarDesdeFuera();
+  }, CADA_CUANTO_REVISAR);
+}
+
+async function refrescarDesdeFuera() {
+  /* No se le mueve la tabla a alguien que está a media captura: un modal
+     abierto significa que hay una decisión en curso, y repintar debajo hace
+     que se pierda lo escrito o que se le cambie el renglón que iba a tocar. */
+  if (document.querySelector(".modal-overlay:not(.oculto), .panel-perfil:not(.oculto)")) return;
+
+  try {
+    const antes = huellaDeCitas();
+    await cargarCitas();
+    if (huellaDeCitas() === antes) return;      // nada cambió: no se repinta
+
+    await renderStats();
+    await renderTabla();
+    await renderSeguimientos();
+    await actualizarBadgeSeguimientos();
+  } catch (e) {
+    /* Sin red, el panel se queda con lo que tenía. Callar es lo correcto:
+       un aviso cada minuto por una conexión intermitente se vuelve ruido y
+       se aprende a ignorarlo. */
+    console.warn("No se pudo refrescar:", e);
+  }
+}
+
+/** Resumen barato de la tabla, para no repintar cuando no hay novedad. */
+function huellaDeCitas() {
+  return estadoAdmin.citas.map((c) => `${c.folio}:${c.estado}:${c.fecha}:${c.hora}`).join("|");
+}
 
 /* ─── Persistencia ────────────────────────────────────────────────────────
    `estadoAdmin.citas` es la copia en memoria que alimenta el render; la

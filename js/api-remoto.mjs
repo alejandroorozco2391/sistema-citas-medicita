@@ -299,6 +299,33 @@ export async function pacientesAgregarNota(pacienteId, texto, autorNombre = "") 
   return { id: fila.id, texto: fila.texto, autorNombre: fila.autor_nombre, creadoEn: fila.creado_en };
 }
 
+/* ─── Contacto proactivo ──────────────────────────────────────────────── */
+
+export async function pacientesPorReactivar(dias = 180) {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("pacientes_por_reactivar", { p_dias: dias });
+  if (error) throw new Error(error.message);
+  return (data || []).map(r => ({
+    id: r.paciente_id,
+    nombre: r.nombre, apellidos: r.apellidos,
+    email: r.email, telefono: r.telefono,
+    ultimaVisita: soloFecha(r.ultima_visita),
+    diasSinVenir: r.dias_sin_venir,
+    totalVisitas: Number(r.total_visitas || 0),
+    yaInvitado: Boolean(r.ya_invitado),
+  }));
+}
+
+export async function pacientesInvitarAVolver(id, mensaje = "") {
+  const cliente = await db();
+  const { data, error } = await cliente.rpc("invitar_a_volver", {
+    p_paciente: id,
+    p_mensaje: mensaje || "",
+  });
+  if (error) throw new Error(error.message);
+  return data || { ok: false, error: "No se pudo invitar. Intenta de nuevo." };
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
    Citas
    ═══════════════════════════════════════════════════════════════════════ */

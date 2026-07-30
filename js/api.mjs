@@ -99,6 +99,16 @@ export const pacientes = {
   async agregarNota(id, texto, autor) {
     return (await impl()).pacientesAgregarNota(id, texto, autor);
   },
+
+  /* Contacto proactivo. Encontrar candidatos es automático; MANDAR es una
+     decisión de una persona, y por eso no hay productor en pg_cron llamando
+     a `invitarAVolver`. Un lote de "vuelve" que sale solo, a gente que no lo
+     pidió, es lo que termina marcando el dominio de la clínica como spam —
+     y eso se lleva también los correos que sus pacientes sí querían. */
+  async porReactivar(dias)  { return (await impl()).pacientesPorReactivar(dias); },
+  async invitarAVolver(id, mensaje) {
+    return (await impl()).pacientesInvitarAVolver(id, mensaje);
+  },
 };
 
 export const citas = {

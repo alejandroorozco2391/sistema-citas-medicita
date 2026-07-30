@@ -97,17 +97,31 @@
 
     /* El horario se pide día por día porque `delDia()` ya resuelve la
        excepción encima de la base, que es la única forma correcta de saber
-       si ESE día se atiende. */
-    estadoAg.horario = new Map();
+       si ESE día se atiende.
+
+       Y se cachea por fecha, porque el panel se refresca cada minuto para
+       notar lo que cambió en otra parte: sin caché, mirar una semana
+       costaría siete consultas por minuto para saber siempre lo mismo. El
+       horario cambia por acción de alguien, y eso lo avisa `storage` /
+       `medicita:citas-cambiaron`, que es cuando se vacía. */
+    const nuevo = new Map();
     for (const f of dias) {
+      if (cacheHorario.has(f)) { nuevo.set(f, cacheHorario.get(f)); continue; }
       try {
-        estadoAg.horario.set(f, (await API.horarios.delDia(f)) || []);
+        const bloques = (await API.horarios.delDia(f)) || [];
+        cacheHorario.set(f, bloques);
+        nuevo.set(f, bloques);
       } catch (e) {
         console.warn("No se pudo leer el horario de", f, e);
-        estadoAg.horario.set(f, []);
+        nuevo.set(f, []);                 // sin cachear: que reintente
       }
     }
+    estadoAg.horario = nuevo;
   }
+
+  /* fecha ISO → bloques. Se vacía cuando el horario cambia, no por tiempo:
+     inventar un vencimiento haría que a veces se viera el de antes. */
+  const cacheHorario = new Map();
 
   /* ─── Render ─────────────────────────────────────────────────────────── */
 
@@ -368,7 +382,15 @@
        que tiene que reflejar lo que capture otra pestaña. Es el mismo
        contrato de `storage` que ya usa el resto del panel. */
     window.addEventListener("storage", (e) => {
+      if (e.key === "medicita_horarios") cacheHorario.clear();
       if (e.key === "medicita_citas" || e.key === "medicita_horarios") refrescarPronto();
+    });
+
+    /* El panel de Horarios avisa cuando alguien guarda la semana o cierra un
+       día: sin esto, la agenda seguiría dibujando la rejilla de antes. */
+    document.addEventListener("medicita:horario-cambio", () => {
+      cacheHorario.clear();
+      refrescarPronto();
     });
 
     /* Y lo que capture ESTA pestaña desde la tabla o "+ Nueva cita": el

@@ -380,6 +380,10 @@ function preferenciasDeAviso() {
   return {
     avisaRecordatorios: true,
     avisaSeguimientos: true,
+    /* Este SÍ nace apagado, al revés que los dos de arriba: recordarle su
+       cita es parte del servicio, invitarlo a volver es publicidad. */
+    aceptaPromociones: false,
+    promocionesEn: null,
     bajaEn: null,
     bajaToken: (crypto?.randomUUID?.() || `${Date.now()}${Math.random()}`).replace(/-/g, ""),
   };
@@ -1256,6 +1260,91 @@ export async function publicoHorasOcupadas(doctor, fecha) {
   if (dias < -1 || dias > 60) return [];
 
   return citasHorasOcupadas(doctor, dia);
+}
+
+/* ─── Contacto proactivo ──────────────────────────────────────────────────
+   Espejo de pacientes_por_reactivar() e invitar_a_volver() de 0017, con las
+   mismas condiciones: vino alguna vez, hace más de N días que no, sin cita
+   futura, con opt-in explícito y sin baja.
+
+   En modo local no hay bandeja de salida que drenar, así que "invitar" deja
+   el aviso apuntado y nada sale. La demo lo dice con esas palabras en vez de
+   fingir un envío — igual que el compositor del inbox con los canales sin
+   salida viva. */
+
+const CLAVE_INVITACIONES = "medicita_invitaciones";
+
+export async function pacientesPorReactivar(dias = 180) {
+  const citas = _leer(CLAVE_CITAS);
+  const invitaciones = _leer(CLAVE_INVITACIONES);
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const corte = new Date(hoy); corte.setDate(corte.getDate() - Number(dias || 180));
+
+  const salida = [];
+  for (const p of _leer(CLAVE_PACIENTES)) {
+    if (!p.aceptaPromociones || p.bajaEn || !p.email) continue;
+
+    const suyas = citas.filter((c) => claveTel(c.telefono) === claveTel(p.telefono));
+    const atendidas = suyas
+      .filter((c) => c.estado === "atendida" && c.fecha)
+      .map((c) => c.fecha)
+      .sort();
+    if (!atendidas.length) continue;
+
+    const ultima = new Date(`${atendidas[atendidas.length - 1]}T00:00:00`);
+    if (isNaN(ultima) || ultima >= corte) continue;
+
+    const tieneFutura = suyas.some(
+      (c) => ["pendiente", "confirmada"].includes(c.estado) &&
+             new Date(`${String(c.fecha).slice(0, 10)}T00:00:00`) >= hoy
+    );
+    if (tieneFutura) continue;
+
+    const hace90 = new Date(); hace90.setDate(hace90.getDate() - 90);
+
+    salida.push({
+      id: p.id, nombre: p.nombre, apellidos: p.apellidos,
+      email: p.email, telefono: p.telefono,
+      ultimaVisita: atendidas[atendidas.length - 1],
+      diasSinVenir: Math.round((hoy - ultima) / 86400000),
+      totalVisitas: atendidas.length,
+      yaInvitado: invitaciones.some(
+        (i) => i.pacienteId === p.id && new Date(i.creadoEn) > hace90
+      ),
+    });
+  }
+
+  return salida.sort((a, b) => a.ultimaVisita.localeCompare(b.ultimaVisita));
+}
+
+export async function pacientesInvitarAVolver(id, mensaje = "") {
+  const p = _leer(CLAVE_PACIENTES).find((x) => x.id === id);
+  if (!p) return { ok: false, error: "Ese paciente no existe en esta clínica." };
+
+  if (!p.aceptaPromociones || p.bajaEn) {
+    return {
+      ok: false,
+      error: "Ese paciente no aceptó recibir invitaciones. No se le puede escribir.",
+    };
+  }
+  if (!p.email) return { ok: false, error: "Ese paciente no tiene correo registrado." };
+
+  const invitaciones = _leer(CLAVE_INVITACIONES);
+  const trimestre = `${new Date().getFullYear()}-T${Math.floor(new Date().getMonth() / 3) + 1}`;
+  if (invitaciones.some((i) => i.pacienteId === id && i.trimestre === trimestre)) {
+    return {
+      ok: false,
+      error: "Ya se le invitó este trimestre. Insistir más seguido es lo que hace que la gente marque el correo como spam.",
+    };
+  }
+
+  invitaciones.unshift({
+    id: `INV-${_sufijoUnico()}`, pacienteId: id, trimestre,
+    mensaje: String(mensaje || ""), creadoEn: new Date().toISOString(),
+  });
+  _guardar(CLAVE_INVITACIONES, invitaciones.slice(0, 200));
+
+  return { ok: true, paciente: p.nombre, destinatario: p.email, soloDemo: true };
 }
 
 /* ─── "Mis citas" ─────────────────────────────────────────────────────────

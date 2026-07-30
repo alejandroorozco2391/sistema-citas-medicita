@@ -368,6 +368,41 @@
       <!-- ─── Pestaña: Pacientes ────────────────────────────────────────────── -->
       <div id="tab-pacientes" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-pacientes">
 
+        <!-- ─── Pacientes por reactivar ───────────────────────────────────
+             Analytics ya sabía decir "15 pacientes no han regresado en más
+             de 90 días" y no había forma de hacer nada. Esta es la forma.
+
+             Encontrarlos es automático; MANDAR es una decisión de una
+             persona, y por eso hay un botón por renglón y no uno de "enviar
+             a todos". Un lote de "vuelve" que sale solo termina marcando el
+             dominio de la clínica como spam. -->
+        <div id="reactivar-card" class="reac-card oculto">
+          <div class="reac-header">
+            <div class="reac-header-izq">
+              <h3>💬 Pacientes por reactivar</h3>
+              <span id="reac-resumen" class="reac-resumen"></span>
+            </div>
+            <div class="reac-header-der">
+              <label class="reac-campo">
+                <span>Sin venir hace más de</span>
+                <select id="reac-dias" aria-label="Días sin venir">
+                  <option value="90">3 meses</option>
+                  <option value="180" selected>6 meses</option>
+                  <option value="365">1 año</option>
+                </select>
+              </label>
+              <button type="button" id="reac-ocultar" class="reac-btn-ghost">Ocultar</button>
+            </div>
+          </div>
+
+          <p class="reac-nota">
+            Solo aparecen quienes <strong>aceptaron por escrito</strong> recibir invitaciones
+            y no tienen cita agendada. El consentimiento se activa en su perfil.
+          </p>
+
+          <div id="reac-lista" class="reac-lista"></div>
+        </div>
+
         <!-- Header de la pestaña -->
         <div class="pac-tab-header">
           <div class="pac-tab-header-izq">
@@ -1381,5 +1416,6 @@
   <script src="js/agenda.js"></script>
   <script src="js/horarios.js"></script>
   <script src="js/escalaciones.js"></script>
+  <script src="js/reactivacion.js"></script>
 </body>
 </html>

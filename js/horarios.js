@@ -201,11 +201,18 @@
     return d.innerHTML;
   }
 
+  /* La Agenda dibuja su rejilla desde el horario y lo cachea por fecha, así
+     que tiene que enterarse cuando cambia. El evento `storage` no sirve: no
+     se dispara en el documento que escribió, y con backend no existe. */
+  const avisarCambioDeHorario = () =>
+    document.dispatchEvent(new CustomEvent("medicita:horario-cambio"));
+
   async function recargarExcepciones() {
     /* Solo de hoy en adelante: el historial de cierres pasados no ayuda a
        nadie a decidir nada, y la lista se volvería ilegible en un mes. */
     excepciones = await window.API.horarios.excepciones(hoyISO(), null);
     renderExcepciones();
+    avisarCambioDeHorario();
   }
 
   /* ─── Citas que quedan fuera ────────────────────────────────────────── */
@@ -262,6 +269,7 @@
       const texto = await window.API.horarios.guardarBase(semana);
       $("hor-membrete-texto").textContent = texto || "—";
       await renderEstado();
+      avisarCambioDeHorario();
       avisar("Horario semanal guardado");
     } catch (e) {
       avisar(e.message || "No se pudo guardar el horario", "error");
